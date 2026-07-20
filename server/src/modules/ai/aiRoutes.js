@@ -154,6 +154,47 @@ router.post('/quiz/generate-and-start', validate(z.object({
   } catch (error) { next(error) }
 })
 
+router.get('/quiz/history', async (req, res, next) => {
+  try {
+    const attempts = await Attempt.find({ user: req.user._id })
+      .populate({
+        path: 'assessment',
+        match: { isAiGenerated: true },
+        select: 'title difficulty aiQuizConfig isAiGenerated',
+      })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean()
+
+    const filtered = attempts.filter((a) => a.assessment)
+
+    res.json({
+      success: true,
+      data: filtered.map((a) => ({
+        attemptId: a._id,
+        assessmentId: a.assessment._id,
+        title: a.assessment.title,
+        difficulty: a.assessment.difficulty,
+        topic: a.assessment.title?.replace('AI Quiz: ', ''),
+        provider: a.assessment.aiQuizConfig?.aiProvider,
+        timerType: a.assessment.aiQuizConfig?.timerType,
+        score: a.score,
+        totalMarks: a.totalMarks,
+        percentage: a.percentage,
+        passed: a.passed,
+        status: a.status,
+        timeSpent: a.totalTimeSpent,
+        startedAt: a.startedAt,
+        completedAt: a.completedAt,
+        totalQuestions: a.questionOrder?.length || 0,
+      })),
+      message: 'Quiz history fetched',
+      errors: null,
+      meta: null,
+    })
+  } catch (error) { next(error) }
+})
+
 router.get('/quiz/:attemptId/insights', async (req, res, next) => {
   try {
     const attempt = await Attempt.findById(req.params.attemptId)

@@ -3,7 +3,7 @@ import { toggleTheme } from '@/store/themeSlice'
 import { logout } from '@/features/auth/authSlice'
 import { fetchNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } from '@/features/notifications/notificationSlice'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2 } from 'lucide-react'
+import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2, Maximize, Minimize, Keyboard, Wifi, WifiOff, Clock } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const GRADIENT_VARIANTS = {
@@ -27,6 +27,18 @@ const TYPE_COLORS = {
   system: 'text-text-secondary bg-bg-tertiary',
 }
 
+const SHORTCUTS = [
+  { keys: ['?'], desc: 'Show keyboard shortcuts' },
+  { keys: ['D'], desc: 'Go to Dashboard' },
+  { keys: ['A'], desc: 'Go to Analytics' },
+  { keys: ['Q'], desc: 'Go to Questions' },
+  { keys: ['S'], desc: 'Go to Settings' },
+  { keys: ['N'], desc: 'Toggle notifications' },
+  { keys: ['T'], desc: 'Toggle theme' },
+  { keys: ['F'], desc: 'Toggle fullscreen' },
+  { keys: ['Esc'], desc: 'Close panel' },
+]
+
 function timeAgo(date) {
   const secs = Math.floor((Date.now() - new Date(date)) / 1000)
   if (secs < 60) return 'just now'
@@ -38,6 +50,67 @@ function timeAgo(date) {
   return `${days}d ago`
 }
 
+function LiveClock() {
+  const [time, setTime] = useState(new Date())
+  useEffect(() => {
+    const interval = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+  return (
+    <span className="text-xs text-text-tertiary font-mono tabular-nums flex items-center gap-1">
+      <Clock className="h-3 w-3" />
+      {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+    </span>
+  )
+}
+
+function useOnlineStatus() {
+  const [online, setOnline] = useState(navigator.onLine)
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  return online
+}
+
+function KeyboardShortcutsModal({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-bg-card border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-heading font-semibold text-text-primary flex items-center gap-2"><Keyboard className="h-5 w-5 text-primary" /> Keyboard Shortcuts</h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="space-y-2">
+          {SHORTCUTS.map((s) => (
+            <div key={s.desc} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              <span className="text-sm text-text-secondary">{s.desc}</span>
+              <div className="flex items-center gap-1">
+                {s.keys.map((k) => (
+                  <kbd key={k} className="px-2 py-0.5 text-xs font-mono font-medium text-text-primary bg-bg-tertiary border border-border-light rounded-md shadow-sm">{k}</kbd>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-text-tertiary mt-4 text-center">Press <kbd className="px-1 py-0.5 text-[10px] font-mono bg-bg-tertiary border border-border-light rounded">Esc</kbd> to close</p>
+      </div>
+    </div>
+  )
+}
+
 export default function Topbar() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
@@ -47,6 +120,9 @@ export default function Topbar() {
   const [open, setOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [variant, setVariant] = useState('mix')
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const online = useOnlineStatus()
   const profileRef = useRef(null)
   const notifRef = useRef(null)
 
@@ -65,10 +141,44 @@ export default function Topbar() {
     return () => clearInterval(interval)
   }, [dispatch])
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      switch (e.key) {
+        case '?': e.preventDefault(); setShortcutsOpen((p) => !p); break
+        case 'd': case 'D': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/dashboard') } break
+        case 'a': case 'A': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/analytics') } break
+        case 'q': case 'Q': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/questions') } break
+        case 's': case 'S': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/settings') } break
+        case 'n': case 'N': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setNotifOpen((p) => !p) } break
+        case 't': case 'T': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); dispatch(toggleTheme()) } break
+        case 'f': case 'F': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleFullscreen() } break
+        case 'Escape': setNotifOpen(false); setOpen(false); setShortcutsOpen(false); break
+        default: break
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [dispatch, navigate])
+
   function handleBellClick() {
     setNotifOpen(!notifOpen)
     if (!notifOpen) dispatch(fetchNotifications())
   }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
 
   return (
     <header className="relative flex h-16 items-center justify-between bg-bg-card/80 backdrop-blur-xl px-6">
@@ -79,7 +189,30 @@ export default function Topbar() {
           {variant === 'mix' ? 'Mix' : 'Orange'}
         </button>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Online/Offline Status */}
+        <div className="flex items-center gap-1.5" title={online ? 'Online' : 'Offline'}>
+          {online ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : <WifiOff className="h-3.5 w-3.5 text-red-500" />}
+          <span className={`text-[10px] font-medium ${online ? 'text-emerald-500' : 'text-red-500'}`}>{online ? 'Online' : 'Offline'}</span>
+        </div>
+
+        <div className="w-px h-4 bg-border" />
+
+        {/* Live Clock */}
+        <LiveClock />
+
+        <div className="w-px h-4 bg-border" />
+
+        {/* Fullscreen Toggle */}
+        <button onClick={toggleFullscreen} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}>
+          {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+        </button>
+
+        {/* Keyboard Shortcuts */}
+        <button onClick={() => setShortcutsOpen(true)} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title="Keyboard shortcuts (?)">
+          <Keyboard className="h-5 w-5" />
+        </button>
+
         {/* Notifications Bell */}
         <div className="relative" ref={notifRef}>
           <button onClick={handleBellClick} className="relative rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
@@ -93,7 +226,6 @@ export default function Topbar() {
 
           {notifOpen && (
             <div className="absolute right-0 top-full mt-2 w-96 max-h-[70vh] rounded-xl border border-border bg-bg-card shadow-2xl z-50 flex flex-col">
-              {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
                 <h4 className="text-sm font-heading font-semibold text-text-primary">Notifications</h4>
                 <div className="flex items-center gap-1">
@@ -109,8 +241,6 @@ export default function Topbar() {
                   )}
                 </div>
               </div>
-
-              {/* List */}
               <div className="flex-1 overflow-y-auto">
                 {notifLoading && notifications.length === 0 ? (
                   <div className="flex items-center justify-center py-8 text-text-secondary">
@@ -159,14 +289,22 @@ export default function Topbar() {
         </div>
 
         {/* Theme Toggle */}
-        <button onClick={() => dispatch(toggleTheme())} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
+        <button onClick={() => dispatch(toggleTheme())} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title="Toggle theme (T)">
           {mode === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
 
-        {/* Profile */}
+        <div className="w-px h-4 bg-border" />
+
+        {/* Profile with Avatar + Name */}
         <div className="relative" ref={profileRef}>
-          <button onClick={() => setOpen(!open)} className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-medium hover:bg-primary/30 transition-colors">
-            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+          <button onClick={() => setOpen(!open)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-bg-tertiary transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-bold ring-2 ring-primary/30">
+              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            <div className="hidden sm:flex flex-col items-start">
+              <span className="text-sm font-medium text-text-primary leading-tight">{user?.name || 'User'}</span>
+              <span className="text-[10px] text-text-tertiary leading-tight capitalize">{user?.role || 'candidate'}</span>
+            </div>
           </button>
           {open && (
             <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-bg-card p-2 shadow-xl z-50">
@@ -181,6 +319,8 @@ export default function Topbar() {
           )}
         </div>
       </div>
+
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </header>
   )
 }
