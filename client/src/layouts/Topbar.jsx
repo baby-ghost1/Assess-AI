@@ -76,7 +76,7 @@ function useOnlineStatus() {
   return online
 }
 
-function KeyboardShortcutsModal({ open, onClose }) {
+function KeyboardShortcutsDropdown({ open, onClose, dropdownRef }) {
   useEffect(() => {
     if (!open) return
     const handler = (e) => { if (e.key === 'Escape') onClose() }
@@ -86,26 +86,22 @@ function KeyboardShortcutsModal({ open, onClose }) {
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-bg-card border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-heading font-semibold text-text-primary flex items-center gap-2"><Keyboard className="h-5 w-5 text-primary" /> Keyboard Shortcuts</h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"><X className="h-5 w-5" /></button>
-        </div>
-        <div className="space-y-2">
-          {SHORTCUTS.map((s) => (
-            <div key={s.desc} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-              <span className="text-sm text-text-secondary">{s.desc}</span>
-              <div className="flex items-center gap-1">
-                {s.keys.map((k) => (
-                  <kbd key={k} className="px-2 py-0.5 text-xs font-mono font-medium text-text-primary bg-bg-tertiary border border-border-light rounded-md shadow-sm">{k}</kbd>
-                ))}
-              </div>
+    <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-bg-card shadow-2xl z-50 flex flex-col" ref={dropdownRef}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <h4 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2"><Keyboard className="h-4 w-4 text-primary" /> Keyboard Shortcuts</h4>
+        <button onClick={onClose} className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"><X className="h-4 w-4" /></button>
+      </div>
+      <div className="overflow-y-auto max-h-[50vh]">
+        {SHORTCUTS.map((s) => (
+          <div key={s.desc} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 hover:bg-bg-tertiary/50 transition-colors">
+            <span className="text-xs text-text-secondary">{s.desc}</span>
+            <div className="flex items-center gap-1">
+              {s.keys.map((k) => (
+                <kbd key={k} className="px-2 py-0.5 text-[10px] font-mono font-medium text-text-primary bg-bg-tertiary border border-border-light rounded shadow-sm">{k}</kbd>
+              ))}
             </div>
-          ))}
-        </div>
-        <p className="text-[10px] text-text-tertiary mt-4 text-center">Press <kbd className="px-1 py-0.5 text-[10px] font-mono bg-bg-tertiary border border-border-light rounded">Esc</kbd> to close</p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -125,11 +121,13 @@ export default function Topbar() {
   const online = useOnlineStatus()
   const profileRef = useRef(null)
   const notifRef = useRef(null)
+  const shortcutsRef = useRef(null)
 
   useEffect(() => {
     const handler = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) setOpen(false)
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
+      if (shortcutsRef.current && !shortcutsRef.current.contains(e.target)) setShortcutsOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -143,7 +141,7 @@ export default function Topbar() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('.monaco-editor')) return
       switch (e.key) {
         case '?': e.preventDefault(); setShortcutsOpen((p) => !p); break
         case 'd': case 'D': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/dashboard') } break
@@ -181,7 +179,7 @@ export default function Topbar() {
   }, [])
 
   return (
-    <header className="relative flex h-16 items-center justify-between bg-bg-card/80 backdrop-blur-xl px-6">
+    <header className="relative z-50 flex h-16 items-center justify-between bg-bg-card/80 backdrop-blur-xl px-6">
       <div className="absolute bottom-0 left-0 right-0 h-[1.5px]" style={{ background: GRADIENT_VARIANTS[variant] }} />
       <div className="flex items-center gap-3">
         <button onClick={() => setVariant(variant === 'mix' ? 'single' : 'mix')}
@@ -209,9 +207,12 @@ export default function Topbar() {
         </button>
 
         {/* Keyboard Shortcuts */}
-        <button onClick={() => setShortcutsOpen(true)} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title="Keyboard shortcuts (?)">
-          <Keyboard className="h-5 w-5" />
-        </button>
+        <div className="relative">
+          <button onClick={() => setShortcutsOpen(!shortcutsOpen)} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title="Keyboard shortcuts (?)">
+            <Keyboard className="h-5 w-5" />
+          </button>
+          <KeyboardShortcutsDropdown open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} dropdownRef={shortcutsRef} />
+        </div>
 
         {/* Notifications Bell */}
         <div className="relative" ref={notifRef}>
@@ -320,7 +321,6 @@ export default function Topbar() {
         </div>
       </div>
 
-      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </header>
   )
 }
