@@ -2,13 +2,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, Lightbulb, Target, Sparkles, TrendingUp, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, Lightbulb, Target, Sparkles, TrendingUp, Loader2, AlertCircle } from 'lucide-react'
 
 export default function ResultsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['attempt-result', id],
     queryFn: () => api.get(`/assessments/attempt/${id}`).then((r) => r.data),
     refetchInterval: false,
@@ -24,12 +24,36 @@ export default function ResultsPage() {
     return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
   }
 
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
+        <AlertCircle className="h-12 w-12 text-danger mx-auto" />
+        <h2 className="text-xl font-heading font-bold text-text-primary">Failed to Load Results</h2>
+        <p className="text-sm text-text-secondary">{error?.response?.data?.message || 'Something went wrong.'}</p>
+        <Button variant="secondary" onClick={() => navigate('/assessments')}>
+          <ArrowLeft className="h-4 w-4" /> Back to Assessments
+        </Button>
+      </div>
+    )
+  }
+
   const result = data?.data
   const attempt = result?.attempt
   const submissions = result?.submissions || []
   const insights = insightsData?.data?.insights
 
-  if (!attempt) return null
+  if (!attempt) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
+        <AlertCircle className="h-12 w-12 text-text-tertiary mx-auto opacity-40" />
+        <h2 className="text-xl font-heading font-bold text-text-primary">Attempt Not Found</h2>
+        <p className="text-sm text-text-secondary">This attempt may have been deleted or doesn't exist.</p>
+        <Button variant="secondary" onClick={() => navigate('/assessments')}>
+          <ArrowLeft className="h-4 w-4" /> Back to Assessments
+        </Button>
+      </div>
+    )
+  }
 
   const formatTime = (s) => {
     if (!s) return '0m'
@@ -40,6 +64,8 @@ export default function ResultsPage() {
 
   const passed = attempt.percentage >= (attempt.assessment?.passingPercentage || 40)
   const isAiQuiz = attempt.assessment?.isAiGenerated
+  const hasNegativeMarking = attempt.assessment?.negativeMarking
+  const negativeMarkingValue = attempt.assessment?.negativeMarkingValue || 0
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-8">
@@ -193,8 +219,8 @@ export default function ResultsPage() {
                       {s.isAnswered ? `Your answer: ${Array.isArray(s.answer) ? s.answer.join(', ') : s.answer || 'N/A'}` : 'Not answered'}
                     </p>
                   </div>
-                  <span className={`text-xs font-medium ${s.isCorrect ? 'text-success' : 'text-danger'}`}>
-                    {s.isCorrect ? `+${s.question.marks}` : s.isAnswered ? '-0' : '0'}
+                  <span className={`text-xs font-medium ${s.isCorrect ? 'text-success' : s.isAnswered ? 'text-danger' : 'text-text-tertiary'}`}>
+                    {s.isCorrect ? `+${q.marks}` : s.isAnswered && hasNegativeMarking ? `-${negativeMarkingValue}` : '0'}
                   </span>
                 </div>
               </div>

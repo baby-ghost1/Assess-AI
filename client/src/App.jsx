@@ -27,6 +27,7 @@ const AssessmentsPage = lazy(() => import('@/features/assessments/AssessmentsPag
 const AssessmentCreatePage = lazy(() => import('@/features/assessments/AssessmentCreatePage'))
 const QuizAttemptPage = lazy(() => import('@/features/assessments/QuizAttemptPage'))
 const ResultsPage = lazy(() => import('@/features/assessments/ResultsPage'))
+const MyAttemptsPage = lazy(() => import('@/features/assessments/MyAttemptsPage'))
 const ProctoringDashboard = lazy(() => import('@/features/proctoring/ProctoringDashboard'))
 const AnalyticsPage = lazy(() => import('@/features/analytics/AnalyticsPage'))
 const AdminAnalyticsPage = lazy(() => import('@/features/analytics/AdminAnalyticsPage'))
@@ -102,6 +103,8 @@ function AppRoutes() {
           <Route path="/question-bank/approval-queue" element={<ApprovalQueuePage />} />
           <Route path="/assessments" element={<AssessmentsPage />} />
           <Route path="/assessments/create" element={<AssessmentCreatePage />} />
+          <Route path="/assessments/my-attempts" element={<MyAttemptsPage />} />
+          <Route path="/assessments/:id/edit" element={<AssessmentCreatePage />} />
           <Route path="/assessments/:id" element={<QuizAttemptPage />} />
           <Route path="/results/:id" element={<ResultsPage />} />
           <Route path="/proctoring" element={<ProctoringDashboard />} />

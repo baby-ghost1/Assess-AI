@@ -1,53 +1,87 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
-import { Loader2, Users, FileText, Target, BarChart3, CheckCircle, Brain, BookOpen, Download } from 'lucide-react'
+import { Button } from '@/components/ui'
+import { Loader2, Users, FileText, Target, BarChart3, CheckCircle, Brain, BookOpen, Download, AlertTriangle } from 'lucide-react'
 import AIInsightsPanel from './AIInsightsPanel'
-
-function StatCard({ icon: Icon, label, value, color }) {
-  return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-lg p-2.5 ${color}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-sm text-text-secondary">{label}</p>
-          <p className="text-2xl font-heading font-bold text-text-primary">{value}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
+import StatCard from './StatCard'
+import DonutChart from './DonutChart'
+import { SkeletonCard, SkeletonChart, SkeletonTable } from './Skeletons'
 
 export default function AdminAnalyticsPage() {
   const navigate = useNavigate()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['admin-analytics'],
     queryFn: () => api.get('/analytics/admin').then((r) => r.data),
   })
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse">
+          <div className="h-7 bg-bg-tertiary rounded w-40 mb-2" />
+          <div className="h-4 bg-bg-tertiary rounded w-56" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        <SkeletonChart />
+        <SkeletonTable />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-3" />
+          <p className="text-text-primary font-medium">Failed to load analytics</p>
+          <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
+        </div>
+      </div>
+    )
   }
 
   const d = data?.data
-  if (!d) return null
+  if (!d) {
+    return (
+      <div className="max-w-5xl mx-auto py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+          <BarChart3 className="h-8 w-8 text-text-secondary mx-auto mb-3 opacity-40" />
+          <p className="text-text-primary font-medium">No analytics data available</p>
+          <p className="text-sm text-text-secondary mt-1">Data will appear once users start taking assessments</p>
+        </div>
+      </div>
+    )
+  }
+
+  const typeColors = ['#4F46E5', '#A78BFA', '#06B6D4', '#22C55E', '#F59E0B']
+  const donutData = (d.assessmentTypeDistribution || []).map((a, i) => ({
+    label: a.type,
+    value: a.count,
+    color: typeColors[i % typeColors.length],
+  }))
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 py-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-heading font-bold text-text-primary">Admin Analytics</h2>
-          <p className="text-sm text-text-secondary mt-1">Platform-wide performance overview</p>
+      {/* Gradient Header */}
+      <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-heading font-bold text-text-primary">Admin Analytics</h2>
+            <p className="text-sm text-text-secondary mt-1">Platform-wide performance overview</p>
+          </div>
+          <Button variant="outline" size="sm" asChild className="gap-2">
+            <a href="/api/v1/analytics/report/admin" download>
+              <Download className="h-4 w-4" /> Export CSV
+            </a>
+          </Button>
         </div>
-        <a
-          href="/api/v1/analytics/report/admin"
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-tertiary transition-colors"
-          download
-        >
-          <Download className="h-4 w-4" /> Export CSV
-        </a>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -64,57 +98,46 @@ export default function AdminAnalyticsPage() {
 
       <AIInsightsPanel scope="admin" title="Platform AI Insights" />
 
-      <div className="rounded-xl border border-border bg-bg-secondary p-5">
-        <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-primary" /> Assessment Type Distribution
-        </h3>
-        {d.assessmentTypeDistribution?.length > 0 ? (
-          <div className="space-y-3">
-            {d.assessmentTypeDistribution.map((a) => {
-              const total = d.assessmentTypeDistribution.reduce((acc, x) => acc + x.count, 0)
-              const pct = total > 0 ? (a.count / total) * 100 : 0
-              return (
-                <div key={a.type}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-text-primary capitalize">{a.type}</span>
-                    <span className="text-text-secondary">{a.count}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-bg-tertiary overflow-hidden">
-                    <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-sm text-text-secondary">No assessments yet</p>
-        )}
-      </div>
+      {/* Donut chart for type distribution */}
+      {donutData.length > 0 && (
+        <div className="rounded-xl border border-border bg-bg-card p-5">
+          <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Assessment Type Distribution
+          </h3>
+          <DonutChart data={donutData} />
+        </div>
+      )}
 
-      <div className="rounded-xl border border-border bg-bg-secondary p-5">
-        <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-primary" /> Recent Attempts
-        </h3>
+      {/* Recent Attempts - clickable rows */}
+      <div className="rounded-xl border border-border bg-bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" /> Recent Attempts
+          </h3>
+        </div>
         {d.recentAttempts?.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
-                  <th className="pb-3 font-medium text-text-secondary">User</th>
-                  <th className="pb-3 font-medium text-text-secondary">Assessment</th>
-                  <th className="pb-3 font-medium text-text-secondary">Score</th>
-                  <th className="pb-3 font-medium text-text-secondary">Status</th>
-                  <th className="pb-3 font-medium text-text-secondary">Date</th>
-                  <th className="pb-3 font-medium text-text-secondary" />
+                  <th className="px-5 pb-3 font-medium text-text-secondary">User</th>
+                  <th className="px-5 pb-3 font-medium text-text-secondary">Assessment</th>
+                  <th className="px-5 pb-3 font-medium text-text-secondary">Score</th>
+                  <th className="px-5 pb-3 font-medium text-text-secondary">Status</th>
+                  <th className="px-5 pb-3 font-medium text-text-secondary">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {d.recentAttempts.map((a) => (
-                  <tr key={a.id} className="border-b border-border last:border-0">
-                    <td className="py-3 text-text-primary">{a.user}</td>
-                    <td className="py-3 text-text-primary">{a.assessment}</td>
-                    <td className={`py-3 font-semibold ${a.passed ? 'text-success' : 'text-danger'}`}>{a.score}%</td>
-                    <td className="py-3">
+                  <tr
+                    key={a.id}
+                    onClick={() => navigate(`/results/${a.id}`)}
+                    className="border-b border-border last:border-0 hover:bg-bg-tertiary/30 cursor-pointer transition-colors"
+                  >
+                    <td className="px-5 py-3 text-text-primary">{a.user}</td>
+                    <td className="px-5 py-3 text-text-primary">{a.assessment}</td>
+                    <td className={`px-5 py-3 font-semibold ${a.passed ? 'text-success' : 'text-danger'}`}>{a.score}%</td>
+                    <td className="px-5 py-3">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         a.status === 'completed' ? 'bg-success/10 text-success' :
                         a.status === 'in_progress' ? 'bg-warning/10 text-warning' :
@@ -123,22 +146,17 @@ export default function AdminAnalyticsPage() {
                         {a.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="py-3 text-text-secondary">{new Date(a.date).toLocaleDateString()}</td>
-                    <td className="py-3">
-                      <button
-                        onClick={() => navigate(`/results/${a.id}`)}
-                        className="text-primary hover:underline text-xs"
-                      >
-                        View
-                      </button>
-                    </td>
+                    <td className="px-5 py-3 text-text-secondary">{new Date(a.date).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="text-sm text-text-secondary">No attempts yet</p>
+          <div className="px-5 py-10 text-center text-sm text-text-secondary">
+            <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            No attempts yet
+          </div>
         )}
       </div>
     </div>

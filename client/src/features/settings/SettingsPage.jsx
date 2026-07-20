@@ -1,96 +1,178 @@
-import { useAppSelector } from '@/hooks'
+import { useAppSelector, useAppDispatch } from '@/hooks'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { useDispatch } from 'react-redux'
 import { toggleTheme } from '@/store/themeSlice'
-import { useState } from 'react'
-import { Loader2, Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2 } from 'lucide-react'
 import { changePassword } from '@/features/auth/authSlice'
+import { logout } from '@/features/auth/authSlice'
 
+const TABS = [
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'security', label: 'Security', icon: Lock },
+]
 
-function Section({ title, icon: Icon, children }) {
+function SkeletonSettings() {
   return (
-    <div className="rounded-xl border border-border bg-bg-card p-5">
-      <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2"><Icon className="h-4 w-4 text-primary" /> {title}</h3>
-      {children}
+    <div className="max-w-3xl mx-auto space-y-6 py-6">
+      <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse">
+        <div className="h-7 bg-bg-tertiary rounded w-32 mb-2" />
+        <div className="h-4 bg-bg-tertiary rounded w-48" />
+      </div>
+      <div className="flex gap-2">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 bg-bg-tertiary rounded-lg w-24" />)}
+      </div>
+      <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse space-y-4">
+        <div className="h-5 bg-bg-tertiary rounded w-24" />
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-bg-tertiary" />
+          <div className="space-y-2"><div className="h-4 bg-bg-tertiary rounded w-32" /><div className="h-3 bg-bg-tertiary rounded w-48" /></div>
+        </div>
+      </div>
     </div>
   )
 }
 
-function ThemeToggle() {
-  const dispatch = useDispatch()
-  const { mode } = useAppSelector((s) => s.theme)
-  return (
-    <button onClick={() => dispatch(toggleTheme())} className="flex items-center justify-between w-full rounded-lg border border-border bg-bg-secondary px-4 py-3 text-sm text-text-primary hover:bg-bg-tertiary transition-colors">
-      <span className="flex items-center gap-2">{mode === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />} Appearance</span>
-      <span className="text-xs text-text-secondary capitalize bg-bg-tertiary px-2 py-0.5 rounded">{mode} mode</span>
-    </button>
-  )
-}
-
-function NotificationPrefs() {
-  const [prefs, setPrefs] = useState({
-    emailNotifications: true,
-    assessmentReminders: true,
-    resultAlerts: true,
-    passwordAlerts: true,
-  })
-  const toggle = (key) => setPrefs((p) => ({ ...p, [key]: !p[key] }))
+function AccountTab({ user }) {
+  const role = user?.role || 'candidate'
+  const roleLabels = { admin: 'Administrator', setter: 'Question Setter', candidate: 'Candidate' }
+  const roleColors = { admin: 'bg-danger/10 text-danger', setter: 'bg-accent/10 text-accent', candidate: 'bg-primary/10 text-primary' }
+  const initials = (user?.name || 'U').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <div className="space-y-3">
-      {[
-        { key: 'emailNotifications', label: 'Email notifications', desc: 'Receive updates via email' },
-        { key: 'assessmentReminders', label: 'Assessment reminders', desc: 'Get reminded about upcoming assessments' },
-        { key: 'resultAlerts', label: 'Result alerts', desc: 'Notify when results are published' },
-        { key: 'passwordAlerts', label: 'Security alerts', desc: 'Get notified about password changes and security events' },
-      ].map((item) => (
-        <label key={item.key} className="flex items-center justify-between py-2 cursor-pointer">
-          <div>
-            <p className="text-sm font-medium text-text-primary">{item.label}</p>
-            <p className="text-xs text-text-secondary">{item.desc}</p>
+    <div className="space-y-6">
+      <div className="rounded-xl border border-border bg-bg-card p-6">
+        <div className="flex items-center gap-5">
+          <div className="h-16 w-16 rounded-full bg-primary/15 flex items-center justify-center text-xl font-heading font-bold text-primary shrink-0">
+            {initials}
           </div>
-          <button type="button" onClick={() => toggle(item.key)}
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 ${prefs[item.key] ? 'bg-primary' : 'bg-bg-tertiary border border-border'}`}>
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${prefs[item.key] ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-          </button>
-        </label>
-      ))}
-    </div>
-  )
-}
+          <div className="min-w-0">
+            <h3 className="text-lg font-heading font-semibold text-text-primary">{user?.name}</h3>
+            <p className="text-sm text-text-secondary">{user?.email}</p>
+            <span className={`inline-flex items-center mt-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${roleColors[role]}`}>
+              {roleLabels[role]}
+            </span>
+          </div>
+        </div>
+      </div>
 
-function AdminSystemSettings() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin-settings'],
-    queryFn: () => api.get('/admin/settings').then((r) => r.data),
-  })
-
-  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
-
-  const settings = data?.data || []
-  const categories = [...new Set(settings.map((s) => s.category))]
-
-  if (categories.length === 0) {
-    return <p className="text-sm text-text-secondary">No system settings configured</p>
-  }
-
-  return (
-    <div className="space-y-4">
-      {categories.map((cat) => (
-        <div key={cat}>
-          <h4 className="text-sm font-medium text-text-secondary capitalize mb-2">{cat}</h4>
-          {settings.filter((s) => s.category === cat).map((s) => (
-            <div key={s.key} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-              <div>
-                <p className="text-sm text-text-primary">{s.label || s.key}</p>
-                {s.description && <p className="text-xs text-text-secondary">{s.description}</p>}
-              </div>
-              <span className="text-xs text-text-secondary bg-bg-tertiary px-2 py-0.5 rounded">{String(s.value)}</span>
+      <div className="rounded-xl border border-border bg-bg-card p-5">
+        <h3 className="text-sm font-heading font-semibold text-text-primary mb-3 flex items-center gap-2">
+          <User className="h-4 w-4 text-primary" /> Account Details
+        </h3>
+        <div className="space-y-3">
+          {[
+            { label: 'Name', value: user?.name },
+            { label: 'Email', value: user?.email },
+            { label: 'Role', value: roleLabels[role] },
+            { label: 'Member since', value: user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A' },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              <span className="text-sm text-text-secondary">{item.label}</span>
+              <span className="text-sm font-medium text-text-primary">{item.value}</span>
             </div>
           ))}
         </div>
-      ))}
+      </div>
+    </div>
+  )
+}
+
+function AppearanceTab() {
+  const dispatch = useAppDispatch()
+  const { mode } = useAppSelector((s) => s.theme)
+
+  const themes = [
+    { id: 'dark', label: 'Dark', icon: Moon, desc: 'Easy on the eyes' },
+    { id: 'light', label: 'Light', icon: Sun, desc: 'Bright and clear' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-border bg-bg-card p-5">
+        <h3 className="text-sm font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Palette className="h-4 w-4 text-primary" /> Theme
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {themes.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => { if (mode !== t.id) dispatch(toggleTheme()) }}
+              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-5 transition-all duration-200 ${
+                mode === t.id
+                  ? 'border-primary bg-primary/5 shadow-sm'
+                  : 'border-border hover:border-primary/30 hover:bg-bg-tertiary/50'
+              }`}
+            >
+              <div className={`rounded-lg p-2.5 ${mode === t.id ? 'bg-primary/15 text-primary' : 'bg-bg-tertiary text-text-secondary'}`}>
+                <t.icon className="h-5 w-5" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-text-primary">{t.label}</p>
+                <p className="text-xs text-text-secondary">{t.desc}</p>
+              </div>
+              {mode === t.id && (
+                <div className="rounded-full bg-primary p-0.5">
+                  <CheckCircle className="h-3.5 w-3.5 text-white" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const NOTIFICATION_KEYS = [
+  { key: 'emailNotifications', label: 'Email notifications', desc: 'Receive updates via email' },
+  { key: 'assessmentReminders', label: 'Assessment reminders', desc: 'Get reminded about upcoming assessments' },
+  { key: 'resultAlerts', label: 'Result alerts', desc: 'Notify when results are published' },
+  { key: 'passwordAlerts', label: 'Security alerts', desc: 'Get notified about password changes and security events' },
+]
+
+function NotificationsTab() {
+  const [prefs, setPrefs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('notificationPrefs')) || {} } catch { return {} }
+  })
+  const [saved, setSaved] = useState(false)
+
+  const toggle = (key) => {
+    const next = { ...prefs, [key]: !prefs[key] }
+    setPrefs(next)
+    localStorage.setItem('notificationPrefs', JSON.stringify(next))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+          <Bell className="h-4 w-4 text-primary" /> Notification Preferences
+        </h3>
+        {saved && (
+          <span className="flex items-center gap-1 text-xs text-success">
+            <CheckCircle className="h-3 w-3" /> Saved
+          </span>
+        )}
+      </div>
+      <div className="space-y-1">
+        {NOTIFICATION_KEYS.map((item) => (
+          <label key={item.key} className="flex items-center justify-between py-3 cursor-pointer border-b border-border last:border-0">
+            <div>
+              <p className="text-sm font-medium text-text-primary">{item.label}</p>
+              <p className="text-xs text-text-secondary">{item.desc}</p>
+            </div>
+            <button type="button" onClick={() => toggle(item.key)}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 ${prefs[item.key] ? 'bg-primary' : 'bg-bg-tertiary border border-border'}`}>
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${prefs[item.key] ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+            </button>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }
@@ -110,7 +192,7 @@ function getPasswordStrength(password) {
 }
 
 function ChangePasswordModal({ open, onClose }) {
-  const dispatch = useDispatch()
+  const dispatch = useAppDispatch()
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -123,8 +205,14 @@ function ChangePasswordModal({ open, onClose }) {
 
   const strength = getPasswordStrength(newPassword)
   const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword
-  const passwordsDiffer = oldPassword && newPassword && oldPassword === newPassword
   const isEmpty = !oldPassword || !newPassword || !confirmPassword
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => { if (e.key === 'Enter' && !isEmpty && !loading) document.getElementById('change-pw-btn')?.click() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, isEmpty, loading])
 
   if (!open) return null
 
@@ -206,9 +294,6 @@ function ChangePasswordModal({ open, onClose }) {
                 <p className="text-xs font-medium" style={{ color: strength.color }}>Password strength: {strength.label}</p>
               </div>
             )}
-            {oldPassword && newPassword && oldPassword === newPassword && (
-              <p className="text-xs text-red-500 mt-1">New password must be different from current password</p>
-            )}
           </div>
 
           <div>
@@ -226,7 +311,7 @@ function ChangePasswordModal({ open, onClose }) {
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">Cancel</button>
-            <button type="submit" disabled={loading || isEmpty}
+            <button id="change-pw-btn" type="submit" disabled={loading || isEmpty}
               className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Changing...</> : 'Change Password'}
             </button>
@@ -237,50 +322,156 @@ function ChangePasswordModal({ open, onClose }) {
   )
 }
 
+function SecurityTab({ onChangePassword }) {
+  const dispatch = useAppDispatch()
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-border bg-bg-card p-5">
+        <h3 className="text-sm font-heading font-semibold text-text-primary mb-3 flex items-center gap-2">
+          <Lock className="h-4 w-4 text-primary" /> Password
+        </h3>
+        <p className="text-sm text-text-secondary mb-4">Manage your password and account security.</p>
+        <button onClick={onChangePassword} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+          Change Password
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-danger/30 bg-danger/5 p-5">
+        <h3 className="text-sm font-heading font-semibold text-danger mb-3 flex items-center gap-2">
+          <Shield className="h-4 w-4" /> Danger Zone
+        </h3>
+        <p className="text-sm text-text-secondary mb-4">Irreversible actions for your account.</p>
+        <div className="flex items-center justify-between rounded-lg border border-border bg-bg-card p-3">
+          <div>
+            <p className="text-sm font-medium text-text-primary">Sign out</p>
+            <p className="text-xs text-text-secondary">Sign out from your account on this device</p>
+          </div>
+          <button onClick={() => dispatch(logout())} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors flex items-center gap-1.5">
+            <LogOut className="h-3.5 w-3.5" /> Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SystemTab() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: () => api.get('/admin/settings').then((r) => r.data),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-bg-card p-5 animate-pulse space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between py-2">
+            <div className="space-y-1.5"><div className="h-3 bg-bg-tertiary rounded w-32" /><div className="h-2 bg-bg-tertiary rounded w-48" /></div>
+            <div className="h-5 bg-bg-tertiary rounded w-12" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+        <AlertCircle className="h-8 w-8 text-danger mx-auto mb-3" />
+        <p className="text-text-primary font-medium">Failed to load settings</p>
+        <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
+      </div>
+    )
+  }
+
+  const settings = data?.data || []
+  const categories = [...new Set(settings.map((s) => s.category))]
+
+  if (categories.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+        <SettingsIcon className="h-8 w-8 text-text-secondary mx-auto mb-3 opacity-40" />
+        <p className="text-text-primary font-medium">No system settings configured</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {categories.map((cat) => (
+        <div key={cat} className="rounded-xl border border-border bg-bg-card p-5">
+          <h4 className="text-sm font-heading font-semibold text-text-primary capitalize mb-3">{cat}</h4>
+          {settings.filter((s) => s.category === cat).map((s) => (
+            <div key={s.key} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              <div className="min-w-0">
+                <p className="text-sm text-text-primary capitalize">{s.key.replace(/_/g, ' ')}</p>
+                {s.description && <p className="text-xs text-text-secondary">{s.description}</p>}
+              </div>
+              <span className="text-xs text-text-secondary bg-bg-tertiary px-2 py-0.5 rounded ml-3 shrink-0">{String(s.value)}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { user } = useAppSelector((s) => s.auth)
   const role = user?.role || 'candidate'
   const roleLabels = { admin: 'Administrator', setter: 'Question Setter', candidate: 'Candidate' }
+  const [activeTab, setActiveTab] = useState('account')
   const [showChangePassword, setShowChangePassword] = useState(false)
+
+  const allTabs = role === 'admin'
+    ? [...TABS, { id: 'system', label: 'System', icon: Globe }]
+    : TABS
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-6">
-      <div className="flex items-center gap-4">
-        <div className="rounded-xl bg-primary/10 p-3"><SettingsIcon className="h-6 w-6 text-primary" /></div>
-        <div>
-          <h2 className="text-2xl font-heading font-bold text-text-primary">Settings</h2>
-          <p className="text-sm text-text-secondary mt-1">{roleLabels[role]} preferences and configuration</p>
+      {/* Gradient Header */}
+      <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="rounded-xl bg-primary/10 p-3"><SettingsIcon className="h-6 w-6 text-primary" /></div>
+          <div>
+            <h2 className="text-2xl font-heading font-bold text-text-primary">Settings</h2>
+            <p className="text-sm text-text-secondary mt-1">{roleLabels[role]} preferences and configuration</p>
+          </div>
         </div>
       </div>
 
-      <Section title="Account" icon={User}>
-        <div className="space-y-1 text-sm text-text-primary">
-          <p><span className="text-text-secondary">Name:</span> {user?.name}</p>
-          <p><span className="text-text-secondary">Email:</span> {user?.email}</p>
-          <p><span className="text-text-secondary">Role:</span> {roleLabels[role]}</p>
-        </div>
-      </Section>
+      {/* Tabs */}
+      <div className="relative flex rounded-full border border-border bg-bg-card p-1">
+        {allTabs.map((t, i) => {
+          const isActive = activeTab === t.id
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`relative flex-1 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-colors duration-200 z-10 ${
+                isActive ? 'text-white' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {isActive && (
+                <span className="absolute inset-0 rounded-full bg-primary shadow-sm" />
+              )}
+              <span className="relative flex items-center gap-2">
+                <t.icon className="h-4 w-4" />
+                {t.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
 
-      <Section title="Appearance" icon={Palette}>
-        <ThemeToggle />
-      </Section>
-
-      <Section title="Notifications" icon={Bell}>
-        <NotificationPrefs />
-      </Section>
-
-      <Section title="Security" icon={Lock}>
-        <p className="text-sm text-text-secondary mb-3">Manage your password and account security.</p>
-        <button onClick={() => setShowChangePassword(true)} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
-          Change Password
-        </button>
-      </Section>
-
-      {role === 'admin' && (
-        <Section title="System Configuration" icon={Globe}>
-          <AdminSystemSettings />
-        </Section>
-      )}
+      {/* Tab Content */}
+      {activeTab === 'account' && <AccountTab user={user} />}
+      {activeTab === 'appearance' && <AppearanceTab />}
+      {activeTab === 'notifications' && <NotificationsTab />}
+      {activeTab === 'security' && <SecurityTab onChangePassword={() => setShowChangePassword(true)} />}
+      {activeTab === 'system' && role === 'admin' && <SystemTab />}
 
       <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} />
     </div>

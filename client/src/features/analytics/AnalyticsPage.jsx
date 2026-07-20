@@ -1,38 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Loader2, BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download } from 'lucide-react'
+import { Loader2, BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import AIInsightsPanel from './AIInsightsPanel'
+import StatCard from './StatCard'
+import DonutChart from './DonutChart'
+import { SkeletonCard, SkeletonChart } from './Skeletons'
 import { exportAnalyticsPDF } from '@/lib/reportUtils'
-
-function StatCard({ icon: Icon, label, value, sub, color }) {
-  return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-lg p-2.5 ${color}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-sm text-text-secondary">{label}</p>
-          <p className="text-2xl font-heading font-bold text-text-primary">{value}</p>
-          {sub && <p className="text-xs text-text-secondary mt-0.5">{sub}</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function ScoreChart({ scores }) {
   const hasData = scores && scores.length > 0
+
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
+    <div className="rounded-xl border border-border bg-bg-card p-5">
       <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" /> Score Trends
       </h3>
-      {hasData ? (
-        <ScoreBars scores={scores} />
-      ) : (
+      {hasData ? <ScoreLineChart scores={scores} /> : (
         <div className="flex flex-col items-center justify-center h-40 text-text-secondary">
           <TrendingUp className="h-8 w-8 mb-2 opacity-40" />
           <p className="text-sm">No assessment data yet</p>
@@ -43,77 +29,147 @@ function ScoreChart({ scores }) {
   )
 }
 
-function ScoreBars({ scores }) {
-  const maxScore = Math.max(...scores.map((s) => s.score), 100)
+function ScoreLineChart({ scores }) {
+  const [hovered, setHovered] = useState(null)
+  const sorted = [...scores].sort((a, b) => new Date(a.date) - new Date(b.date))
+  const W = 700, H = 240, PAD = { top: 40, right: 20, bottom: 40, left: 40 }
+  const plotW = W - PAD.left - PAD.right
+  const plotH = H - PAD.top - PAD.bottom
+
+  const minS = 0, maxS = 100
+  const yScale = (v) => PAD.top + plotH - ((v - minS) / (maxS - minS)) * plotH
+  const xScale = (i) => sorted.length === 1 ? PAD.left + plotW / 2 : PAD.left + (i / (sorted.length - 1)) * plotW
+
+  const points = sorted.map((s, i) => ({ x: xScale(i), y: yScale(s.score), ...s }))
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  const areaD = `${pathD} L ${points[points.length - 1].x} ${PAD.top + plotH} L ${points[0].x} ${PAD.top + plotH} Z`
+
+  const yTicks = [0, 25, 50, 75, 100]
+  const maxLabels = 8
+  const labelStep = Math.max(1, Math.ceil(sorted.length / maxLabels))
+
   return (
-    <div className="flex items-end gap-1.5 h-40">
-      {scores.map((s, i) => {
-        const height = maxScore > 0 ? (s.score / maxScore) * 100 : 0
-        const barColor = s.passed ? '#22C55E' : '#EF4444'
-        return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
-              {s.score}% - {s.assessment}
-            </div>
-            <div
-              className="w-full rounded-t cursor-pointer transition-all duration-300 hover:opacity-80"
-              style={{ height: `${height}%`, backgroundColor: barColor }}
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[400px]" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#4F46E5" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={PAD.left} y1={yScale(t)} x2={W - PAD.right} y2={yScale(t)} stroke="#27272A" strokeWidth="1" />
+            <text x={PAD.left - 8} y={yScale(t) + 4} textAnchor="end" className="fill-text-tertiary text-[10px]">{t}</text>
+          </g>
+        ))}
+
+        <path d={areaD} fill="url(#scoreGrad)" />
+        <path d={pathD} fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle
+              cx={p.x} cy={p.y} r="12"
+              fill="transparent"
+              className="cursor-pointer"
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
             />
-          </div>
-        )
-      })}
+            <circle
+              cx={p.x} cy={p.y}
+              r={hovered === i ? 7 : 5}
+              fill={p.passed ? '#22C55E' : '#EF4444'}
+              stroke="#09090B" strokeWidth="2"
+              className="pointer-events-none transition-all duration-150"
+            />
+            {hovered === i && (
+              <g className="pointer-events-none">
+                <rect x={p.x - 50} y={p.y - 42} width="100" height="30" rx="6" fill="#18181B" stroke="#27272A" strokeWidth="1" />
+                <text x={p.x} y={p.y - 22} textAnchor="middle" className="fill-text-primary text-[11px] font-semibold">
+                  {p.score}%
+                </text>
+                <text x={p.x} y={p.y - 10} textAnchor="middle" className="fill-text-secondary text-[8px]">
+                  {p.assessment?.length > 18 ? p.assessment.slice(0, 18) + '…' : p.assessment}
+                </text>
+              </g>
+            )}
+            {i % labelStep === 0 && (
+              <text x={p.x} y={H - 8} textAnchor="middle" className="fill-text-tertiary text-[9px]">
+                {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </text>
+            )}
+          </g>
+        ))}
+
+        {sorted.length === 1 && (
+          <text x={points[0].x} y={H - 8} textAnchor="middle" className="fill-text-tertiary text-[9px]">
+            {new Date(sorted[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+          </text>
+        )}
+      </svg>
     </div>
   )
 }
 
 function TypeDistribution({ distribution }) {
   const hasData = distribution && typeof distribution === 'object' && !Array.isArray(distribution) && Object.keys(distribution).length > 0
+  if (!hasData) return null
+
+  const colors = ['#4F46E5', '#A78BFA', '#06B6D4', '#22C55E', '#F59E0B']
+  const chartData = Object.entries(distribution).map(([type, count], i) => ({
+    label: type,
+    value: count,
+    color: colors[i % colors.length],
+  }))
+
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
+    <div className="rounded-xl border border-border bg-bg-card p-5">
       <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
         <BarChart3 className="h-4 w-4 text-primary" /> Assessment Types
       </h3>
-      {hasData ? (
-        <TypeBars distribution={distribution} />
-      ) : (
-        <p className="text-sm text-text-secondary">No data yet</p>
-      )}
-    </div>
-  )
-}
-
-function TypeBars({ distribution }) {
-  const total = Object.values(distribution).reduce((a, b) => a + b, 0)
-  const colors = ['#4F46E5', '#A78BFA', '#06B6D4', '#22C55E', '#F59E0B']
-  return (
-    <div className="space-y-3">
-      {Object.entries(distribution).map(([type, count], i) => {
-        const pct = total > 0 ? (count / total) * 100 : 0
-        return (
-          <div key={type}>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-text-primary capitalize">{type}</span>
-              <span className="text-text-secondary">{count}</span>
-            </div>
-            <div className="h-2 rounded-full bg-bg-tertiary overflow-hidden">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: colors[i % colors.length] }} />
-            </div>
-          </div>
-        )
-      })}
+      <DonutChart data={chartData} />
     </div>
   )
 }
 
 export default function AnalyticsPage() {
   const navigate = useNavigate()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['user-analytics'],
     queryFn: () => api.get('/analytics/me').then((r) => r.data),
   })
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse">
+          <div className="h-7 bg-bg-tertiary rounded w-40 mb-2" />
+          <div className="h-4 bg-bg-tertiary rounded w-56" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <SkeletonChart className="lg:col-span-2" />
+          <SkeletonChart />
+        </div>
+        <SkeletonChart />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-3" />
+          <p className="text-text-primary font-medium">Failed to load analytics</p>
+          <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
+        </div>
+      </div>
+    )
   }
 
   const d = data?.data || {}
@@ -127,17 +183,18 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 py-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-heading font-bold text-text-primary">My Analytics</h2>
-          <p className="text-sm text-text-secondary mt-1">Track your performance and progress</p>
+      {/* Gradient Header */}
+      <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-heading font-bold text-text-primary">My Analytics</h2>
+            <p className="text-sm text-text-secondary mt-1">Track your performance and progress</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => exportAnalyticsPDF('user', d)} className="gap-2">
+            <Download className="h-4 w-4" /> Export PDF
+          </Button>
         </div>
-        <button
-          onClick={() => exportAnalyticsPDF('user', d)}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-tertiary transition-colors"
-        >
-          <Download className="h-4 w-4" /> Export PDF
-        </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -157,38 +214,44 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-bg-secondary p-5">
-        <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-primary" /> Recent Activity
-        </h3>
-        {d.recentActivity?.length > 0 ? (
-          <div className="divide-y divide-border">
-            {d.recentActivity.map((a) => (
-              <div key={a.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`rounded-full p-1.5 ${a.passed ? 'bg-success/10 text-success' : 'text-text-secondary bg-bg-tertiary'}`}>
-                    {a.passed ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">{a.title}</p>
-                    <p className="text-xs text-text-secondary">{a.type} &middot; {new Date(a.date).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className={`text-sm font-semibold ${a.passed ? 'text-success' : 'text-text-secondary'}`}>{a.score}%</p>
-                  <button
-                    onClick={() => navigate(`/results/${a.id}`)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    View results
-                  </button>
+      {/* Recent Activity - polished */}
+      <div className="rounded-xl border border-border bg-bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" /> Recent Activity
+          </h3>
+        </div>
+        <div className="divide-y divide-border">
+          {d.recentActivity?.length > 0 ? d.recentActivity.map((a) => (
+            <div key={a.id} className="flex items-center justify-between px-5 py-3 hover:bg-bg-tertiary/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className={`h-2 w-2 rounded-full shrink-0 ${a.status === 'completed' ? (a.passed ? 'bg-success' : 'bg-danger') : 'bg-warning'}`} />
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{a.title}</p>
+                  <p className="text-xs text-text-secondary">{new Date(a.date).toLocaleDateString()} · {a.type}</p>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-text-secondary">No activity yet</p>
-        )}
+              <div className="flex items-center gap-2">
+                {a.status === 'completed' && (
+                  <span className="text-sm font-semibold text-text-primary">{a.score}%</span>
+                )}
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${a.passed ? 'bg-success/10 text-success' : a.status === 'completed' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+                  {a.status === 'completed' ? (a.passed ? 'Passed' : 'Failed') : 'In Progress'}
+                </span>
+                {a.status === 'completed' && (a.passed ? (
+                  <ArrowUpRight className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <ArrowDownRight className="h-3.5 w-3.5 text-danger" />
+                ))}
+              </div>
+            </div>
+          )) : (
+            <div className="px-5 py-10 text-center text-sm text-text-secondary">
+              <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              No activity yet. Start an assessment to see your progress!
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

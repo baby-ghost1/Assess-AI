@@ -101,7 +101,7 @@ export default function SystemSettings() {
         })}
       </div>
 
-      <div className="rounded-xl border border-border bg-bg-secondary p-5">
+      <div className="rounded-xl border border-border bg-bg-card p-5">
         <h3 className="text-lg font-heading font-semibold text-text-primary mb-2 capitalize">
           {CATEGORY_LABELS[activeCategory] || activeCategory} Settings
         </h3>

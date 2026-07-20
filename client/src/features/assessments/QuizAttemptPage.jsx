@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Loader2, Bookmark, BookmarkCheck, BookOpen, ChevronLeft, ChevronRight, Flag, Send, Eraser, AlertTriangle, X } from 'lucide-react'
+import { Loader2, Bookmark, BookmarkCheck, BookOpen, ChevronLeft, ChevronRight, Flag, Send, Eraser, AlertTriangle, X, AlertCircle } from 'lucide-react'
 import useProctoring from '@/features/proctoring/useProctoring'
 import ProctoringOverlay from '@/features/proctoring/ProctoringOverlay'
 
@@ -17,12 +17,14 @@ export default function QuizAttemptPage() {
   const [submissions, setSubmissions] = useState([])
   const [timeLeft, setTimeLeft] = useState(null)
   const timerRef = useRef(null)
+  const questionTimerRef = useRef(0)
   const [starting, setStarting] = useState(false)
   const [timerType, setTimerType] = useState('overall')
   const [perQuestionTime, setPerQuestionTime] = useState(null)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
+  const [attemptError, setAttemptError] = useState(null)
 
-  const { data: attemptData, isLoading } = useQuery({
+  const { data: attemptData, isLoading, error: queryError } = useQuery({
     queryKey: ['attempt', id],
     queryFn: () => api.get(`/assessments/attempt/${id}`).then((r) => r.data),
     enabled: Boolean(id),
@@ -48,6 +50,15 @@ export default function QuizAttemptPage() {
     }
   }, [attemptData])
 
+  // Per-question time tracker
+  useEffect(() => {
+    questionTimerRef.current = 0
+    const interval = setInterval(() => {
+      questionTimerRef.current += 1
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [currentIdx])
+
   useEffect(() => {
     if (timeLeft !== null && timeLeft > 0 && attempt?.status === 'in_progress') {
       timerRef.current = setInterval(() => {
@@ -55,7 +66,7 @@ export default function QuizAttemptPage() {
           if (prev <= 1) {
             clearInterval(timerRef.current)
             if (timerType === 'per_question') {
-              if (currentIdx < (subs?.length || 1) - 1) {
+              if (currentIdx < submissions.length - 1) {
                 handleNavigate(currentIdx + 1)
               } else {
                 setShowSubmitDialog(true)
@@ -70,7 +81,7 @@ export default function QuizAttemptPage() {
       }, 1000)
     }
     return () => clearInterval(timerRef.current)
-  }, [timeLeft, attempt?.status, timerType])
+  }, [timeLeft, attempt?.status, timerType, currentIdx, submissions.length, perQuestionTime])
 
   const assessmentData = attemptData?.data?.attempt?.assessment
   const proctoringEnabled = assessmentData?.proctoringRequired && attempt?.status === 'in_progress'
@@ -78,7 +89,7 @@ export default function QuizAttemptPage() {
   const { status: proctorStatus, lastViolation, videoRef, violationsRef } = useProctoring({
     attemptId: id,
     enabled: proctoringEnabled,
-    onAutoSubmit: (data) => { handleFinish() },
+    onAutoSubmit: () => { handleFinish() },
     onViolation: (v) => { console.warn('Proctoring violation:', v) },
   })
 
@@ -92,23 +103,33 @@ export default function QuizAttemptPage() {
         setTimeLeft(perQuestionTime)
       }
     },
+    onError: (err) => {
+      setAttemptError(err?.response?.data?.message || 'Failed to navigate')
+    },
   })
 
   const submitMut = useMutation({
     mutationFn: (data) => api.post(`/assessments/attempt/${id}/answer`, data),
+    onError: (err) => {
+      setAttemptError(err?.response?.data?.message || 'Failed to save answer')
+    },
   })
 
   const finishMut = useMutation({
     mutationFn: () => api.post(`/assessments/attempt/${id}/finish`),
-    onSuccess: (res) => {
+    onSuccess: () => {
       clearInterval(timerRef.current)
       setShowSubmitDialog(false)
       navigate(`/results/${id}`)
+    },
+    onError: (err) => {
+      setAttemptError(err?.response?.data?.message || 'Failed to submit')
     },
   })
 
   const startAttempt = useCallback(async () => {
     setStarting(true)
+    setAttemptError(null)
     try {
       const res = await api.post('/assessments/attempt/start', { assessmentId: id })
       const data = res.data.data
@@ -120,15 +141,20 @@ export default function QuizAttemptPage() {
       setPerQuestionTime(config.perQuestionTime || null)
       const subRes = await api.get(`/assessments/attempt/${data._id}`)
       const subs = subRes.data.data.submissions
+      setSubmissions(subs)
       if (subs?.length > 0) setCurrentQ(subs[0])
+    } catch (err) {
+      setAttemptError(err?.response?.data?.message || 'Failed to start attempt')
     } finally {
       setStarting(false)
     }
   }, [id])
 
-  const handleNavigate = (idx) => {
-    if (attempt) navigateMut.mutate({ idx })
-  }
+  const handleNavigate = useCallback((idx) => {
+    if (attempt && idx >= 0 && idx < submissions.length) {
+      navigateMut.mutate({ idx })
+    }
+  }, [attempt, submissions.length, navigateMut])
 
   const updateSubmission = (qId, updates) => {
     setSubmissions((prev) =>
@@ -139,10 +165,10 @@ export default function QuizAttemptPage() {
   const handleAnswer = (answer) => {
     if (!currentQ) return
     const qId = currentQ.question?._id
-    const isAnswered = answer !== null && answer !== undefined && answer !== ''
-    submitMut.mutate({ questionId: qId, answer, timeSpent: 0 })
-    updateSubmission(qId, { answer, isAnswered })
-    setCurrentQ({ ...currentQ, answer, isAnswered })
+    submitMut.mutate({ questionId: qId, answer, timeSpent: questionTimerRef.current })
+    updateSubmission(qId, { answer, isAnswered: answer !== null && answer !== undefined && answer !== '' })
+    setCurrentQ({ ...currentQ, answer, isAnswered: answer !== null && answer !== undefined && answer !== '' })
+    questionTimerRef.current = 0
   }
 
   const clearAnswer = () => {
@@ -169,9 +195,29 @@ export default function QuizAttemptPage() {
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
   }
 
+  // Error state for query
+  if (queryError) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
+        <AlertCircle className="h-12 w-12 text-danger mx-auto" />
+        <h2 className="text-xl font-heading font-bold text-text-primary">Failed to Load Assessment</h2>
+        <p className="text-sm text-text-secondary">{queryError?.response?.data?.message || 'Something went wrong. Please try again.'}</p>
+        <Button variant="secondary" onClick={() => navigate('/assessments')}>
+          <ChevronLeft className="h-4 w-4" /> Back to Assessments
+        </Button>
+      </div>
+    )
+  }
+
   if (!attempt && !starting) {
     return (
       <div className="max-w-2xl mx-auto py-16 text-center space-y-6">
+        {attemptError && (
+          <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-center gap-3 max-w-md mx-auto">
+            <AlertCircle className="h-5 w-5 text-danger shrink-0" />
+            <p className="text-sm text-danger">{attemptError}</p>
+          </div>
+        )}
         <BookOpen className="h-16 w-16 text-primary mx-auto" />
         <h2 className="text-2xl font-heading font-bold text-text-primary">Ready to begin?</h2>
         <p className="text-text-secondary text-sm">Make sure you have a stable internet connection. The timer will start once you click below.</p>
@@ -239,7 +285,7 @@ export default function QuizAttemptPage() {
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between border-b border-border bg-bg-card px-6 py-3">
           <div className="flex items-center gap-4">
-            <button onClick={() => setShowSubmitDialog(true)} className="text-text-secondary hover:text-text-primary"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => currentIdx > 0 && handleNavigate(currentIdx - 1)} disabled={currentIdx === 0} className="text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="h-5 w-5" /></button>
             <span className="text-sm font-medium text-text-primary">Question {currentIdx + 1} of {subs.length}</span>
           </div>
           <div className="flex items-center gap-4">
@@ -250,6 +296,14 @@ export default function QuizAttemptPage() {
             </Button>
           </div>
         </div>
+
+        {attemptError && (
+          <div className="mx-6 mt-3 rounded-lg border border-danger/20 bg-danger/5 p-3 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-danger shrink-0" />
+            <p className="text-xs text-danger">{attemptError}</p>
+            <button onClick={() => setAttemptError(null)} className="ml-auto text-danger hover:text-danger/80"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-3xl mx-auto space-y-6">

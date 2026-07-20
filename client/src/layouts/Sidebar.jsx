@@ -13,11 +13,13 @@ const sidebarConfig = {
     { section: 'Management', items: [
       { to: '/question-bank', icon: BookOpen, label: 'Question Bank' },
       { to: '/question-bank/ai-generate', icon: Sparkles, label: 'AI Generate', badge: 'New' },
+      { to: '/assessments', icon: Brain, label: 'Assessments' },
       { to: '/admin', icon: Shield, label: 'Admin Panel' },
       { to: '/users', icon: Users, label: 'Users' },
     ]},
     { section: 'Insights', items: [
       { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+      { to: '/analytics/admin', icon: Shield, label: 'Platform Analytics' },
       { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
     ]},
     { section: 'System', items: [
@@ -31,6 +33,7 @@ const sidebarConfig = {
     { section: 'Create', items: [
       { to: '/question-bank', icon: BookOpen, label: 'Question Bank' },
       { to: '/question-bank/ai-generate', icon: Sparkles, label: 'AI Generate', badge: 'New' },
+      { to: '/assessments', icon: Brain, label: 'Assessments' },
       { to: '/assessments/create', icon: FileEdit, label: 'Create Assessment' },
       { to: '/question-bank/approval-queue', icon: ClipboardCheck, label: 'Approvals' },
     ]},

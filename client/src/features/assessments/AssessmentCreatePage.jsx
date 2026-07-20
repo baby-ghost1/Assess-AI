@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, Save, Plus, Trash2, Search } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, Search, AlertCircle, X } from 'lucide-react'
 
 export default function AssessmentCreatePage() {
   const { id } = useParams()
@@ -204,6 +204,14 @@ export default function AssessmentCreatePage() {
             <Save className="h-4 w-4" /> {mutation.isPending ? 'Saving...' : isEdit ? 'Update' : 'Create Assessment'}
           </Button>
         </div>
+
+        {mutation.isError && (
+          <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-danger shrink-0" />
+            <p className="text-sm text-danger flex-1">{mutation.error?.response?.data?.message || 'Failed to save assessment'}</p>
+            <button onClick={() => mutation.reset()} className="text-danger hover:text-danger/80"><X className="h-4 w-4" /></button>
+          </div>
+        )}
       </form>
     </div>
   )

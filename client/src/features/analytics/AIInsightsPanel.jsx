@@ -39,7 +39,7 @@ export default function AIInsightsPanel({ scope, title }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border bg-bg-secondary p-5">
+      <div className="rounded-xl border border-border bg-bg-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-heading font-semibold text-text-primary">{title || 'AI Insights'}</h3>
@@ -55,14 +55,17 @@ export default function AIInsightsPanel({ scope, title }) {
   }
 
   if (error || !result?.success) {
+    const isAdmin = scope === 'admin' || scope === 'setter'
     return (
-      <div className="rounded-xl border border-border bg-bg-secondary p-5">
+      <div className="rounded-xl border border-border bg-bg-card p-5">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="h-4 w-4 text-warning" />
           <h3 className="text-lg font-heading font-semibold text-text-primary">AI Insights</h3>
         </div>
         <p className="text-sm text-text-secondary">
-          AI insights unavailable. Configure an AI provider API key to enable personalized analytics.
+          {isAdmin
+            ? 'AI insights unavailable. Configure an AI provider API key in Settings to enable platform insights.'
+            : 'AI insights unavailable. Your administrator needs to configure an AI provider API key.'}
         </p>
         <button onClick={async () => { setRetrying(true); await refetch(); setRetrying(false) }} disabled={retrying} className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
           {retrying ? 'Retrying...' : 'Try again'}
@@ -74,7 +77,7 @@ export default function AIInsightsPanel({ scope, title }) {
   if (!insights) return null
 
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
+    <div className="rounded-xl border border-border bg-bg-card p-5">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="h-4 w-4 text-primary" />
         <h3 className="text-lg font-heading font-semibold text-text-primary">{title || 'AI Insights'}</h3>

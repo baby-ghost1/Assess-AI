@@ -3,16 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Plus, Brain, Code2, Play, Clock, BarChart3 } from 'lucide-react'
-import { TableSkeleton } from '@/components/shared'
+import { Plus, Brain, Code2, Play, Clock, BarChart3, AlertCircle } from 'lucide-react'
 import { useAppSelector } from '@/hooks'
+
+function CardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5 animate-pulse space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="h-9 w-9 rounded-lg bg-bg-tertiary" />
+        <div className="h-4 w-16 rounded bg-bg-tertiary" />
+      </div>
+      <div className="h-4 w-3/4 rounded bg-bg-tertiary" />
+      <div className="h-3 w-full rounded bg-bg-tertiary" />
+      <div className="flex gap-3">
+        <div className="h-3 w-16 rounded bg-bg-tertiary" />
+        <div className="h-3 w-16 rounded bg-bg-tertiary" />
+        <div className="h-3 w-16 rounded bg-bg-tertiary" />
+      </div>
+      <div className="h-9 w-full rounded-lg bg-bg-tertiary" />
+    </div>
+  )
+}
 
 export default function AssessmentsPage() {
   const navigate = useNavigate()
   const { user } = useAppSelector((s) => s.auth)
   const [filter, setFilter] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['assessments', filter],
     queryFn: () => api.get(`/assessments?status=published${filter ? `&assessmentType=${filter}` : ''}`).then((r) => r.data),
   })
@@ -26,11 +44,18 @@ export default function AssessmentsPage() {
           <h2 className="text-2xl font-heading font-bold text-text-primary">Assessments</h2>
           <p className="mt-1 text-sm text-text-secondary">Browse and attempt assessments</p>
         </div>
-        {['problem_setter', 'admin', 'super_admin'].includes(user?.role) && (
-          <Button onClick={() => navigate('/assessments/create')}>
-            <Plus className="h-4 w-4" /> New Assessment
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {['candidate'].includes(user?.role) && (
+            <Button variant="secondary" onClick={() => navigate('/assessments/my-attempts')}>
+              <Clock className="h-4 w-4" /> My Attempts
+            </Button>
+          )}
+          {['problem_setter', 'admin', 'super_admin'].includes(user?.role) && (
+            <Button onClick={() => navigate('/assessments/create')}>
+              <Plus className="h-4 w-4" /> New Assessment
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -42,7 +67,18 @@ export default function AssessmentsPage() {
         ))}
       </div>
 
-      {isLoading ? <TableSkeleton rows={4} /> : assessments.length === 0 ? (
+      {error && (
+        <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-danger shrink-0" />
+          <p className="text-sm text-danger">{error?.response?.data?.message || 'Failed to load assessments'}</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      ) : assessments.length === 0 ? (
         <div className="rounded-xl border border-border bg-bg-card py-16 text-center">
           <Brain className="h-12 w-12 text-text-tertiary mx-auto mb-4" />
           <p className="text-text-secondary text-sm">No assessments available</p>

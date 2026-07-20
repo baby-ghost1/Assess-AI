@@ -277,7 +277,7 @@ export default function CandidateDashboard() {
           </div>
           <div className="divide-y divide-border">
             {d.pendingAssessments.map((a) => (
-              <button key={a.id} onClick={() => navigate('/assessments')} className="flex items-center justify-between px-5 py-3 w-full hover:bg-bg-tertiary/50 transition-colors text-left">
+              <button key={a.id} onClick={() => navigate(`/assessments/${a.id}`)} className="flex items-center justify-between px-5 py-3 w-full hover:bg-bg-tertiary/50 transition-colors text-left">
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
                     <Clock className="h-4 w-4 text-warning" />
@@ -307,7 +307,7 @@ export default function CandidateDashboard() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {d.recommended.map((r) => (
-              <button key={r.id} onClick={() => navigate('/assessments')} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/20 hover:bg-bg-tertiary/50 transition-all text-left">
+              <button key={r.id} onClick={() => navigate(`/assessments/${r.id}`)} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/20 hover:bg-bg-tertiary/50 transition-all text-left">
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <BookOpen className="h-5 w-5 text-primary" />
                 </div>

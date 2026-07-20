@@ -12,8 +12,12 @@ router.use(authenticate)
 
 // Assessment CRUD
 router.get('/', assessmentController.listAssessments)
-router.get('/:id', assessmentController.getAssessment)
 router.post('/', authorize('setter', 'admin'), validate(createAssessmentSchema), assessmentController.createAssessment)
+
+// Pending assessments (admin) - must be before /:id
+router.get('/admin/pending', authorize('admin'), assessmentController.getPendingAssessments)
+
+router.get('/:id', assessmentController.getAssessment)
 router.put('/:id', authorize('setter', 'admin'), validate(updateAssessmentSchema), assessmentController.updateAssessment)
 router.delete('/:id', authorize('admin'), assessmentController.deleteAssessment)
 
@@ -21,9 +25,6 @@ router.delete('/:id', authorize('admin'), assessmentController.deleteAssessment)
 router.post('/:id/submit-approval', authorize('setter'), assessmentController.submitForApproval)
 router.post('/:id/approve', authorize('admin'), assessmentController.approveAssessment)
 router.post('/:id/reject', authorize('admin'), validate(z.object({ reason: z.string().optional() })), assessmentController.rejectAssessment)
-
-// Pending assessments (admin)
-router.get('/admin/pending', authorize('admin'), assessmentController.getPendingAssessments)
 
 // Attempt flow
 router.post('/attempt/start', validate(z.object({ assessmentId: z.string() })), assessmentController.startAttempt)
