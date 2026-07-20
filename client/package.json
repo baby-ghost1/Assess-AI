@@ -1,0 +1,41 @@
+{
+  "name": "client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.0.1",
+    "@monaco-editor/react": "^4.7.0",
+    "@reduxjs/toolkit": "^2.6.1",
+    "@tanstack/react-query": "^5.75.5",
+    "axios": "^1.9.2",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.10.5",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^0.511.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-hook-form": "^7.56.3",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.5.3",
+    "shared": "*",
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^3.2.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.6",
+    "@vitejs/plugin-react": "^6.0.3",
+    "esbuild": "^0.28.1",
+    "oxlint": "^1.71.0",
+    "tailwindcss": "^4.1.6",
+    "vite": "^8.1.1"
+  }
+}

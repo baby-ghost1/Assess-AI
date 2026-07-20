@@ -1,0 +1,43 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js",
+    "lint": "eslint src/",
+    "typecheck": "echo 'Server typecheck pending'",
+    "test": "node --experimental-vm-modules --no-warnings \"../node_modules/jest/bin/jest.js\" --forceExit",
+    "test:watch": "node --experimental-vm-modules --no-warnings \"../node_modules/jest/bin/jest.js\" --watch",
+    "test:coverage": "node --experimental-vm-modules --no-warnings \"../node_modules/jest/bin/jest.js\" --coverage --forceExit"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bullmq": "^5.42.0",
+    "cloudinary": "^2.6.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "csurf": "^1.11.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.12.0",
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^2.4.5",
+    "shared": "*",
+    "socket.io": "^4.8.1",
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "jest": "^30.4.2"
+  }
+}
