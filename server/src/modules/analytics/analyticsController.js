@@ -21,6 +21,13 @@ export async function getAdminAnalytics(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function getSetterAnalytics(req, res, next) {
+  try {
+    const data = await analyticsService.getSetterAnalytics(req.user._id)
+    res.json({ success: true, data, message: 'Setter analytics fetched', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
 export async function getQuestionAnalytics(req, res, next) {
   try {
     const data = await analyticsService.getQuestionAnalytics(req.params.id)

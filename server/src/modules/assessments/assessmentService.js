@@ -2,23 +2,60 @@ import Assessment from './Assessment.js'
 import Attempt from './Attempt.js'
 import Submission from './Submission.js'
 import Question from '../questions/Question.js'
+import QuestionVersion from '../questions/QuestionVersion.js'
 import User from '../users/User.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../shared/errors/AppError.js'
 import { createNotification } from '../notifications/notificationService.js'
+
+// ─── Helpers ─────────────────────────────────────────────
+
+async function processInlineQuestions(sections, userId) {
+  const processed = []
+  for (const section of sections) {
+    const questionIds = [...(section.questions || [])]
+    let totalMarks = 0
+    if (questionIds.length > 0) {
+      const bankQuestions = await Question.find({ _id: { $in: questionIds } }).select('marks').lean()
+      totalMarks += bankQuestions.reduce((sum, q) => sum + (q.marks || 0), 0)
+    }
+    if (section.inlineQuestions?.length) {
+      for (const qData of section.inlineQuestions) {
+        const question = await Question.create({
+          ...qData,
+          createdBy: userId,
+          updatedBy: userId,
+          status: 'approved',
+          source: 'manual',
+        })
+        await QuestionVersion.create({
+          question: question._id, version: 1, data: question.toObject(),
+          changes: 'Created for assessment', changedBy: userId,
+        })
+        totalMarks += question.marks || 0
+        questionIds.push(question._id)
+      }
+    }
+    processed.push({ ...section, questions: questionIds, inlineQuestions: undefined, totalMarks })
+  }
+  return processed
+}
 
 // ─── Assessment CRUD ─────────────────────────────────────
 
 export async function createAssessment(data, userId) {
   const user = await User.findById(userId)
   if (user.role === 'setter' && !user.isApproved) {
-    throw new ForbiddenError('Your account is pending admin approval. You cannot create assessments yet.')
+    throw new ForbiddenError('Your account is not yet approved by admin. You cannot create assessments until approved.')
+  }
+  if (data.sections?.length) {
+    data.sections = await processInlineQuestions(data.sections, userId)
   }
   return Assessment.create({ ...data, createdBy: userId, updatedBy: userId })
 }
 
 export async function getAssessmentById(assessmentId) {
   const assessment = await Assessment.findById(assessmentId)
-    .populate('sections.questions', 'title questionType difficulty options marks')
+    .populate('sections.questions', 'title questionType difficulty options marks correctAnswer')
     .populate('createdBy', 'name email')
   if (!assessment) throw new NotFoundError('Assessment')
   return assessment
@@ -51,6 +88,17 @@ export async function listAssessments(filters) {
 export async function updateAssessment(assessmentId, data, userId) {
   const assessment = await Assessment.findById(assessmentId)
   if (!assessment) throw new NotFoundError('Assessment')
+  const user = await User.findById(userId)
+  if (user.role === 'setter' && assessment.createdBy.toString() !== userId.toString()) {
+    throw new ForbiddenError('Not your assessment')
+  }
+  if (user.role === 'setter' && assessment.status !== 'draft') {
+    throw new ValidationError('Only draft assessments can be edited')
+  }
+  delete data.status
+  if (data.sections?.length) {
+    data.sections = await processInlineQuestions(data.sections, userId)
+  }
   Object.assign(assessment, data, { updatedBy: userId })
   await assessment.save()
   return assessment
@@ -71,7 +119,17 @@ export async function submitForApproval(assessmentId, userId) {
   if (!assessment) throw new NotFoundError('Assessment')
   if (assessment.createdBy.toString() !== userId.toString()) throw new ForbiddenError('Not your assessment')
   if (assessment.status !== 'draft') throw new ValidationError('Only draft assessments can be submitted')
+
+  const questionStatus = {}
+  for (const section of assessment.sections) {
+    for (const qId of section.questions) {
+      questionStatus[qId.toString()] = 'pending_review'
+    }
+  }
+
   assessment.status = 'pending_approval'
+  assessment.rejectionReason = ''
+  assessment.questionStatus = questionStatus
   await assessment.save()
   return assessment
 }
@@ -80,13 +138,13 @@ export async function approveAssessment(assessmentId, userId) {
   const assessment = await Assessment.findById(assessmentId)
   if (!assessment) throw new NotFoundError('Assessment')
   if (assessment.status !== 'pending_approval') throw new ValidationError('Assessment is not pending approval')
-  assessment.status = 'approved'
+  assessment.status = 'published'
   assessment.updatedBy = userId
   await assessment.save()
 
   if (assessment.createdBy && assessment.createdBy.toString() !== userId.toString()) {
     await createNotification(assessment.createdBy, {
-      type: 'result_published',
+      type: 'assessment_published',
       title: 'Assessment Approved',
       message: `Your assessment "${assessment.title}" has been approved and is now live.`,
     })
@@ -100,15 +158,75 @@ export async function rejectAssessment(assessmentId, reason, userId) {
   if (!assessment) throw new NotFoundError('Assessment')
   if (assessment.status !== 'pending_approval') throw new ValidationError('Assessment is not pending approval')
   assessment.status = 'draft'
+  assessment.rejectionReason = reason || ''
+  assessment.questionStatus = {}
   assessment.updatedBy = userId
   await assessment.save()
+  return assessment
+}
+
+export async function reviewAssessmentQuestion(assessmentId, questionId, status, userId) {
+  const assessment = await Assessment.findById(assessmentId)
+  if (!assessment) throw new NotFoundError('Assessment')
+  if (assessment.status !== 'pending_approval') throw new ValidationError('Assessment is not pending approval')
+  if (!assessment.questionStatus || !assessment.questionStatus.has(questionId)) {
+    throw new NotFoundError('Question not found in this assessment')
+  }
+  assessment.questionStatus.set(questionId, status)
+  assessment.updatedBy = userId
+  await assessment.save()
+  return assessment
+}
+
+export async function approveAllQuestions(assessmentId, userId) {
+  const assessment = await Assessment.findById(assessmentId)
+  if (!assessment) throw new NotFoundError('Assessment')
+  if (assessment.status !== 'pending_approval') throw new ValidationError('Assessment is not pending approval')
+
+  for (const [qId] of assessment.questionStatus) {
+    assessment.questionStatus.set(qId, 'approved')
+  }
+
+  assessment.status = 'published'
+  assessment.updatedBy = userId
+  await assessment.save()
+
+  if (assessment.createdBy && assessment.createdBy.toString() !== userId.toString()) {
+    await createNotification(assessment.createdBy, {
+      type: 'assessment_published',
+      title: 'Assessment Approved',
+      message: `Your assessment "${assessment.title}" has been approved and is now live.`,
+    })
+  }
+
   return assessment
 }
 
 export async function getPendingAssessments() {
   return Assessment.find({ status: 'pending_approval' })
     .populate('createdBy', 'name email')
+    .populate('sections.questions', 'title questionType difficulty options marks correctAnswer')
     .sort({ createdAt: -1 })
+}
+
+export async function getSetterAssessments(userId, filters = {}) {
+  const query = { createdBy: userId }
+  if (filters.status) query.status = filters.status
+
+  const page = filters.page || 1
+  const limit = filters.limit || 20
+  const skip = (page - 1) * limit
+
+  const [assessments, total] = await Promise.all([
+    Assessment.find(query)
+      .populate('sections.questions', 'title questionType difficulty')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Assessment.countDocuments(query),
+  ])
+
+  return { assessments, total, page, limit, pages: Math.ceil(total / limit) }
 }
 
 // ─── Attempt Flow ────────────────────────────────────────

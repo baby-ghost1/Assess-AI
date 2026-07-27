@@ -1,4 +1,4 @@
-import { Play, Pause, CheckCircle, Timer, PanelLeftClose, PanelLeft, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
+import { Play, Pause, CheckCircle, Timer, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui'
 
 function formatTime(seconds) {
@@ -7,19 +7,19 @@ function formatTime(seconds) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-export default function TopToolbar({ elapsed, timerActive, onToggleTimer, onRun, onSubmit, running, submitting, sidebarOpen, onToggleSidebar, currentIndex, totalCount, onPrev, onNext, commentCount, onOpenDiscussion }) {
+export default function TopToolbar({ elapsed, timerActive, onToggleTimer, onRun, onSubmit, running, submitting, sidebarOpen, onToggleSidebar, commentCount, onOpenDiscussion }) {
   return (
     <div className="h-11 flex items-center justify-between px-3 border-b border-border bg-bg-card shrink-0 select-none">
       <div className="flex items-center gap-2">
-        <button onClick={onToggleSidebar} className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors" title="Toggle sidebar">
-          {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+        <button onClick={onToggleSidebar}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            sidebarOpen
+              ? 'bg-primary text-white'
+              : 'bg-primary/10 text-primary hover:bg-primary/20'
+          }`}
+          title="Toggle AI assistant">
+          AI
         </button>
-        <div className="w-px h-4 bg-border" />
-        <div className="flex items-center gap-1 text-xs text-text-secondary">
-          <button onClick={onPrev} className="p-1 rounded hover:bg-bg-tertiary transition-colors" title="Previous"><ChevronLeft className="h-3.5 w-3.5" /></button>
-          <span className="min-w-[4rem] text-center font-medium text-text-primary">{currentIndex + 1} / {totalCount}</span>
-          <button onClick={onNext} className="p-1 rounded hover:bg-bg-tertiary transition-colors" title="Next"><ChevronRight className="h-3.5 w-3.5" /></button>
-        </div>
       </div>
 
       <div className="flex items-center gap-1.5">

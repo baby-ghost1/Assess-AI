@@ -1,17 +1,18 @@
 import * as XLSX from 'xlsx'
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
-const pdfParse = require('pdf-parse')
 import mammoth from 'mammoth'
 
 export function parseCSV(buffer) {
   const text = buffer.toString('utf-8')
   const lines = text.split('\n').filter(Boolean)
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase())
+  if (lines.length < 2) return []
+  const headers = lines[0].split(',').map((h) => h.trim())
   return lines.slice(1).map((line) => {
     const values = line.split(',').map((v) => v.trim())
     const entry = {}
-    headers.forEach((h, i) => { entry[h] = values[i] || '' })
+    headers.forEach((h, i) => {
+      entry[h] = values[i] || ''
+      entry[h.toLowerCase()] = values[i] || ''
+    })
     return entry
   })
 }
@@ -30,8 +31,11 @@ export function parseExcel(buffer) {
 }
 
 export async function parsePDF(buffer) {
-  const data = await pdfParse(buffer)
-  return data.text
+  const { PDFParse } = await import('pdf-parse')
+  const uint8 = new Uint8Array(buffer)
+  const parser = new PDFParse({ data: uint8 })
+  const result = await parser.getText()
+  return result.text
 }
 
 export async function parseDOCX(buffer) {

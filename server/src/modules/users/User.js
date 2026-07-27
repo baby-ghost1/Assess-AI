@@ -12,6 +12,16 @@ const userSchema = new mongoose.Schema({
   isEmailVerified: { type: Boolean, default: false },
   refreshToken: { type: String, select: false },
   lastLoginAt: { type: Date },
+  preferences: {
+    type: {
+      emailNotifications: { type: Boolean, default: true },
+      assessmentReminders: { type: Boolean, default: true },
+      resultAlerts: { type: Boolean, default: true },
+      passwordAlerts: { type: Boolean, default: true },
+    },
+    default: {},
+    select: false,
+  },
 }, { timestamps: true })
 
 userSchema.pre('save', async function (next) {

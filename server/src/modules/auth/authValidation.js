@@ -30,3 +30,8 @@ export const changePasswordSchema = z.object({
   message: 'New password must be different from current password',
   path: ['newPassword'],
 })
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100).optional(),
+  email: z.string().email('Invalid email address').optional(),
+})

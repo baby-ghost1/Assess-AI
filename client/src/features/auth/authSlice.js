@@ -56,6 +56,15 @@ export const changePassword = createAsyncThunk('auth/changePassword', async ({ o
   }
 })
 
+export const updateProfile = createAsyncThunk('auth/updateProfile', async (updates, { rejectWithValue }) => {
+  try {
+    const { data } = await api.patch('/auth/profile', updates)
+    return data.data.user
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Failed to update profile')
+  }
+})
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -75,6 +84,9 @@ const authSlice = createSlice({
       .addCase(getCurrentUser.pending, (s) => { s.isLoading = true })
       .addCase(getCurrentUser.fulfilled, (s, a) => { s.isLoading = false; s.isAuthenticated = true; s.user = a.payload })
       .addCase(getCurrentUser.rejected, (s) => { s.isLoading = false; s.isAuthenticated = false; s.user = null })
+      .addCase(updateProfile.pending, (s) => { s.isLoading = true; s.error = null })
+      .addCase(updateProfile.fulfilled, (s, a) => { s.isLoading = false; s.user = a.payload })
+      .addCase(updateProfile.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
   },
 })
 

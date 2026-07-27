@@ -113,3 +113,26 @@ export async function getPendingAssessments(req, res, next) {
     res.status(200).json({ success: true, data: assessments, message: 'Pending assessments fetched', errors: null, meta: null })
   } catch (error) { next(error) }
 }
+
+export async function getSetterAssessments(req, res, next) {
+  try {
+    const result = await assessmentService.getSetterAssessments(req.user._id, req.query)
+    res.status(200).json({ success: true, data: result.assessments, message: 'Assessments fetched', errors: null, meta: { page: result.page, limit: result.limit, total: result.total, pages: result.pages } })
+  } catch (error) { next(error) }
+}
+
+export async function reviewAssessmentQuestion(req, res, next) {
+  try {
+    const { id, questionId } = req.params
+    const { status } = req.validatedBody
+    const assessment = await assessmentService.reviewAssessmentQuestion(id, questionId, status, req.user._id)
+    res.status(200).json({ success: true, data: assessment, message: 'Question reviewed', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function approveAllQuestions(req, res, next) {
+  try {
+    const assessment = await assessmentService.approveAllQuestions(req.params.id, req.user._id)
+    res.status(200).json({ success: true, data: assessment, message: 'Assessment approved and published', errors: null, meta: null })
+  } catch (error) { next(error) }
+}

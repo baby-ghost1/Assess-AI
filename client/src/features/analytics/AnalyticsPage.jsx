@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Loader2, BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useAppSelector } from '@/hooks'
+import { Loader2, BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight, Brain, FileEdit, Users, AlertCircle } from 'lucide-react'
 import AIInsightsPanel from './AIInsightsPanel'
 import StatCard from './StatCard'
 import DonutChart from './DonutChart'
@@ -134,7 +135,246 @@ function TypeDistribution({ distribution }) {
   )
 }
 
-export default function AnalyticsPage() {
+const statusColors = {
+  draft: 'bg-zinc-500/10 text-zinc-400',
+  published: 'bg-green-500/10 text-green-400',
+  approved: 'bg-green-500/10 text-green-400',
+  pending_review: 'bg-amber-500/10 text-amber-400',
+  rejected: 'bg-red-500/10 text-red-400',
+}
+
+function SetterAnalyticsView() {
+  const navigate = useNavigate()
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['setter-analytics'],
+    queryFn: () => api.get('/analytics/setter').then((r) => r.data),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse">
+          <div className="h-7 bg-bg-tertiary rounded w-40 mb-2" />
+          <div className="h-4 bg-bg-tertiary rounded w-56" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SkeletonChart />
+          <SkeletonChart />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto py-6">
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-3" />
+          <p className="text-text-primary font-medium">Failed to load analytics</p>
+          <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const d = data?.data || {}
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6 py-6">
+      <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-heading font-bold text-text-primary">Content Analytics</h2>
+            <p className="text-sm text-text-secondary mt-1">Performance of your questions and assessments</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard icon={Brain} label="Questions Created" value={d.questions?.total ?? 0} sub={`${d.questions?.approved ?? 0} approved`} color="bg-primary/10 text-primary" />
+        <StatCard icon={FileEdit} label="Assessments" value={d.assessments?.total ?? 0} sub={`${d.assessments?.published ?? 0} published`} color="bg-accent/10 text-accent" />
+        <StatCard icon={Users} label="Total Attempts" value={d.totalAttempts ?? 0} color="bg-warning/10 text-warning" />
+        <StatCard icon={Target} label="Avg Score" value={`${d.avgScore ?? 0}%`} sub={`Pass rate: ${d.passRate ?? 0}%`} color="bg-success/10 text-success" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="rounded-xl border border-border bg-bg-card p-5">
+          <h3 className="text-sm font-semibold text-text-primary mb-3">Question Status</h3>
+          <div className="space-y-2">
+            {[
+              { label: 'Approved', value: d.questions?.approved ?? 0, color: 'bg-success' },
+              { label: 'Pending', value: d.questions?.pending ?? 0, color: 'bg-amber-500' },
+              { label: 'Draft', value: d.questions?.draft ?? 0, color: 'bg-zinc-500' },
+              { label: 'Rejected', value: d.questions?.rejected ?? 0, color: 'bg-danger' },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                  <span className="text-text-secondary">{item.label}</span>
+                </div>
+                <span className="font-medium text-text-primary">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-bg-card p-5">
+          <h3 className="text-sm font-semibold text-text-primary mb-3">Score Distribution</h3>
+          {d.scoreDistribution ? (
+            <div className="space-y-2">
+              {Object.entries(d.scoreDistribution).map(([range, count]) => (
+                <div key={range} className="flex items-center gap-2">
+                  <span className="text-xs text-text-secondary w-16 shrink-0">{range}</span>
+                  <div className="flex-1 h-5 bg-bg-tertiary rounded overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded transition-all"
+                      style={{ width: d.totalAttempts > 0 ? `${(count / d.totalAttempts) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <span className="text-xs text-text-primary font-medium w-8 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary text-center py-4">No attempt data yet</p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-border bg-bg-card p-5">
+          <h3 className="text-sm font-semibold text-text-primary mb-3">Question Types</h3>
+          {d.questionTypes && Object.keys(d.questionTypes).length > 0 ? (
+            <div className="space-y-2">
+              {Object.entries(d.questionTypes).map(([type, count]) => (
+                <div key={type} className="flex items-center justify-between text-sm">
+                  <span className="text-text-secondary capitalize">{type.replace(/_/g, ' ')}</span>
+                  <span className="font-medium text-text-primary">{count}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary text-center py-4">No questions yet</p>
+          )}
+        </div>
+      </div>
+
+      {d.assessmentPerformance?.length > 0 && (
+        <div className="rounded-xl border border-border bg-bg-card">
+          <div className="border-b border-border px-5 py-3">
+            <h3 className="text-sm font-heading font-semibold text-text-primary">Assessment Performance</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="px-5 py-3 font-medium text-text-secondary">Assessment</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary">Status</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Attempts</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Pass Rate</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Avg Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.assessmentPerformance.map((a, i) => (
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-bg-tertiary/30">
+                    <td className="px-5 py-3 text-text-primary font-medium">{a.title}</td>
+                    <td className="px-5 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${statusColors[a.status] || 'bg-bg-tertiary text-text-secondary'}`}>
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-text-secondary text-right">{a.attempts}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`font-medium ${a.passRate >= 60 ? 'text-success' : a.passRate >= 40 ? 'text-warning' : 'text-danger'}`}>
+                        {a.passRate}%
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-text-primary font-medium text-right">{a.avgScore}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {d.questionPerformance?.length > 0 && (
+        <div className="rounded-xl border border-border bg-bg-card">
+          <div className="border-b border-border px-5 py-3">
+            <h3 className="text-sm font-heading font-semibold text-text-primary">Question Performance</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="px-5 py-3 font-medium text-text-secondary">Question</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary">Type</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary">Difficulty</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Total</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Correct %</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Skip %</th>
+                  <th className="px-5 py-3 font-medium text-text-secondary text-right">Avg Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.questionPerformance.map((q, i) => (
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-bg-tertiary/30">
+                    <td className="px-5 py-3 text-text-primary font-medium max-w-[200px] truncate">{q.title}</td>
+                    <td className="px-5 py-3 text-text-secondary capitalize">{q.type?.replace(/_/g, ' ')}</td>
+                    <td className="px-5 py-3 text-text-secondary capitalize">{q.difficulty}</td>
+                    <td className="px-5 py-3 text-text-secondary text-right">{q.total}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`font-medium ${q.correct >= 60 ? 'text-success' : q.correct >= 40 ? 'text-warning' : 'text-danger'}`}>
+                        {q.correct}%
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-text-secondary text-right">{q.skipped}%</td>
+                    <td className="px-5 py-3 text-text-secondary text-right">{q.avgTime}s</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {d.recentAttempts?.length > 0 && (
+        <div className="rounded-xl border border-border bg-bg-card">
+          <div className="border-b border-border px-5 py-3">
+            <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" /> Recent Submissions
+            </h3>
+          </div>
+          <div className="divide-y divide-border">
+            {d.recentAttempts.map((a, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-bg-tertiary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${a.passed ? 'bg-success' : 'bg-danger'}`} />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{a.user}</p>
+                    <p className="text-xs text-text-secondary">{a.assessment}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-text-primary">{a.score}%</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${a.passed ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                    {a.passed ? 'Passed' : 'Failed'}
+                  </span>
+                  <span className="text-xs text-text-secondary">{new Date(a.date).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CandidateAnalyticsView() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['user-analytics'],
@@ -183,7 +423,6 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 py-6">
-      {/* Gradient Header */}
       <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="relative flex items-center justify-between">
@@ -214,7 +453,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Recent Activity - polished */}
       <div className="rounded-xl border border-border bg-bg-card">
         <div className="border-b border-border px-5 py-3">
           <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
@@ -255,4 +493,14 @@ export default function AnalyticsPage() {
       </div>
     </div>
   )
+}
+
+export default function AnalyticsPage() {
+  const { user } = useAppSelector((s) => s.auth)
+
+  if (user?.role === 'setter') {
+    return <SetterAnalyticsView />
+  }
+
+  return <CandidateAnalyticsView />
 }

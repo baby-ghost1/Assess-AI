@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Search, Shield, Ban, Check, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, Search, Shield, Ban, Check, X, ChevronLeft, ChevronRight, CheckCircle, XCircle } from 'lucide-react'
 
 export default function UserManagement() {
   const queryClient = useQueryClient()
@@ -46,10 +46,8 @@ export default function UserManagement() {
         >
           <option value="">All Roles</option>
           <option value="candidate">Candidate</option>
-          <option value="problem_setter">Problem Setter</option>
-          <option value="reviewer">Reviewer</option>
+          <option value="setter">Setter</option>
           <option value="admin">Admin</option>
-          <option value="super_admin">Super Admin</option>
         </select>
       </div>
 
@@ -65,6 +63,7 @@ export default function UserManagement() {
                 <th className="p-4 font-medium text-text-secondary">Role</th>
                 <th className="p-4 font-medium text-text-secondary">Status</th>
                 <th className="p-4 font-medium text-text-secondary">Verified</th>
+                <th className="p-4 font-medium text-text-secondary">Approved</th>
                 <th className="p-4 font-medium text-text-secondary">Joined</th>
                 <th className="p-4 font-medium text-text-secondary" />
               </tr>
@@ -76,12 +75,11 @@ export default function UserManagement() {
                   <td className="p-4 text-text-secondary">{user.email}</td>
                   <td className="p-4">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      user.role === 'super_admin' ? 'bg-danger/10 text-danger' :
                       user.role === 'admin' ? 'bg-primary/10 text-primary' :
-                      user.role === 'reviewer' ? 'bg-accent/10 text-accent' :
+                      user.role === 'setter' ? 'bg-accent/10 text-accent' :
                       'bg-bg-tertiary text-text-secondary'
                     }`}>
-                      {user.role.replace(/_/g, ' ')}
+                      {user.role === 'setter' ? 'Setter' : user.role}
                     </span>
                   </td>
                   <td className="p-4">
@@ -96,6 +94,29 @@ export default function UserManagement() {
                       <span className="text-xs text-success">Yes</span>
                     ) : (
                       <span className="text-xs text-text-secondary">No</span>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    {user.role === 'setter' ? (
+                      user.isApproved ? (
+                        <button
+                          onClick={() => updateMutation.mutate({ id: user._id, data: { isApproved: false } })}
+                          className="flex items-center gap-1 text-xs text-success hover:text-danger transition-colors cursor-pointer"
+                          title="Click to revoke approval"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" /> Approved
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => updateMutation.mutate({ id: user._id, data: { isApproved: true } })}
+                          className="flex items-center gap-1 text-xs text-text-secondary hover:text-success transition-colors cursor-pointer"
+                          title="Click to approve"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Pending
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-xs text-text-secondary">-</span>
                     )}
                   </td>
                   <td className="p-4 text-text-secondary text-xs">{new Date(user.createdAt).toLocaleDateString()}</td>
@@ -120,17 +141,15 @@ export default function UserManagement() {
                         className="rounded border border-border bg-bg-primary px-2 py-1 text-xs text-text-primary focus:outline-none"
                       >
                         <option value="candidate">Candidate</option>
-                        <option value="problem_setter">Problem Setter</option>
-                        <option value="reviewer">Reviewer</option>
+                        <option value="setter">Setter</option>
                         <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
                       </select>
                     </div>
                   </td>
                 </tr>
               ))}
               {users.length === 0 && (
-                <tr><td colSpan="7" className="p-8 text-center text-text-secondary text-sm">No users found</td></tr>
+                <tr><td colSpan="8" className="p-8 text-center text-text-secondary text-sm">No users found</td></tr>
               )}
             </tbody>
           </table>

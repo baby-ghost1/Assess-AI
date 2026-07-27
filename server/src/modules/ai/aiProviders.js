@@ -1,7 +1,7 @@
 // AI Provider Abstraction Layer
 // Each provider implements: generateQuestions(topic, config) => [{ title, description, questionType, difficulty, options, ... }]
 
-const PROVIDER_CONFIGS = {
+export const PROVIDER_CONFIGS = {
   gemini: { apiKey: process.env.GEMINI_API_KEY, model: 'gemini-2.0-flash', baseUrl: 'https://generativelanguage.googleapis.com/v1beta' },
   gpt: { apiKey: process.env.OPENAI_API_KEY, model: 'gpt-4o', baseUrl: 'https://api.openai.com/v1' },
   claude: { apiKey: process.env.ANTHROPIC_API_KEY, model: 'claude-3-opus-20240229', baseUrl: 'https://api.anthropic.com/v1' },
@@ -17,6 +17,53 @@ function buildPrompt(topic, config) {
   const count = config.count || 5
   const difficulty = config.difficulty || 'medium'
   const language = config.language || 'English'
+
+  if (questionType === 'coding') {
+    return `Generate exactly 1 ${difficulty} difficulty coding question about "${topic}" in ${language}.
+
+Return ONLY valid JSON object (not array). The object must have:
+{
+  "title": "problem title",
+  "description": "problem description in plain text (not HTML)",
+  "questionType": "coding",
+  "difficulty": "${difficulty}",
+  "marks": 1,
+  "codingConfig": {
+    "starterCodes": {
+      "javascript": "function solution() {\\n    // Write your solution here\\n}",
+      "python": "def solution():\\n    # Write your solution here\\n    pass",
+      "java": "class Solution {\\n    public int solve(int[] nums) {\\n        // Write your solution here\\n        return -1;\\n    }\\n}",
+      "cpp": "class Solution {\\npublic:\\n    int solve(vector<int>& nums) {\\n        // Write your solution here\\n        return -1;\\n    }\\n};"
+    },
+    "testCases": [
+      { "input": "specific input values", "output": "expected output", "explanation": "brief explanation" },
+      { "input": "edge case input", "output": "expected output", "explanation": "brief explanation" }
+    ],
+    "constraints": [
+      "constraint 1 (e.g. array length range)",
+      "constraint 2 (e.g. value ranges)"
+    ],
+    "hints": [
+      "hint 1 - approach hint",
+      "hint 2 - optimization hint"
+    ],
+    "topics": ["topic1", "topic2"]
+  }
+}
+
+CRITICAL RULES for coding questions:
+- Starter codes MUST match the actual problem. If the function needs parameters, include them. If it returns a value, include return type.
+- For "find target in array" type problems: int solution(int[] nums, int target)
+- For "validate something" type problems: bool solution(string s)
+- For "count occurrences" type problems: int solution(int[] nums)
+- Include at least 2 test cases with realistic input/output
+- Constraints should be specific numbers (e.g., "1 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9")
+- Hints should guide toward the algorithm, not give away the answer
+- Topics should be relevant algorithmic categories (e.g., "Array", "Binary Search", "Hash Table")
+- Description should explain WHAT the function should do, not HOW to implement it
+- NEVER include solution code in starter codes
+- Response must be ONLY the JSON object, no other text`
+  }
 
   const correctAnswerExample = questionType === 'multi_correct' ? '["A", "C"]' : '"A"'
 
@@ -43,7 +90,7 @@ Rules:
 - Response must be ONLY the JSON array, no other text`
 }
 
-async function fetchFromProvider(url, options) {
+export async function fetchFromProvider(url, options) {
   const response = await fetch(url, options)
   if (!response.ok) {
     const err = await response.text().catch(() => '')
@@ -196,7 +243,7 @@ const providers = {
 }
 
 export async function generateQuestions(topic, config = {}) {
-  const providerName = config.provider || 'gemini'
+  const providerName = config.provider || 'groq'
   const generator = providers[providerName]
 
   if (!generator) {
@@ -208,8 +255,43 @@ export async function generateQuestions(topic, config = {}) {
     throw new Error(`${providerName} API key not configured. Set ${providerName.toUpperCase()}_API_KEY in environment.`)
   }
 
-  const questions = await generator(topic, config)
+  let questions = await generator(topic, config)
+
+  // Coding questions return a single object, wrap in array
+  if (config.questionType === 'coding' && !Array.isArray(questions)) {
+    questions = [questions]
+  }
+
   return questions.map((q, i) => {
+    if (config.questionType === 'coding') {
+      const codingConfig = q.codingConfig || {}
+      return {
+        title: q.title || `Coding Question ${i + 1}`,
+        description: q.description || '',
+        questionType: 'coding',
+        difficulty: q.difficulty || config.difficulty || 'medium',
+        marks: q.marks || 1,
+        codingDetails: {
+          starterCodes: codingConfig.starterCodes || {},
+          testCases: (codingConfig.testCases || []).map((tc, j) => ({
+            input: tc.input || '',
+            output: tc.output || '',
+            isHidden: j > 1,
+            description: tc.explanation || '',
+          })),
+          hints: (codingConfig.hints || []).map(h => typeof h === 'string' ? { content: h } : h),
+          constraints: codingConfig.constraints || [],
+          topics: codingConfig.topics || [],
+          companies: codingConfig.companies || [],
+        },
+        isAiGenerated: true,
+        aiModel: providerName,
+        source: 'ai_generated',
+        status: 'draft',
+        options: [],
+      }
+    }
+
     const options = (q.options || []).map((opt, j) => {
       const key = opt.key || String.fromCharCode(65 + j)
       let isCorrect = opt.isCorrect
@@ -305,7 +387,7 @@ async function genericFetchGenerate(prompt, providerName) {
   return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
 }
 
-export async function generateInsights(analyticsData, scope = 'user', providerName = 'gemini') {
+export async function generateInsights(analyticsData, scope = 'user', providerName = 'groq') {
   const prompt = buildInsightsPrompt(analyticsData, scope)
 
   if (providerName === 'gemini') {

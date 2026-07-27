@@ -47,6 +47,7 @@ export async function updateUser(userId, data) {
   if (data.name) updates.name = data.name
   if (data.role) updates.role = data.role
   if (data.isActive !== undefined) updates.isActive = data.isActive
+  if (data.isApproved !== undefined) updates.isApproved = data.isApproved
   if (data.isEmailVerified !== undefined) updates.isEmailVerified = data.isEmailVerified
   if (data.avatar) updates.avatar = data.avatar
 
@@ -58,6 +59,13 @@ export async function updateUser(userId, data) {
       type: 'account_update',
       title: 'Role Updated',
       message: `Your role has been changed to "${data.role}" by an administrator.`,
+    })
+  }
+  if (data.isApproved !== undefined && data.isApproved !== existingUser.isApproved) {
+    await createNotification(userId, {
+      type: 'account_update',
+      title: data.isApproved ? 'Account Approved' : 'Approval Revoked',
+      message: data.isApproved ? 'Your setter account has been approved by an administrator. You can now create assessments.' : 'Your setter approval has been revoked by an administrator.',
     })
   }
   if (data.isActive !== undefined && data.isActive !== existingUser.isActive) {
@@ -79,15 +87,12 @@ export async function deleteUser(userId) {
 
 // ─── Role Management ────────────────────────────────────
 
-export const ROLES = ['guest', 'candidate', 'problem_setter', 'reviewer', 'admin', 'super_admin']
+export const ROLES = ['candidate', 'setter', 'admin']
 
 export const ROLE_PERMISSIONS = {
-  guest: ['view_assessments'],
   candidate: ['view_assessments', 'attempt_assessments', 'view_own_results', 'view_own_analytics', 'bookmark_questions'],
-  problem_setter: ['view_assessments', 'create_questions', 'edit_own_questions', 'view_own_questions', 'import_questions', 'generate_ai_questions'],
-  reviewer: ['view_assessments', 'view_all_questions', 'approve_questions', 'reject_questions', 'review_submissions'],
-  admin: ['view_assessments', 'create_assessments', 'edit_assessments', 'manage_questions', 'manage_users', 'view_analytics', 'manage_proctoring', 'export_reports'],
-  super_admin: ['*'],
+  setter: ['view_assessments', 'create_questions', 'edit_own_questions', 'view_own_questions', 'import_questions', 'generate_ai_questions'],
+  admin: ['view_assessments', 'create_assessments', 'edit_assessments', 'manage_questions', 'manage_users', 'view_analytics', 'manage_proctoring', 'export_reports', 'approve_questions', 'reject_questions'],
 }
 
 export function listRoles() {
@@ -110,7 +115,7 @@ const DEFAULT_SETTINGS = [
   { key: 'proctoring_face_detection', value: true, description: 'Enable webcam face detection', category: 'proctoring' },
   { key: 'proctoring_tab_switch_limit', value: 3, description: 'Tab switch violations before warning', category: 'proctoring' },
   { key: 'proctoring_auto_submit', value: true, description: 'Auto-submit assessment on critical violation', category: 'proctoring' },
-  { key: 'ai_provider', value: 'gemini', description: 'Default AI provider for generation', category: 'ai' },
+  { key: 'ai_provider', value: 'groq', description: 'Default AI provider for generation', category: 'ai' },
   { key: 'enable_registration', value: true, description: 'Allow new user registration', category: 'security' },
   { key: 'enable_email_verification', value: false, description: 'Require email verification', category: 'security' },
 ]

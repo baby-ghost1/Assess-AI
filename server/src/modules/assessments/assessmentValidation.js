@@ -4,6 +4,7 @@ const sectionSchema = z.object({
   title: z.string().min(1, 'Section title required'),
   description: z.string().optional().default(''),
   questions: z.array(z.string()).optional().default([]),
+  inlineQuestions: z.array(z.any()).optional().default([]),
   totalMarks: z.number().optional().default(0),
   timeLimit: z.number().positive().optional().nullable().default(null),
 })
@@ -25,10 +26,14 @@ export const createAssessmentSchema = z.object({
   negativeMarkingValue: z.number().min(0).default(0),
   partialMarking: z.boolean().default(false),
   proctoringRequired: z.boolean().default(false),
-  status: z.enum(['draft', 'published', 'archived']).default('draft'),
+  status: z.enum(['draft']).default('draft'),
 })
 
 export const updateAssessmentSchema = createAssessmentSchema.partial()
+
+export const adminUpdateAssessmentSchema = createAssessmentSchema.extend({
+  status: z.enum(['draft', 'published', 'archived']).optional(),
+}).partial()
 
 export const startAttemptSchema = z.object({
   assessmentId: z.string().min(1, 'Assessment ID required'),

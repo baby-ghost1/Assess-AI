@@ -31,7 +31,7 @@ const SHORTCUTS = [
   { keys: ['?'], desc: 'Show keyboard shortcuts' },
   { keys: ['D'], desc: 'Go to Dashboard' },
   { keys: ['A'], desc: 'Go to Analytics' },
-  { keys: ['Q'], desc: 'Go to Questions' },
+  { keys: ['Q'], desc: 'Go to Question Bank' },
   { keys: ['S'], desc: 'Go to Settings' },
   { keys: ['N'], desc: 'Toggle notifications' },
   { keys: ['T'], desc: 'Toggle theme' },
@@ -146,7 +146,7 @@ export default function Topbar() {
         case '?': e.preventDefault(); setShortcutsOpen((p) => !p); break
         case 'd': case 'D': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/dashboard') } break
         case 'a': case 'A': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/analytics') } break
-        case 'q': case 'Q': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/questions') } break
+        case 'q': case 'Q': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/question-bank') } break
         case 's': case 'S': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/settings') } break
         case 'n': case 'N': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setNotifOpen((p) => !p) } break
         case 't': case 'T': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); dispatch(toggleTheme()) } break

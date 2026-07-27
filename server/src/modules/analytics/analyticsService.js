@@ -125,6 +125,149 @@ export async function getAssessmentAnalytics(assessmentId) {
   }
 }
 
+// ─── Setter Analytics ───────────────────────────────────
+
+export async function getSetterAnalytics(userId) {
+  const [questions, assessments] = await Promise.all([
+    Question.find({ createdBy: userId }).select('title questionType difficulty status source createdAt').lean(),
+    Assessment.find({ createdBy: userId }).select('title status assessmentType createdAt').lean(),
+  ])
+
+  const questionStats = {
+    total: questions.length,
+    draft: questions.filter((q) => q.status === 'draft').length,
+    pending: questions.filter((q) => q.status === 'pending_review').length,
+    approved: questions.filter((q) => q.status === 'approved').length,
+    rejected: questions.filter((q) => q.status === 'rejected').length,
+  }
+
+  const byType = {}
+  const byDifficulty = {}
+  questions.forEach((q) => {
+    byType[q.questionType] = (byType[q.questionType] || 0) + 1
+    byDifficulty[q.difficulty] = (byDifficulty[q.difficulty] || 0) + 1
+  })
+
+  const assessmentStats = {
+    total: assessments.length,
+    draft: assessments.filter((a) => a.status === 'draft').length,
+    published: assessments.filter((a) => a.status === 'published').length,
+  }
+
+  const assessmentIds = assessments.map((a) => a._id)
+
+  let totalAttempts = 0
+  let totalScoreSum = 0
+  let passedCount = 0
+  let scoreDistribution = { '0-20': 0, '20-40': 0, '40-60': 0, '60-80': 0, '80-100': 0 }
+  let perAssessment = {}
+
+  assessments.forEach((a) => {
+    perAssessment[a._id.toString()] = { title: a.title, status: a.status, attempts: 0, passed: 0, totalScore: 0 }
+  })
+
+  if (assessmentIds.length > 0) {
+    const attempts = await Attempt.find({ assessment: { $in: assessmentIds }, status: 'completed' })
+      .populate('assessment', 'title')
+      .lean()
+
+    totalAttempts = attempts.length
+
+    attempts.forEach((a) => {
+      totalScoreSum += a.percentage || 0
+      if (a.passed) passedCount++
+
+      const pct = a.percentage || 0
+      if (pct < 20) scoreDistribution['0-20']++
+      else if (pct < 40) scoreDistribution['20-40']++
+      else if (pct < 60) scoreDistribution['40-60']++
+      else if (pct < 80) scoreDistribution['60-80']++
+      else scoreDistribution['80-100']++
+
+      const aId = a.assessment?._id?.toString()
+      if (aId && perAssessment[aId]) {
+        perAssessment[aId].attempts++
+        if (a.passed) perAssessment[aId].passed++
+        perAssessment[aId].totalScore += a.percentage || 0
+      }
+    })
+  }
+
+  const avgScore = totalAttempts > 0 ? Math.round((totalScoreSum / totalAttempts) * 100) / 100 : 0
+  const passRate = totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100 * 100) / 100 : 0
+
+  const assessmentPerformance = Object.values(perAssessment)
+    .map((a) => ({
+      title: a.title,
+      status: a.status,
+      attempts: a.attempts,
+      passed: a.passed,
+      avgScore: a.attempts > 0 ? Math.round(a.totalScore / a.attempts) : 0,
+      passRate: a.attempts > 0 ? Math.round((a.passed / a.attempts) * 100) : 0,
+    }))
+    .sort((a, b) => b.attempts - a.attempts)
+
+  const questionIds = questions.filter((q) => q.status === 'approved').map((q) => q._id)
+  let questionPerformance = []
+
+  if (questionIds.length > 0) {
+    const submissions = await Submission.find({ question: { $in: questionIds } })
+      .populate('question', 'title questionType difficulty')
+      .lean()
+
+    const qStats = {}
+    submissions.forEach((s) => {
+      if (!s.question) return
+      const qId = s.question._id.toString()
+      if (!qStats[qId]) {
+        qStats[qId] = { title: s.question.title, type: s.question.questionType, difficulty: s.question.difficulty, total: 0, correct: 0, skipped: 0, totalTime: 0 }
+      }
+      qStats[qId].total++
+      if (s.isCorrect) qStats[qId].correct++
+      else if (!s.isAnswered) qStats[qId].skipped++
+      qStats[qId].totalTime += s.timeSpent || 0
+    })
+
+    questionPerformance = Object.values(qStats).map((q) => ({
+      title: q.title,
+      type: q.type,
+      difficulty: q.difficulty,
+      total: q.total,
+      correct: q.total > 0 ? Math.round((q.correct / q.total) * 100) : 0,
+      skipped: q.total > 0 ? Math.round((q.skipped / q.total) * 100) : 0,
+      avgTime: q.total > 0 ? Math.round(q.totalTime / q.total) : 0,
+    })).sort((a, b) => b.total - a.total).slice(0, 20)
+  }
+
+  const recentAttempts = await Attempt.find({ assessment: { $in: assessmentIds } })
+    .populate('user', 'name email')
+    .populate('assessment', 'title')
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .lean()
+
+  return {
+    questions: questionStats,
+    questionTypes: byType,
+    questionDifficulty: byDifficulty,
+    assessments: assessmentStats,
+    totalAttempts,
+    avgScore,
+    passRate,
+    passedCount,
+    scoreDistribution,
+    assessmentPerformance,
+    questionPerformance,
+    recentAttempts: recentAttempts.map((a) => ({
+      user: a.user?.name || 'Unknown',
+      assessment: a.assessment?.title || 'Unknown',
+      score: a.percentage,
+      passed: a.passed,
+      date: a.createdAt,
+    })),
+  }
+}
+
 // ─── Admin Dashboard ────────────────────────────────────
 
 export async function getAdminAnalytics() {

@@ -41,8 +41,8 @@ export default function SetterRegisterPage() {
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }} className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-success to-emerald-600 shadow-lg">
               <UserPlus className="h-7 w-7 text-white" />
             </motion.div>
-            <h2 className="mt-5 text-2xl font-heading font-bold text-text-primary">Registration submitted!</h2>
-            <p className="mt-2 text-sm text-text-secondary">Your account is pending admin approval. You will be able to create assessments once approved.</p>
+            <h2 className="mt-5 text-2xl font-heading font-bold text-text-primary">Registration successful!</h2>
+            <p className="mt-2 text-sm text-text-secondary">Your setter account has been created. An admin will review and approve your account. Once approved, you will be able to create assessments.</p>
             <Link to="/login" className="mt-6 inline-block rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-all">Go to login</Link>
           </div>
         </motion.div>

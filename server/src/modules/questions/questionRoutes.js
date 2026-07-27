@@ -17,6 +17,7 @@ router.put('/:id', authorize('setter', 'admin'), validate(updateQuestionSchema),
 router.delete('/:id', authorize('admin'), questionController.deleteQuestion)
 
 router.post('/:id/submit-review', authorize('setter', 'admin'), questionController.submitForReview)
+router.post('/:id/withdraw-review', authorize('setter', 'admin'), questionController.withdrawFromReview)
 
 router.post('/:id/review', authorize('admin'), validate(z.object({
   status: z.enum(['approved', 'rejected']),

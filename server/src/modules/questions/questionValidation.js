@@ -3,6 +3,7 @@ import { z } from 'zod'
 const optionSchema = z.object({
   text: z.string().min(1, 'Option text required'),
   key: z.enum(['A', 'B', 'C', 'D', 'E', 'F']),
+  isCorrect: z.boolean().optional().default(false),
 })
 
 const codingTestCaseSchema = z.object({

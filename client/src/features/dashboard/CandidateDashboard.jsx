@@ -5,27 +5,7 @@ import { useAppSelector } from '@/hooks'
 import { Button } from '@/components/ui'
 import { Brain, Code2, BarChart3, CheckCircle, Loader2, Clock, Trophy, Zap, Flame, Target, Star, ArrowUpRight, ArrowDownRight, TrendingUp, BookOpen, ChevronRight, Sparkles, Award, AlertTriangle, Quote, Calendar } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-
-function AnimatedNumber({ value, duration = 1200, suffix = '' }) {
-  const [display, setDisplay] = useState(0)
-  const ref = useRef(null)
-  useEffect(() => {
-    const start = 0
-    const end = typeof value === 'number' ? value : parseFloat(value) || 0
-    if (end === 0) { setDisplay(0); return }
-    const startTime = performance.now()
-    function tick(now) {
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setDisplay(Math.round(start + (end - start) * eased))
-      if (progress < 1) ref.current = requestAnimationFrame(tick)
-    }
-    ref.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(ref.current)
-  }, [value, duration])
-  return <>{display}{suffix}</>
-}
+import AnimatedNumber from '@/lib/animatedNumber'
 
 function ProgressRing({ progress, size = 60, stroke = 5, color = '#4F46E5' }) {
   const radius = (size - stroke) / 2
@@ -170,13 +150,25 @@ export default function CandidateDashboard() {
   const { user } = useAppSelector((s) => s.auth)
   const navigate = useNavigate()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['candidate-dashboard'],
     queryFn: () => api.get('/dashboard/candidate').then((r) => r.data),
   })
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center max-w-sm">
+          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-3" />
+          <p className="text-text-primary font-medium">Failed to load dashboard</p>
+          <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
+        </div>
+      </div>
+    )
   }
 
   const d = data?.data

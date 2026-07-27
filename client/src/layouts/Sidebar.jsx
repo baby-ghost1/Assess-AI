@@ -3,22 +3,24 @@ import { LayoutDashboard, Brain, Sparkles, BarChart3, Trophy, Shield, Users, Set
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks'
+import { useQuery } from '@tanstack/react-query'
 import { logout } from '@/features/auth/authSlice'
+import api from '@/lib/api'
 
 const sidebarConfig = {
   admin: [
     { section: 'Main', items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/admin', icon: Shield, label: 'Admin Panel', end: true },
     ]},
-    { section: 'Management', items: [
-      { to: '/question-bank', icon: BookOpen, label: 'Question Bank' },
-      { to: '/question-bank/ai-generate', icon: Sparkles, label: 'AI Generate', badge: 'New' },
+    { section: 'Reviews', items: [
+      { to: '/admin/reviews', icon: ClipboardCheck, label: 'Review Queue' },
+    ]},
+    { section: 'Manage', items: [
       { to: '/assessments', icon: Brain, label: 'Assessments' },
-      { to: '/admin', icon: Shield, label: 'Admin Panel' },
       { to: '/users', icon: Users, label: 'Users' },
     ]},
     { section: 'Insights', items: [
-      { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+      { to: '/analytics', icon: BarChart3, label: 'Analytics', end: true },
       { to: '/analytics/admin', icon: Shield, label: 'Platform Analytics' },
       { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
     ]},
@@ -32,10 +34,8 @@ const sidebarConfig = {
     ]},
     { section: 'Create', items: [
       { to: '/question-bank', icon: BookOpen, label: 'Question Bank' },
-      { to: '/question-bank/ai-generate', icon: Sparkles, label: 'AI Generate', badge: 'New' },
-      { to: '/assessments', icon: Brain, label: 'Assessments' },
+      { to: '/assessments', icon: Brain, label: 'Assessments', end: true },
       { to: '/assessments/create', icon: FileEdit, label: 'Create Assessment' },
-      { to: '/question-bank/approval-queue', icon: ClipboardCheck, label: 'Approvals' },
     ]},
     { section: 'Insights', items: [
       { to: '/analytics', icon: BarChart3, label: 'Analytics' },
@@ -81,7 +81,47 @@ export default function Sidebar() {
   const location = useLocation()
   const user = useAppSelector((s) => s.auth.user)
   const role = user?.role || 'candidate'
-  const sections = sidebarConfig[role] || sidebarConfig.candidate
+
+  const { data: pendingAssessData } = useQuery({
+    queryKey: ['sidebar-pending-assessment-count'],
+    queryFn: () => api.get('/assessments/my?status=pending_approval&limit=1').then((r) => r.data),
+    enabled: role === 'setter',
+    refetchInterval: 60000,
+  })
+
+  const { data: adminPendingAssessData } = useQuery({
+    queryKey: ['sidebar-admin-pending-assessment-count'],
+    queryFn: () => api.get('/assessments/admin/pending').then((r) => r.data),
+    enabled: role === 'admin',
+    refetchInterval: 60000,
+  })
+
+  const pendingAssessCount = role === 'setter' ? (pendingAssessData?.meta?.total || 0) : 0
+  const adminPendingAssessCount = role === 'admin' ? (adminPendingAssessData?.data?.length || 0) : 0
+
+  const baseSections = sidebarConfig[role] || sidebarConfig.candidate
+  const sections = role === 'setter'
+    ? baseSections.map((s) => ({
+        ...s,
+        items: s.items.map((item) => {
+          if (item.to === '/assessments' && pendingAssessCount > 0) {
+            return { ...item, badge: String(pendingAssessCount) }
+          }
+          return item
+        }),
+      }))
+    : role === 'admin'
+    ? baseSections.map((s) => ({
+        ...s,
+        items: s.items.map((item) => {
+          if (item.to === '/admin/reviews' && adminPendingAssessCount > 0) {
+            return { ...item, badge: String(adminPendingAssessCount) }
+          }
+          return item
+        }),
+      }))
+    : baseSections
+
   const activeLabel = getActiveLabel(location.pathname, sections)
 
   useEffect(() => {
@@ -137,6 +177,7 @@ export default function Sidebar() {
                 <TooltipWrapper key={item.to} label={item.label} collapsed={collapsed}>
                   <NavLink
                     to={item.to}
+                    end={item.end}
                     className={({ isActive }) => cn(
                       'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
                       isActive
@@ -169,7 +210,9 @@ export default function Sidebar() {
                             {item.badge && (
                               <span className={cn(
                                 'text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none',
-                                item.badge === 'New' ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-500'
+                                item.badge === 'New' ? 'bg-primary/20 text-primary' :
+                                item.badge === 'Hot' ? 'bg-amber-500/20 text-amber-500' :
+                                'bg-danger/20 text-danger'
                               )}>{item.badge}</span>
                             )}
                           </>

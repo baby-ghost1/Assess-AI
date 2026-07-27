@@ -9,9 +9,7 @@ const ALLOWED_MIMES = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
   'text/plain': 'txt',
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/webp': 'webp',
+  'text/markdown': 'md',
 }
 
 const storage = multer.memoryStorage()

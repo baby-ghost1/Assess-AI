@@ -67,7 +67,7 @@ export default function QuizAttemptPage() {
             clearInterval(timerRef.current)
             if (timerType === 'per_question') {
               if (currentIdx < submissions.length - 1) {
-                handleNavigate(currentIdx + 1)
+                handleNavigateRef.current(currentIdx + 1)
               } else {
                 setShowSubmitDialog(true)
               }
@@ -155,6 +155,9 @@ export default function QuizAttemptPage() {
       navigateMut.mutate({ idx })
     }
   }, [attempt, submissions.length, navigateMut])
+
+  const handleNavigateRef = useRef(handleNavigate)
+  handleNavigateRef.current = handleNavigate
 
   const updateSubmission = (qId, updates) => {
     setSubmissions((prev) =>

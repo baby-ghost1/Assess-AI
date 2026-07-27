@@ -16,5 +16,6 @@ router.get('/report', analyticsController.downloadReport)
 router.get('/report/admin', authorize('admin'), analyticsController.downloadReport)
 router.get('/leaderboard', analyticsController.getLeaderboard)
 router.get('/admin', authorize('admin'), analyticsController.getAdminAnalytics)
+router.get('/setter', authorize('setter', 'admin'), analyticsController.getSetterAnalytics)
 
 export default router

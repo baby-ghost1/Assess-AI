@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle, XCircle, Terminal, Clock, Cpu, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Terminal, Clock, Cpu, Loader2, AlertTriangle } from 'lucide-react'
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -13,7 +13,7 @@ function formatMs(ms) {
   return `${(ms / 1000).toFixed(2)}s`
 }
 
-export default function TestResultsPanel({ results, running, consoleOutput }) {
+export default function TestResultsPanel({ results, running, consoleOutput, error }) {
   const [tab, setTab] = useState('testcase')
   const [activeCase, setActiveCase] = useState(0)
   const current = results?.[activeCase]
@@ -51,6 +51,11 @@ export default function TestResultsPanel({ results, running, consoleOutput }) {
           <div className="flex flex-col items-center justify-center h-full gap-3 text-text-secondary">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <span className="text-sm">Running test cases...</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 p-4">
+            <AlertTriangle className="h-8 w-8 text-danger" />
+            <p className="text-sm text-danger text-center">{error}</p>
           </div>
         ) : tab === 'testcase' ? (
           <div className="flex flex-col h-full">

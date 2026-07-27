@@ -9,7 +9,7 @@ const TABS = [
   { id: 'coding', label: 'Coding', icon: Code2 },
 ]
 
-function PodiumCard({ entry, rank }) {
+function PodiumCard({ entry, rank, suffix = '%' }) {
   const medals = { 1: { icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-400/10', ring: 'ring-yellow-400/30', label: 'Gold' }, 2: { icon: Medal, color: 'text-gray-300', bg: 'bg-gray-300/10', ring: 'ring-gray-300/30', label: 'Silver' }, 3: { icon: Award, color: 'text-amber-600', bg: 'bg-amber-600/10', ring: 'ring-amber-600/30', label: 'Bronze' } }
   const m = medals[rank]
   const Icon = m.icon
@@ -20,13 +20,13 @@ function PodiumCard({ entry, rank }) {
         <Icon className={`h-7 w-7 ${m.color}`} />
       </div>
       <p className="text-sm font-semibold text-text-primary text-center truncate w-full">{entry.name}</p>
-      <p className="text-2xl font-heading font-bold text-text-primary mt-1">{entry.score}%</p>
+      <p className="text-2xl font-heading font-bold text-text-primary mt-1">{entry.score}{suffix}</p>
       <p className="text-xs text-text-secondary mt-0.5">{entry.detail}</p>
     </div>
   )
 }
 
-function RankCard({ rank, entry, isCurrentUser }) {
+function RankCard({ rank, entry, isCurrentUser, suffix = '%' }) {
   return (
     <div className={`flex items-center gap-4 rounded-xl border bg-bg-card p-4 transition-all duration-200 hover:shadow-md ${isCurrentUser ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : 'border-border'}`}>
       <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold ${
@@ -45,7 +45,7 @@ function RankCard({ rank, entry, isCurrentUser }) {
         <p className="text-xs text-text-secondary">{entry.detail}</p>
       </div>
       <div className="text-right shrink-0">
-        <p className="text-lg font-heading font-bold text-text-primary">{entry.score}%</p>
+        <p className="text-lg font-heading font-bold text-text-primary">{entry.score}{suffix}</p>
         <p className="text-xs text-text-secondary">{entry.sub}</p>
       </div>
     </div>
@@ -117,6 +117,8 @@ export default function LeaderboardPage() {
 
   const currentUserId = user?._id
 
+  const isCount = tab === 'coding'
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-6">
       {/* Gradient Header */}
@@ -178,7 +180,7 @@ export default function LeaderboardPage() {
           {podium.length > 0 && (
             <div className={`grid gap-4 ${podium.length >= 3 ? 'grid-cols-3' : podium.length === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-xs mx-auto'}`}>
               {podium.map((e, i) => (
-                <PodiumCard key={e.id || i} entry={e} rank={i + 1} />
+                <PodiumCard key={e.id || i} entry={e} rank={i + 1} suffix={isCount ? '' : '%'} />
               ))}
             </div>
           )}
@@ -192,6 +194,7 @@ export default function LeaderboardPage() {
                   rank={i + 4}
                   entry={e}
                   isCurrentUser={e.id === currentUserId}
+                  suffix={isCount ? '' : '%'}
                 />
               ))}
             </div>

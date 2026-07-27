@@ -79,117 +79,122 @@ export default function ProblemLeft({ problem, submissions, onToggleBookmark, is
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {tab === 'description' && (
-          <div className="p-5 space-y-5 max-w-2xl">
-            {/* Title */}
-            <h1 className="text-xl font-bold text-text-primary leading-snug">{problem.title}</h1>
+          <div className="flex flex-col h-full">
+            <div className="p-5 space-y-5 max-w-2xl flex-1">
+              {/* Title */}
+              <h1 className="text-xl font-bold text-text-primary leading-snug">{problem.title}</h1>
 
-            {/* Tags */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${DIFFICULTY_COLORS[problem.difficulty] || 'text-text-secondary bg-bg-tertiary border-border'}`}>
-                {problem.difficulty?.charAt(0).toUpperCase() + problem.difficulty?.slice(1)}
-              </span>
-              <button onClick={() => setShowTopics(!showTopics)}
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors">
-                <Code className="h-3 w-3" /> Topics {showTopics ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-              <button onClick={() => setShowCompanies(!showCompanies)}
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors">
-                <Users className="h-3 w-3" /> Companies {showCompanies ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-              {hints.length > 0 && (
-                <button onClick={() => onUseHint(hintsUsed)}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors relative">
-                  <Lightbulb className="h-3 w-3" /> Hint {hintsUsed > 0 && `(${hintsUsed}/${hints.length})`}
-                  {hintsUsed < hints.length && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-400" />}
+              {/* Tags */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${DIFFICULTY_COLORS[problem.difficulty] || 'text-text-secondary bg-bg-tertiary border-border'}`}>
+                  {problem.difficulty?.charAt(0).toUpperCase() + problem.difficulty?.slice(1)}
+                </span>
+                <button onClick={() => setShowTopics(!showTopics)}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors">
+                  <Code className="h-3 w-3" /> Topics {showTopics ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
+                <button onClick={() => setShowCompanies(!showCompanies)}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors">
+                  <Users className="h-3 w-3" /> Companies {showCompanies ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+                {hints.length > 0 && (
+                  <button onClick={() => onUseHint(hintsUsed)}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors relative">
+                    <Lightbulb className="h-3 w-3" /> Hint {hintsUsed > 0 && `(${hintsUsed}/${hints.length})`}
+                    {hintsUsed < hints.length && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-400" />}
+                  </button>
+                )}
+              </div>
+
+              {/* Topics dropdown */}
+              {showTopics && topics.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 -mt-2">
+                  {topics.map((t, i) => (
+                    <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{t}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Companies dropdown */}
+              {showCompanies && companies.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 -mt-2">
+                  {companies.map((c, i) => (
+                    <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">{c}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Revealed hints */}
+              {hintsUsed > 0 && (
+                <div className="space-y-2">
+                  {hints.slice(0, hintsUsed).map((hint, i) => (
+                    <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="text-xs font-medium text-amber-500">Hint {i + 1}</span>
+                      </div>
+                      <p className="text-sm text-text-secondary leading-relaxed">{hint.content || hint}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="text-sm text-text-primary leading-relaxed font-sans" dangerouslySetInnerHTML={{ __html: problem.description }} />
+
+              {/* Examples */}
+              {problem.codingDetails?.testCases?.filter(tc => !tc.isHidden).map((tc, i) => (
+                <div key={i} className="space-y-2">
+                  <p className="text-sm font-bold text-text-primary">Example {i + 1}:</p>
+                  <div className="rounded-lg bg-bg-tertiary/50 p-3 font-mono text-sm space-y-0.5">
+                    <p><span className="font-bold text-text-primary">Input:</span> <span className="text-text-secondary">{tc.input || '(no input)'}</span></p>
+                    <p><span className="font-bold text-text-primary">Output:</span> <span className="text-text-secondary">{tc.output}</span></p>
+                    {tc.description && <p><span className="font-bold text-text-primary">Explanation:</span> <span className="text-text-secondary">{tc.description}</span></p>}
+                  </div>
+                </div>
+              ))}
+
+              {problem.codingDetails?.testCases?.filter(tc => tc.isHidden).length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-text-tertiary py-2">
+                  <Lock className="h-3 w-3" />
+                  <span>{problem.codingDetails.testCases.filter(tc => tc.isHidden).length} hidden test case(s) — not shown</span>
+                </div>
+              )}
+
+              {/* Constraints */}
+              {constraints.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-sm font-bold text-text-primary">Constraints:</p>
+                  <ul className="space-y-0.5 ml-4">
+                    {constraints.map((c, i) => (
+                      <li key={i} className="text-sm text-text-secondary list-disc">{c}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
 
-            {/* Topics dropdown */}
-            {showTopics && topics.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 -mt-2">
-                {topics.map((t, i) => (
-                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{t}</span>
-                ))}
+            {/* Footer - always at bottom */}
+            <div className="border-t border-border px-5 py-3 space-y-3 shrink-0">
+              {/* Seen in Interview */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-text-secondary">Seen this question in a real interview before?</span>
+                <button onClick={() => setSeenInInterview(true)}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${seenInInterview === true ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 font-medium' : 'border-border text-text-secondary hover:bg-bg-tertiary'}`}>
+                  Yes
+                </button>
+                <button onClick={() => setSeenInInterview(false)}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${seenInInterview === false ? 'bg-red-500/10 border-red-500/30 text-red-500 font-medium' : 'border-border text-text-secondary hover:bg-bg-tertiary'}`}>
+                  No
+                </button>
               </div>
-            )}
 
-            {/* Companies dropdown */}
-            {showCompanies && companies.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 -mt-2">
-                {companies.map((c, i) => (
-                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">{c}</span>
-                ))}
-              </div>
-            )}
-
-            {/* Revealed hints */}
-            {hintsUsed > 0 && (
-              <div className="space-y-2">
-                {hints.slice(0, hintsUsed).map((hint, i) => (
-                  <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-xs font-medium text-amber-500">Hint {i + 1}</span>
-                    </div>
-                    <p className="text-sm text-text-secondary leading-relaxed">{hint}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Description */}
-            <div className="text-sm text-text-primary leading-relaxed font-sans" dangerouslySetInnerHTML={{ __html: problem.description }} />
-
-            {/* Examples */}
-            {problem.codingDetails?.testCases?.filter(tc => !tc.isHidden).map((tc, i) => (
-              <div key={i} className="space-y-2">
-                <p className="text-sm font-bold text-text-primary">Example {i + 1}:</p>
-                <div className="rounded-lg bg-bg-tertiary/50 p-3 font-mono text-sm space-y-0.5">
-                  <p><span className="font-bold text-text-primary">Input:</span> <span className="text-text-secondary">{tc.input || '(no input)'}</span></p>
-                  <p><span className="font-bold text-text-primary">Output:</span> <span className="text-text-secondary">{tc.output}</span></p>
-                  {tc.description && <p><span className="font-bold text-text-primary">Explanation:</span> <span className="text-text-secondary">{tc.description}</span></p>}
-                </div>
-              </div>
-            ))}
-
-            {problem.codingDetails?.testCases?.filter(tc => tc.isHidden).length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-text-tertiary py-2">
-                <Lock className="h-3 w-3" />
-                <span>{problem.codingDetails.testCases.filter(tc => tc.isHidden).length} hidden test case(s) — not shown</span>
-              </div>
-            )}
-
-            {/* Constraints */}
-            {constraints.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-sm font-bold text-text-primary">Constraints:</p>
-                <ul className="space-y-0.5 ml-4">
-                  {constraints.map((c, i) => (
-                    <li key={i} className="text-sm text-text-secondary list-disc">{c}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Seen in Interview */}
-            <div className="flex items-center gap-3 py-3 border-t border-border">
-              <span className="text-xs text-text-secondary">Seen this question in a real interview before?</span>
-              <button onClick={() => setSeenInInterview(true)}
-                className={`text-xs px-3 py-1 rounded-full border transition-colors ${seenInInterview === true ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 font-medium' : 'border-border text-text-secondary hover:bg-bg-tertiary'}`}>
-                Yes
-              </button>
-              <button onClick={() => setSeenInInterview(false)}
-                className={`text-xs px-3 py-1 rounded-full border transition-colors ${seenInInterview === false ? 'bg-red-500/10 border-red-500/30 text-red-500 font-medium' : 'border-border text-text-secondary hover:bg-bg-tertiary'}`}>
-                No
+              {/* Discussion link */}
+              <button onClick={() => onTabChange('discussion')} className="flex items-center gap-2 hover:text-primary transition-colors">
+                <MessageSquare className="h-3.5 w-3.5 text-text-tertiary" />
+                <span className="text-xs text-text-tertiary">{discussionCount + (comments?.length || 0)} discussions</span>
               </button>
             </div>
-
-            {/* Discussion link */}
-            <button onClick={() => onTabChange('discussion')} className="flex items-center gap-2 pt-2 border-t border-border hover:text-primary transition-colors">
-              <MessageSquare className="h-3.5 w-3.5 text-text-tertiary" />
-              <span className="text-xs text-text-tertiary">{discussionCount + (comments?.length || 0)} discussions</span>
-            </button>
           </div>
         )}
 

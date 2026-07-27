@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Plus, Brain, Code2, Play, Clock, BarChart3, AlertCircle } from 'lucide-react'
+import { Plus, Brain, Code2, Clock, BarChart3, AlertCircle, CheckCircle, Send, FileEdit, XCircle, Eye, Loader2, Trash2 } from 'lucide-react'
 import { useAppSelector } from '@/hooks'
 
 function CardSkeleton() {
@@ -25,32 +25,364 @@ function CardSkeleton() {
   )
 }
 
+const statusConfig = {
+  draft: { color: 'bg-text-tertiary/10 text-text-tertiary', label: 'Draft', icon: FileEdit },
+  pending_approval: { color: 'bg-warning/10 text-warning', label: 'Pending', icon: Clock },
+  approved: { color: 'bg-success/10 text-success', label: 'Approved', icon: CheckCircle },
+  published: { color: 'bg-success/10 text-success', label: 'Published', icon: CheckCircle },
+  rejected: { color: 'bg-danger/10 text-danger', label: 'Rejected', icon: XCircle },
+}
+
+const formatTime = (min) => {
+  if (!min) return 'No limit'
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m ? `${h}h ${m}m` : `${h}h`
+}
+
+const getQuestionCount = (a) => a.sections?.reduce((acc, s) => acc + (s.questions?.length || 0), 0) || 0
+
+function AdminStatusBadge({ status }) {
+  const cfg = statusConfig[status] || statusConfig.draft
+  const Icon = cfg.icon
+  return (
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
+      <Icon className="h-3 w-3 inline mr-1" />{cfg.label}
+    </span>
+  )
+}
+
+function AdminAssessmentCard({ a, onAction }) {
+  const qCount = getQuestionCount(a)
+  const [showReject, setShowReject] = useState(false)
+  const [reason, setReason] = useState('')
+
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5 hover:shadow-lg transition-all duration-200 group">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`p-2 rounded-lg ${a.assessmentType === 'coding' ? 'bg-pink-500/10' : a.assessmentType === 'mixed' ? 'bg-purple-500/10' : 'bg-primary/10'}`}>
+          {a.assessmentType === 'coding' ? <Code2 className="h-4 w-4 text-pink-400" /> : <Brain className="h-4 w-4 text-primary" />}
+        </div>
+        <AdminStatusBadge status={a.status} />
+        {a.status === 'draft' && a.rejectionReason && (
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-danger/10 text-danger">
+            <XCircle className="h-3 w-3 inline mr-1" />Rejected
+          </span>
+        )}
+        <span className="text-xs text-text-tertiary capitalize bg-bg-tertiary px-2 py-0.5 rounded">{a.difficulty}</span>
+      </div>
+
+      <h3 className="text-sm font-semibold text-text-primary mb-1 group-hover:text-primary transition-colors">{a.title}</h3>
+      {a.description && <p className="text-xs text-text-secondary mb-3 line-clamp-2">{a.description}</p>}
+
+      {a.createdBy && (
+        <p className="text-xs text-text-tertiary mb-3">
+          Created by <span className="font-medium text-text-secondary">{a.createdBy.name}</span> ({a.createdBy.email})
+        </p>
+      )}
+
+      {a.status === 'draft' && a.rejectionReason && (
+        <div className="rounded-lg bg-danger/5 border border-danger/10 px-3 py-2 mb-3">
+          <p className="text-[11px] text-danger font-medium">Rejection Reason</p>
+          <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">{a.rejectionReason}</p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 text-xs text-text-tertiary mb-4">
+        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatTime(a.timeLimit)}</span>
+        <span className="flex items-center gap-1"><BarChart3 className="h-3.5 w-3.5" /> {a.passingPercentage}% pass</span>
+        {qCount > 0 && <span>{qCount} questions</span>}
+      </div>
+
+      <div className="flex gap-2">
+        {a.status === 'pending_approval' && (
+          <>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => onAction('review', a._id)}>
+              <Eye className="h-4 w-4" /> Review
+            </Button>
+            <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => onAction('approve', a._id)}>
+              <CheckCircle className="h-4 w-4" /> Approve
+            </Button>
+            <Button size="sm" variant="danger" className="flex-1" onClick={() => setShowReject(true)}>
+              <XCircle className="h-4 w-4" /> Reject
+            </Button>
+          </>
+        )}
+        {a.status === 'published' && (
+          <>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => onAction('view', a._id)}>
+              <Eye className="h-4 w-4" /> View
+            </Button>
+            <Button size="sm" variant="danger" className="flex-1" onClick={() => onAction('delete', a._id)}>
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </>
+        )}
+        {a.status === 'draft' && !a.rejectionReason && (
+          <>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => onAction('view', a._id)}>
+              <Eye className="h-4 w-4" /> View
+            </Button>
+            <Button size="sm" variant="danger" className="flex-1" onClick={() => onAction('delete', a._id)}>
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </>
+        )}
+        {a.status === 'draft' && a.rejectionReason && (
+          <>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => onAction('view', a._id)}>
+              <Eye className="h-4 w-4" /> View
+            </Button>
+            <Button size="sm" variant="danger" className="flex-1" onClick={() => onAction('delete', a._id)}>
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </>
+        )}
+      </div>
+
+      {showReject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl border border-border bg-bg-card p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">Reject Assessment</h3>
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)}
+              className="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary mb-4 h-24 resize-none"
+              placeholder="Reason for rejection (optional)" />
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => { setShowReject(false); setReason('') }}>Cancel</Button>
+              <Button variant="danger" onClick={() => { onAction('reject', a._id, reason); setShowReject(false); setReason('') }}>
+                Reject
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SetterAssessmentCard({ a, onAction }) {
+  const isRejected = a.status === 'draft' && a.rejectionReason
+  const cfg = isRejected ? statusConfig.rejected : (statusConfig[a.status] || statusConfig.draft)
+  const Icon = cfg.icon
+  const qCount = a.sections?.reduce((acc, s) => acc + (s.questions?.length || 0), 0) || 0
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    try {
+      await api.post(`/assessments/${a._id}/submit-approval`)
+      onAction('refresh')
+    } catch (e) {
+      // error handled by UI
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5 hover:shadow-lg transition-all duration-200 group">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`p-2 rounded-lg ${a.assessmentType === 'coding' ? 'bg-pink-500/10' : a.assessmentType === 'mixed' ? 'bg-purple-500/10' : 'bg-primary/10'}`}>
+          {a.assessmentType === 'coding' ? <Code2 className="h-4 w-4 text-pink-400" /> : <Brain className="h-4 w-4 text-primary" />}
+        </div>
+        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
+          <Icon className="h-3 w-3 inline mr-1" />{cfg.label}
+        </span>
+        <span className="text-xs text-text-tertiary capitalize bg-bg-tertiary px-2 py-0.5 rounded">{a.difficulty}</span>
+      </div>
+
+      <h3 className="text-sm font-semibold text-text-primary mb-1 group-hover:text-primary transition-colors">{a.title}</h3>
+      {a.description && <p className="text-xs text-text-secondary mb-3 line-clamp-2">{a.description}</p>}
+
+      {isRejected && (
+        <div className="rounded-lg bg-danger/5 border border-danger/10 px-3 py-2 mb-3">
+          <p className="text-[11px] text-danger font-medium">Rejection Reason</p>
+          <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">{a.rejectionReason}</p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 text-xs text-text-tertiary mb-4">
+        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {a.timeLimit ? `${Math.round(a.timeLimit / 60)} min` : 'No limit'}</span>
+        <span className="flex items-center gap-1"><BarChart3 className="h-3.5 w-3.5" /> {a.passingPercentage}% pass</span>
+        <span>{qCount} questions</span>
+      </div>
+
+      <div className="flex gap-2">
+        <Button size="sm" variant="secondary" className="flex-1" onClick={() => onAction('view', a._id)}>
+          <Eye className="h-4 w-4" /> View
+        </Button>
+        {a.status === 'draft' && (
+          <>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => onAction('edit', a._id)}>
+              <FileEdit className="h-4 w-4" /> Edit
+            </Button>
+            <Button size="sm" className="flex-1" onClick={handleSubmit} disabled={submitting || qCount === 0}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {submitting ? '...' : 'Submit'}
+            </Button>
+          </>
+        )}
+        {a.status === 'pending_approval' && (
+          <Button size="sm" variant="secondary" className="flex-1" disabled>
+            <Clock className="h-4 w-4" /> Awaiting Approval
+          </Button>
+        )}
+        {a.status === 'published' && (
+          <Button size="sm" className="flex-1" onClick={() => onAction('attempt', a._id)}>
+            <Eye className="h-4 w-4" /> Open
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CandidateCard({ a, navigate }) {
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5 hover:shadow-lg transition-all duration-200 group">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`p-2 rounded-lg ${a.assessmentType === 'coding' ? 'bg-pink-500/10' : a.assessmentType === 'mixed' ? 'bg-purple-500/10' : 'bg-primary/10'}`}>
+          {a.assessmentType === 'coding' ? <Code2 className="h-4 w-4 text-pink-400" /> : <Brain className="h-4 w-4 text-primary" />}
+        </div>
+        <span className="text-xs font-medium text-text-secondary capitalize bg-bg-tertiary px-2 py-0.5 rounded">{a.difficulty}</span>
+      </div>
+      <h3 className="text-sm font-semibold text-text-primary mb-1 group-hover:text-primary transition-colors">{a.title}</h3>
+      {a.description && <p className="text-xs text-text-secondary mb-3 line-clamp-2">{a.description}</p>}
+      <div className="flex items-center gap-3 text-xs text-text-tertiary mb-4">
+        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {a.timeLimit ? `${Math.round(a.timeLimit / 60)} min` : 'No limit'}</span>
+        <span className="flex items-center gap-1"><BarChart3 className="h-3.5 w-3.5" /> {a.passingPercentage}% pass</span>
+        <span>{a.sections?.reduce((acc, s) => acc + (s.questions?.length || 0), 0)} questions</span>
+      </div>
+      <Button size="sm" className="w-full" onClick={() => navigate(`/assessments/${a._id}`)}>
+        <Eye className="h-4 w-4" /> Start Assessment
+      </Button>
+    </div>
+  )
+}
+
 export default function AssessmentsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useAppSelector((s) => s.auth)
-  const [filter, setFilter] = useState('')
+  const isSetter = user?.role === 'setter' || user?.role === 'admin'
+  const isAdmin = user?.role === 'admin'
+  const [activeTab, setActiveTab] = useState('all')
+  const [deleteId, setDeleteId] = useState(null)
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['assessments', filter],
-    queryFn: () => api.get(`/assessments?status=published${filter ? `&assessmentType=${filter}` : ''}`).then((r) => r.data),
+  const setterTabs = [
+    { key: 'all', label: 'All' },
+    { key: 'draft', label: 'Drafts' },
+    { key: 'pending_approval', label: 'Pending' },
+    { key: 'published', label: 'Published' },
+  ]
+
+  const adminTabs = [
+    { key: 'all', label: 'All' },
+    { key: 'pending_approval', label: 'Pending Approval' },
+    { key: 'published', label: 'Published' },
+    { key: 'rejected', label: 'Rejected' },
+  ]
+
+  const { data: myData, isLoading: myLoading, refetch: refetchMy } = useQuery({
+    queryKey: ['setter-assessments', activeTab],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (activeTab !== 'all') params.set('status', activeTab)
+      return api.get(`/assessments/my?${params}`).then((r) => r.data)
+    },
+    enabled: isSetter && !isAdmin,
   })
 
-  const assessments = data?.data || []
+  const { data: pendingData, isLoading: pendingLoading } = useQuery({
+    queryKey: ['admin-pending-assessments'],
+    queryFn: () => api.get('/assessments/admin/pending').then((r) => r.data),
+    enabled: isAdmin && activeTab === 'pending_approval',
+    refetchOnWindowFocus: true,
+  })
+
+  const { data: allData, isLoading: allLoading } = useQuery({
+    queryKey: ['admin-assessments', activeTab],
+    queryFn: () => {
+      if (activeTab === 'all') return api.get('/assessments').then((r) => r.data)
+      if (activeTab === 'rejected') return api.get('/assessments').then((r) => r.data)
+      return api.get(`/assessments?status=${activeTab}`).then((r) => r.data)
+    },
+    enabled: isAdmin && activeTab !== 'pending_approval',
+    refetchOnWindowFocus: true,
+  })
+
+  const { data: publishedData, isLoading: pubLoading } = useQuery({
+    queryKey: ['assessments-published'],
+    queryFn: () => api.get('/assessments?status=published').then((r) => r.data),
+    enabled: !isSetter,
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => api.post(`/assessments/${id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }) => api.post(`/assessments/${id}/reject`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/assessments/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
+      queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
+      setDeleteId(null)
+    },
+  })
+
+  let isLoading, assessments
+  if (isAdmin) {
+    if (activeTab === 'pending_approval') {
+      isLoading = pendingLoading
+      assessments = pendingData?.data || []
+    } else {
+      isLoading = allLoading
+      const all = allData?.data?.assessments || allData?.data || []
+      assessments = activeTab === 'rejected'
+        ? all.filter((a) => a.status === 'draft' && a.rejectionReason)
+        : all
+    }
+  } else {
+    isLoading = isSetter ? myLoading : pubLoading
+    assessments = isSetter ? (myData?.data?.assessments || myData?.data || []) : (publishedData?.data || [])
+  }
+
+  const handleAction = (action, id, extra) => {
+    if (action === 'edit') navigate(`/assessments/${id}/edit`)
+    else if (action === 'view') navigate(`/assessments/${id}/preview`)
+    else if (action === 'review') navigate(`/admin/reviews/${id}`)
+    else if (action === 'attempt') navigate(`/assessments/${id}`)
+    else if (action === 'approve') approveMutation.mutate(id)
+    else if (action === 'reject') rejectMutation.mutate({ id, reason: extra })
+    else if (action === 'delete') setDeleteId(id)
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold text-text-primary">Assessments</h2>
-          <p className="mt-1 text-sm text-text-secondary">Browse and attempt assessments</p>
+          <h2 className="text-2xl font-heading font-bold text-text-primary">
+            {isAdmin ? 'Assessment Pipeline' : isSetter ? 'My Assessments' : 'Assessments'}
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            {isAdmin ? 'Review and manage submitted assessments' : isSetter ? 'Manage your assessments' : 'Browse and attempt assessments'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {['candidate'].includes(user?.role) && (
-            <Button variant="secondary" onClick={() => navigate('/assessments/my-attempts')}>
-              <Clock className="h-4 w-4" /> My Attempts
-            </Button>
-          )}
-          {['problem_setter', 'admin', 'super_admin'].includes(user?.role) && (
+          {isSetter && !isAdmin && (
             <Button onClick={() => navigate('/assessments/create')}>
               <Plus className="h-4 w-4" /> New Assessment
             </Button>
@@ -58,19 +390,25 @@ export default function AssessmentsPage() {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {['', 'quiz', 'coding', 'mixed'].map((t) => (
-          <button key={t} onClick={() => setFilter(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === t ? 'bg-primary text-white' : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated'}`}>
-            {t ? t.charAt(0).toUpperCase() + t.slice(1) : 'All'}
-          </button>
-        ))}
-      </div>
+      {isAdmin && (
+        <div className="flex gap-2">
+          {adminTabs.map((t) => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === t.key ? 'bg-primary text-white' : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {error && (
-        <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-danger shrink-0" />
-          <p className="text-sm text-danger">{error?.response?.data?.message || 'Failed to load assessments'}</p>
+      {isSetter && !isAdmin && (
+        <div className="flex gap-2">
+          {setterTabs.map((t) => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === t.key ? 'bg-primary text-white' : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated'}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -81,33 +419,41 @@ export default function AssessmentsPage() {
       ) : assessments.length === 0 ? (
         <div className="rounded-xl border border-border bg-bg-card py-16 text-center">
           <Brain className="h-12 w-12 text-text-tertiary mx-auto mb-4" />
-          <p className="text-text-secondary text-sm">No assessments available</p>
+          <p className="text-text-secondary text-sm">
+            {isAdmin ? 'No assessments found for this filter' : isSetter ? 'No assessments yet. Create your first assessment!' : 'No assessments available'}
+          </p>
+          {isSetter && !isAdmin && (
+            <Button className="mt-4" onClick={() => navigate('/assessments/create')}>
+              <Plus className="h-4 w-4" /> Create Assessment
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assessments.map((a) => (
-            <div key={a._id} className="rounded-xl border border-border bg-bg-card p-5 hover:shadow-lg transition-all duration-200 group">
-              <div className="flex items-center gap-2 mb-3">
-                <div className={`p-2 rounded-lg ${a.assessmentType === 'coding' ? 'bg-pink-500/10' : a.assessmentType === 'mixed' ? 'bg-purple-500/10' : 'bg-primary/10'}`}>
-                  {a.assessmentType === 'coding' ? <Code2 className="h-4 w-4 text-pink-400" /> : <Brain className="h-4 w-4 text-primary" />}
-                </div>
-                <span className="text-xs font-medium text-text-secondary capitalize bg-bg-tertiary px-2 py-0.5 rounded">{a.difficulty}</span>
-              </div>
+            isAdmin ? (
+              <AdminAssessmentCard key={a._id} a={a} onAction={handleAction} />
+            ) : isSetter ? (
+              <SetterAssessmentCard key={a._id} a={a} onAction={handleAction} />
+            ) : (
+              <CandidateCard key={a._id} a={a} navigate={navigate} />
+            )
+          ))}
+        </div>
+      )}
 
-              <h3 className="text-sm font-semibold text-text-primary mb-1 group-hover:text-primary transition-colors">{a.title}</h3>
-              {a.description && <p className="text-xs text-text-secondary mb-3 line-clamp-2">{a.description}</p>}
-
-              <div className="flex items-center gap-3 text-xs text-text-tertiary mb-4">
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {a.timeLimit ? `${Math.round(a.timeLimit / 60)} min` : 'No limit'}</span>
-                <span className="flex items-center gap-1"><BarChart3 className="h-3.5 w-3.5" /> {a.passingPercentage}% pass</span>
-                <span>{a.sections?.reduce((acc, s) => acc + (s.questions?.length || 0), 0)} questions</span>
-              </div>
-
-              <Button size="sm" className="w-full" onClick={() => navigate(`/assessments/${a._id}`)}>
-                <Play className="h-4 w-4" /> Start Assessment
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-xl border border-border bg-bg-card p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">Delete Assessment</h3>
+            <p className="text-sm text-text-secondary mb-6">Are you sure you want to delete this assessment? All attempts and submissions will also be deleted. This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setDeleteId(null)} disabled={deleteMutation.isPending}>Cancel</Button>
+              <Button variant="danger" onClick={() => deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
-          ))}
+          </div>
         </div>
       )}
     </div>

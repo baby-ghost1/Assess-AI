@@ -38,6 +38,15 @@ const assessmentSchema = new mongoose.Schema({
     enum: ['draft', 'pending_approval', 'approved', 'published', 'archived'],
     default: 'draft',
   },
+  rejectionReason: { type: String, default: '' },
+  questionStatus: {
+    type: Map,
+    of: {
+      type: String,
+      enum: ['pending_review', 'approved', 'rejected'],
+    },
+    default: {},
+  },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   totalAttempts: { type: Number, default: 0 },

@@ -12,7 +12,7 @@ export default function AIGeneratePage() {
     count: 5,
     difficulty: 'medium',
     questionType: 'single_correct',
-    provider: 'gemini',
+    provider: 'groq',
     language: 'English',
   })
 

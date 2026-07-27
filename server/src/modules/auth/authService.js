@@ -108,3 +108,39 @@ export async function changePassword(userId, { oldPassword, newPassword }) {
 
   return { message: 'Password changed successfully' }
 }
+
+export async function updateProfile(userId, updates) {
+  const user = await User.findById(userId)
+  if (!user) throw new UnauthorizedError('User not found')
+
+  if (updates.email && updates.email !== user.email) {
+    const existing = await User.findOne({ email: updates.email, _id: { $ne: userId } })
+    if (existing) throw new ConflictError('Email already in use')
+  }
+
+  if (updates.name) user.name = updates.name
+  if (updates.email) user.email = updates.email
+  await user.save()
+
+  return { user }
+}
+
+const DEFAULT_PREFERENCES = {
+  emailNotifications: true,
+  assessmentReminders: true,
+  resultAlerts: true,
+  passwordAlerts: true,
+}
+
+export async function getPreferences(userId) {
+  const user = await User.findById(userId).select('preferences')
+  return user?.preferences || DEFAULT_PREFERENCES
+}
+
+export async function updatePreferences(userId, prefs) {
+  const user = await User.findById(userId)
+  if (!user) throw new UnauthorizedError('User not found')
+  user.preferences = { ...DEFAULT_PREFERENCES, ...prefs }
+  await user.save({ validateBeforeSave: false })
+  return user.preferences
+}

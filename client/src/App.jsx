@@ -25,6 +25,9 @@ const AIGeneratePage = lazy(() => import('@/features/question-bank/AIGeneratePag
 const ApprovalQueuePage = lazy(() => import('@/features/question-bank/ApprovalQueuePage'))
 const AssessmentsPage = lazy(() => import('@/features/assessments/AssessmentsPage'))
 const AssessmentCreatePage = lazy(() => import('@/features/assessments/AssessmentCreatePage'))
+const AssessmentPreviewPage = lazy(() => import('@/features/assessments/AssessmentPreviewPage'))
+const AssessmentReviewPage = lazy(() => import('@/features/assessments/AssessmentReviewPage'))
+const AssessmentReviewDetailPage = lazy(() => import('@/features/assessments/AssessmentReviewDetailPage'))
 const QuizAttemptPage = lazy(() => import('@/features/assessments/QuizAttemptPage'))
 const ResultsPage = lazy(() => import('@/features/assessments/ResultsPage'))
 const MyAttemptsPage = lazy(() => import('@/features/assessments/MyAttemptsPage'))
@@ -105,6 +108,7 @@ function AppRoutes() {
           <Route path="/assessments/create" element={<AssessmentCreatePage />} />
           <Route path="/assessments/my-attempts" element={<MyAttemptsPage />} />
           <Route path="/assessments/:id/edit" element={<AssessmentCreatePage />} />
+          <Route path="/assessments/:id/preview" element={<AssessmentPreviewPage />} />
           <Route path="/assessments/:id" element={<QuizAttemptPage />} />
           <Route path="/results/:id" element={<ResultsPage />} />
           <Route path="/proctoring" element={<ProctoringDashboard />} />
@@ -112,6 +116,8 @@ function AppRoutes() {
           <Route path="/analytics/admin" element={<AdminAnalyticsPage />} />
           <Route path="/analytics/assessment/:id" element={<AssessmentAnalyticsPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/reviews" element={<AssessmentReviewPage />} />
+          <Route path="/admin/reviews/:id" element={<AssessmentReviewDetailPage />} />
           <Route path="/coding" element={<CodingPage />} />
           <Route path="/ai-quiz" element={<AIQuizPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />

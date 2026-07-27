@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
-import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema } from './authValidation.js'
+import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema } from './authValidation.js'
 import * as authController from './authController.js'
 
 const router = Router()
@@ -13,5 +13,8 @@ router.post('/logout', authenticate, authController.logout)
 router.post('/refresh', authController.refreshToken)
 router.get('/me', authenticate, authController.getMe)
 router.post('/change-password', authenticate, validate(changePasswordSchema), authController.changePassword)
+router.patch('/profile', authenticate, validate(updateProfileSchema), authController.updateProfile)
+router.get('/preferences', authenticate, authController.getPreferences)
+router.patch('/preferences', authenticate, authController.updatePreferences)
 
 export default router

@@ -45,6 +45,7 @@ body {
 }
 
 :root {
+  color-scheme: light;
   --color-bg-primary: #FFFFFF;
   --color-bg-secondary: #FAFAFA;
   --color-bg-tertiary: #F4F4F5;
@@ -59,6 +60,7 @@ body {
 }
 
 .dark {
+  color-scheme: dark;
   --color-bg-primary: #09090B;
   --color-bg-secondary: #18181B;
   --color-bg-tertiary: #27272A;

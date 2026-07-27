@@ -42,6 +42,13 @@ export async function submitForReview(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function withdrawFromReview(req, res, next) {
+  try {
+    const question = await questionService.withdrawFromReview(req.params.id, req.user._id)
+    res.status(200).json({ success: true, data: question, message: 'Withdrawn from review', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
 export async function reviewQuestion(req, res, next) {
   try {
     const question = await questionService.reviewQuestion(req.params.id, req.validatedBody, req.user._id)

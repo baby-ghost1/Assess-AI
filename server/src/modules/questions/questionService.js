@@ -105,9 +105,45 @@ export async function submitForReview(questionId, userId) {
   if (question.createdBy.toString() !== userId.toString()) {
     throw new ForbiddenError('Only the creator can submit for review')
   }
+  if (question.status !== 'draft' && question.status !== 'rejected') {
+    throw new ForbiddenError('Only draft or rejected questions can be submitted for review')
+  }
   question.status = 'pending_review'
   question.updatedBy = userId
   await question.save()
+
+  await QuestionVersion.create({
+    question: question._id,
+    version: question.version,
+    data: question.toObject(),
+    changes: 'Submitted for review',
+    changedBy: userId,
+  })
+
+  return question
+}
+
+export async function withdrawFromReview(questionId, userId) {
+  const question = await Question.findById(questionId)
+  if (!question) throw new NotFoundError('Question')
+  if (question.createdBy.toString() !== userId.toString()) {
+    throw new ForbiddenError('Only the creator can withdraw from review')
+  }
+  if (question.status !== 'pending_review') {
+    throw new ForbiddenError('Question is not pending review')
+  }
+  question.status = 'draft'
+  question.updatedBy = userId
+  await question.save()
+
+  await QuestionVersion.create({
+    question: question._id,
+    version: question.version,
+    data: question.toObject(),
+    changes: 'Withdrawn from review',
+    changedBy: userId,
+  })
+
   return question
 }
 
@@ -119,10 +155,22 @@ export async function reviewQuestion(questionId, { status, rejectionReason }, us
   const question = await Question.findById(questionId)
   if (!question) throw new NotFoundError('Question')
 
+  if (question.status !== 'pending_review') {
+    throw new ForbiddenError('Only questions pending review can be approved or rejected')
+  }
+
   question.status = status
   question.updatedBy = userId
   if (status === 'rejected') question.rejectionReason = rejectionReason || ''
   await question.save()
+
+  await QuestionVersion.create({
+    question: question._id,
+    version: question.version,
+    data: question.toObject(),
+    changes: status === 'approved' ? 'Approved by admin' : `Rejected: ${rejectionReason || 'No reason provided'}`,
+    changedBy: userId,
+  })
 
   return question
 }

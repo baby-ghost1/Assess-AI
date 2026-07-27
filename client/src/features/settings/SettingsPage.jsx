@@ -1,5 +1,5 @@
 import { useAppSelector, useAppDispatch } from '@/hooks'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { toggleTheme } from '@/store/themeSlice'
 import { useState, useEffect } from 'react'
@@ -134,17 +134,27 @@ const NOTIFICATION_KEYS = [
 ]
 
 function NotificationsTab() {
-  const [prefs, setPrefs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('notificationPrefs')) || {} } catch { return {} }
-  })
+  const queryClient = useQueryClient()
   const [saved, setSaved] = useState(false)
 
+  const { data: prefsData } = useQuery({
+    queryKey: ['user-preferences'],
+    queryFn: () => api.get('/auth/preferences').then((r) => r.data),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (prefs) => api.patch('/auth/preferences', prefs),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-preferences'] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1500)
+    },
+  })
+
+  const prefs = prefsData?.data || { emailNotifications: true, assessmentReminders: true, resultAlerts: true, passwordAlerts: true }
+
   const toggle = (key) => {
-    const next = { ...prefs, [key]: !prefs[key] }
-    setPrefs(next)
-    localStorage.setItem('notificationPrefs', JSON.stringify(next))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
+    updateMutation.mutate({ ...prefs, [key]: !prefs[key] })
   }
 
   return (
@@ -324,6 +334,7 @@ function ChangePasswordModal({ open, onClose }) {
 
 function SecurityTab({ onChangePassword }) {
   const dispatch = useAppDispatch()
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -347,11 +358,30 @@ function SecurityTab({ onChangePassword }) {
             <p className="text-sm font-medium text-text-primary">Sign out</p>
             <p className="text-xs text-text-secondary">Sign out from your account on this device</p>
           </div>
-          <button onClick={() => dispatch(logout())} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors flex items-center gap-1.5">
+          <button onClick={() => setShowLogoutConfirm(true)} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors flex items-center gap-1.5">
             <LogOut className="h-3.5 w-3.5" /> Sign out
           </button>
         </div>
       </div>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+          <div className="relative bg-bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-full bg-danger/10 p-2"><LogOut className="h-5 w-5 text-danger" /></div>
+              <div>
+                <h3 className="text-lg font-heading font-semibold text-text-primary">Sign out?</h3>
+                <p className="text-sm text-text-secondary">You'll need to sign in again to access your account.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowLogoutConfirm(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">Cancel</button>
+              <button onClick={() => dispatch(logout())} className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors">Sign out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

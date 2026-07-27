@@ -1,5 +1,7 @@
 import express from 'express'
 import { createServer } from 'http'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -72,6 +74,20 @@ app.use('/api/v1/notifications', notificationRoutes)
 // Health check
 app.get('/api/health', (_, res) => {
   res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() })
+})
+
+// Serve static files from client build
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const clientDist = path.resolve(__dirname, '../../client/dist')
+app.use(express.static(clientDist))
+
+// SPA catch-all: return index.html for non-API, non-file routes
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(clientDist, 'index.html'))
+  } else {
+    res.status(404).json({ success: false, message: 'Route not found' })
+  }
 })
 
 // Error handler
