@@ -61,8 +61,8 @@ function clearAutosave(id) {
 export default function CodingPage() {
   const { mode } = useAppSelector((s) => s.theme)
   const { user: currentUser } = useAppSelector((s) => s.auth)
-  const [language, setLanguage] = useState('javascript')
-  const [code, setCode] = useState(HELLO_WORLD_PROBLEM.codingDetails.starterCodes.javascript)
+  const [language, setLanguage] = useState('cpp')
+  const [code, setCode] = useState(HELLO_WORLD_PROBLEM.codingDetails.starterCodes.cpp)
   const [results, setResults] = useState(null)
   const [elapsed, setElapsed] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
@@ -100,7 +100,7 @@ export default function CodingPage() {
   const langs = langsData?.data || []
   const mergedLanguages = langs.length
     ? LANGUAGES.map(sLang => ({ ...sLang, available: langs.find(l => l.id === sLang.id)?.available ?? false }))
-    : LANGUAGES
+    : LANGUAGES.map(l => ({ ...l, available: true }))
   const availableLangs = mergedLanguages.filter(l => l.available)
 
   const { data: providersData } = useQuery({
@@ -110,9 +110,10 @@ export default function CodingPage() {
   const providers = providersData?.data || []
 
   useEffect(() => {
+    if (availableLangs.length === 0) return
     setLanguage(prev => {
       if (availableLangs.find(l => l.id === prev)) return prev
-      return availableLangs[0]?.id || 'javascript'
+      return availableLangs[0]?.id || 'cpp'
     })
   }, [availableLangs])
 
@@ -233,7 +234,7 @@ export default function CodingPage() {
       const fullDescription = cleanDescription || `<p>${q.title}</p>`
 
       const dynamicProblem = {
-        _id: `ai-${Date.now()}`,
+        _id: q._id,
         title: q.title,
         description: fullDescription,
         difficulty: q.difficulty || 'medium',

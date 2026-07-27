@@ -5,26 +5,63 @@ import CodingBookmark from './CodingBookmark.js'
 import CodingProgress from './CodingProgress.js'
 import CodingComment from './CodingComment.js'
 
+const HELLO_WORLD = {
+  title: 'Hello World',
+  codingDetails: {
+    testCases: [
+      { input: '(no input)', output: 'Hello, World!', isHidden: false, description: 'Should print exactly "Hello, World!"' },
+    ],
+    harnesses: {
+      cpp: `#include <iostream>\nusing namespace std;\n{{USER_CODE}}\nint main() {\n    Solution sol;\n    sol.helloWorld();\n    cout << endl;\n    return 0;\n}`,
+    },
+  },
+}
+
+async function resolveQuestion(questionId) {
+  try {
+    return await getQuestionById(questionId)
+  } catch (err) {
+    if (questionId === 'hello-world' || err.name === 'CastError') {
+      return null
+    }
+    throw err
+  }
+}
+
+function getTestData(questionId, question, lang) {
+  if (question) {
+    const dbHarnesses = question.codingDetails?.harnesses || {}
+    let harness = dbHarnesses[lang] || dbHarnesses.get?.(lang) || null
+    if (!harness && (lang === 'cpp' || lang === 'c++')) {
+      harness = CPP_HARNESSES[question.title] || null
+    }
+    return {
+      testCases: question.codingDetails?.testCases || [],
+      harness,
+      title: question.title,
+    }
+  }
+  // Fallback for Hello World
+  const harness = HELLO_WORLD.codingDetails.harnesses[lang] || null
+  return {
+    testCases: HELLO_WORLD.codingDetails.testCases,
+    harness,
+    title: HELLO_WORLD.title,
+  }
+}
+
 const CPP_HARNESSES = {
   'Two Sum': `#include <iostream>\n#include <string>\n#include <vector>\n#include <sstream>\nusing namespace std;\nvector<int> parseArray(string s){vector<int> r;s.erase(0,1);s.pop_back();if(s.empty())return r;stringstream ss(s);string t;while(getline(ss,t,',')){t.erase(0,t.find_first_not_of(' '));r.push_back(stoi(t));}return r;}\nstring stringifyArray(vector<int> v){string r="[";for(int i=0;i<(int)v.size();i++){r+=to_string(v[i]);if(i<(int)v.size()-1)r+=",";}return r+"]";}\n{{USER_CODE}}\nint main(){string line;getline(cin,line);vector<int>nums=parseArray(line);int target;cin>>target;Solution sol;vector<int>result=sol.twoSum(nums,target);cout<<stringifyArray(result)<<endl;return 0;}`,
   'Reverse String': `#include <iostream>\n#include <string>\n#include <vector>\n#include <sstream>\nusing namespace std;\nvector<char> parseCharArray(string s){vector<char>r;bool inQ=false;for(int i=1;i<(int)s.size();i++){if(s[i]=='"'){inQ=!inQ;continue;}if(inQ)r.push_back(s[i]);}return r;}\nstring stringifyCharArray(vector<char>v){string r="[";for(int i=0;i<(int)v.size();i++){r+='"';r+=v[i];r+='"';if(i<(int)v.size()-1)r+=",";}return r+"]";}\n{{USER_CODE}}\nint main(){string line;getline(cin,line);vector<char>s=parseCharArray(line);Solution sol;sol.reverseString(s);cout<<stringifyCharArray(s)<<endl;return 0;}`,
   'Valid Parentheses': `#include <iostream>\n#include <string>\nusing namespace std;\n{{USER_CODE}}\nint main(){string line;getline(cin,line);Solution sol;cout<<(sol.isValid(line)?"true":"false")<<endl;return 0;}`,
 }
 
-function getCppHarness(questionTitle, dbHarness) {
-  return dbHarness || CPP_HARNESSES[questionTitle] || null
-}
-
 export async function runCode(req, res, next) {
   try {
     const { code, language, questionId } = req.body
-    const question = await getQuestionById(questionId)
-    const testCases = question.codingDetails?.testCases || []
     const lang = language || 'javascript'
-    const dbHarnesses = question.codingDetails?.harnesses || {}
-    const harness = lang === 'cpp' || lang === 'c++'
-      ? getCppHarness(question.title, dbHarnesses[lang] || dbHarnesses.get?.(lang))
-      : dbHarnesses[lang] || dbHarnesses.get?.(lang) || null
+    const question = await resolveQuestion(questionId)
+    const { testCases, harness } = getTestData(questionId, question, lang)
     const results = codingService.runSampleTests(code, lang, testCases, harness)
     const totalTime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0)
     const maxMemory = Math.max(...results.map(r => r.memoryUsed || 0))
@@ -35,13 +72,9 @@ export async function runCode(req, res, next) {
 export async function submitCode(req, res, next) {
   try {
     const { code, language, questionId } = req.body
-    const question = await getQuestionById(questionId)
-    const testCases = question.codingDetails?.testCases || []
     const lang = language || 'javascript'
-    const dbHarnesses = question.codingDetails?.harnesses || {}
-    const harness = lang === 'cpp' || lang === 'c++'
-      ? getCppHarness(question.title, dbHarnesses[lang] || dbHarnesses.get?.(lang))
-      : dbHarnesses[lang] || dbHarnesses.get?.(lang) || null
+    const question = await resolveQuestion(questionId)
+    const { testCases, harness } = getTestData(questionId, question, lang)
     const results = codingService.runAllTests(code, lang, testCases, harness)
     const passed = results.filter((r) => r.passed).length
     const total = results.length
@@ -68,7 +101,7 @@ export async function submitCode(req, res, next) {
         { user: req.user._id },
         {
           $addToSet: { solvedProblems: questionId },
-          $inc: { totalSolved: 1, totalSubmissions: 1, [`${question.difficulty}Solved`]: 1 },
+          $inc: { totalSolved: 1, totalSubmissions: 1, [`${question?.difficulty || 'easy'}Solved`]: 1 },
           $set: { lastSolvedDate: new Date() },
         },
         { upsert: true }

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { AppError } from '../../shared/errors/AppError.js'
 
 const availableLanguages = new Set()
 
@@ -27,36 +28,159 @@ export function getSupportedLanguages() {
   ]
 }
 
-function executeJS(code, input) {
+function generateJavaScriptHarness(code) {
+  let m = code.match(/\bfunction\s+(\w+)\s*\(([^)]*)\)/s)
+  if (!m) m = code.match(/(?:var|let|const)\s+(\w+)\s*=\s*(?:function|\([^)]*\)\s*=>)\s*\(([^)]*)\)/s)
+  if (!m) return null
+  const funcName = m[1], paramsStr = m[2].trim()
+  const hasParams = paramsStr.length > 0
+  if (!hasParams) return `${code}\nvar _jr=typeof ${funcName}==='function'?${funcName}():null;if(_jr!==null&&_jr!==undefined)print(_jr);`
+  return `${code}\nif(typeof input!=='undefined'&&input!==null&&input!==''){try{var _args=JSON.parse('['+input.trim().replace(/\\n/g,',')+']');if(!Array.isArray(_args))_args=[_args];var _jr=${funcName}(..._args);if(_jr!==undefined)print(_jr);}catch(e){var _jr2=${funcName}(input.trim());if(_jr2!==undefined)print(_jr2);}}`
+}
+
+function executeJS(code, input, harness) {
+  let userCode = code
+  if (harness) {
+    userCode = harness.replace('{{USER_CODE}}', code)
+  } else {
+    userCode = generateJavaScriptHarness(code) || code
+  }
   const wrappedCode = `
-    const readline = require('readline');
-    function main() {
-      const input = ${JSON.stringify(input)};
-      const lines = input ? input.split('\\n') : [];
-      let lineIdx = 0;
-      global.readline = () => lines[lineIdx++] || '';
-      global.print = console.log;
-      ${code}
-    }
-    main();
-  `
-  const start = performance.now()
-  const result = execSync(`node -e ${JSON.stringify(wrappedCode)}`, {
-    timeout: 5000,
-    maxBuffer: 10 * 1024 * 1024,
-    encoding: 'utf-8',
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const readline = require('readline');
+function main() {
+  const input = ${JSON.stringify(input)};
+  const lines = input ? input.split('\\n') : [];
+  let lineIdx = 0;
+  global.readline = () => lines[lineIdx++] || '';
+  global.print = console.log;
+${userCode}
+}
+main();
+`.trim()
+  const filePath = join(tmpdir(), `${randomUUID()}.js`)
+  try {
+    writeFileSync(filePath, wrappedCode, 'utf-8')
+    const start = performance.now()
+    const result = execSync(`node "${filePath}"`, { timeout: 5000, maxBuffer: 10 * 1024 * 1024, encoding: 'utf-8' })
+    const executionTime = Math.round(performance.now() - start)
+    return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
+  } finally {
+    try { unlinkSync(filePath) } catch {}
+  }
+}
+
+function generateCppHarness(code) {
+  const clsMatch = code.match(/class\s+Solution\s*\{([\s\S]*?)\};/s)
+  if (!clsMatch) return null
+  const methodMatch = clsMatch[1].match(/public:\s*([\w:]+)\s+(\w+)\s*\(([^)]*)\)/s)
+  if (!methodMatch) return null
+
+  const returnType = methodMatch[1].trim()
+  const methodName = methodMatch[2].trim()
+  const params = methodMatch[3].split(',').map(p => p.trim()).filter(p => p)
+
+  const paramInfos = params.map(p => {
+    const cleaned = p.replace(/&/g, ' ').replace(/\s+/g, ' ').trim()
+    const parts = cleaned.split(' ')
+    const type = parts.slice(0, -1).join(' ')
+    const name = parts[parts.length - 1]
+    return { raw: p, type, name }
   })
-  const executionTime = Math.round(performance.now() - start)
-  return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
+
+  let parseVars = '', callArgs = '', helperFuncs = ''
+  const headers = '#include <iostream>\n#include <vector>\n#include <string>\n#include <queue>\n#include <stack>\n#include <deque>\n#include <set>\n#include <map>\n#include <unordered_set>\n#include <unordered_map>\n#include <algorithm>\n#include <cmath>\n#include <numeric>\n#include <climits>\n#include <cstring>\n#include <iomanip>\n#include <sstream>\n#include <bitset>\n#include <functional>\n'
+
+  paramInfos.forEach((p, i) => {
+    callArgs += (i > 0 ? ', ' : '') + p.name
+
+    if (p.type.includes('vector<vector<int>>') || p.type.includes('vector<vector<int> >')) {
+      helperFuncs += `vector<vector<int>> _pvv${i}(string s) {
+  vector<vector<int>> r; int i=0;
+  while((i=s.find('[',i))!=string::npos){int j=s.find(']',i);if(j==string::npos)break;
+    string sub=s.substr(i+1,j-i-1);stringstream ss(sub);string t;vector<int> row;
+    while(getline(ss,t,',')){t.erase(0,t.find_first_not_of(' '));if(!t.empty())row.push_back(stoi(t));}
+    r.push_back(row);i=j+1;}
+  return r;}\n`
+      parseVars += `vector<vector<int>> ${p.name}=_pvv${i}(line);\n`
+    } else if (p.type.includes('vector<int>')) {
+      helperFuncs += `vector<int> _pvec${i}(string s) {
+  vector<int> r; auto a=s.find('['), b=s.find(']');
+  if(a==string::npos||b==string::npos)return r;
+  string sub=s.substr(a+1,b-a-1); stringstream ss(sub); string t;
+  while(getline(ss,t,',')){t.erase(0,t.find_first_not_of(' '));if(!t.empty())r.push_back(stoi(t));}
+  return r;}\n`
+      parseVars += `vector<int> ${p.name}=_pvec${i}(line);\n`
+    } else if (p.type.includes('vector<char>')) {
+      helperFuncs += `vector<char> _pvc${i}(string s) {
+  vector<char> r; bool q=false;
+  for(unsigned j=0;j<s.size();j++){if(s[j]=='"'){q=!q;continue;}if(q)r.push_back(s[j]);}
+  return r;}\n`
+      parseVars += `vector<char> ${p.name}=_pvc${i}(line);\n`
+    } else if (p.type === 'int') {
+      helperFuncs += `int _pint${i}(string s) {
+  auto pos=s.rfind(']');if(pos!=string::npos)s=s.substr(pos);
+  string n;bool f=false;
+  for(char c:s){if(c=='-'||(c>='0'&&c<='9')){n+=c;f=true;}else if(f&&!n.empty())break;}
+  return n.empty()?0:stoi(n);}\n`
+      parseVars += `int ${p.name}=_pint${i}(line);\n`
+    } else if (p.type === 'string' || p.type.includes('string')) {
+      helperFuncs += `string _pstr${i}(string s) {
+  auto a=s.find('"'); if(a==string::npos){s.erase(0,s.find_first_not_of(' '));return s;}
+  auto b=s.find('"',a+1); return s.substr(a+1,b-a-1);}\n`
+      parseVars += `string ${p.name}=_pstr${i}(line);\n`
+    } else if (p.type === 'bool') {
+      helperFuncs += `bool _pbool${i}(string s) {
+  return s.find("true")!=string::npos;}\n`
+      parseVars += `bool ${p.name}=_pbool${i}(line);\n`
+    } else if (p.type === 'double' || p.type === 'float') {
+      helperFuncs += `double _pdbl${i}(string s) {
+  string n; bool f=false;
+  for(char c:s){if(c=='-'||c=='.'||(c>='0'&&c<='9')){n+=c;f=true;}else if(f&&n.length()>0)break;}
+  return n.empty()?0.0:stod(n);}\n`
+      parseVars += `double ${p.name}=_pdbl${i}(line);\n`
+    } else {
+      return null
+    }
+  })
+
+  let outputCode
+  if (returnType === 'int' || returnType === 'double' || returnType === 'float') {
+    outputCode = 'cout << result << endl;'
+  } else if (returnType.includes('vector<vector<int>>') || returnType.includes('vector<vector<int> >')) {
+    helperFuncs += 'string _strvv(vector<vector<int>> v){string r="[";for(unsigned i=0;i<v.size();i++){r+="[";for(unsigned j=0;j<v[i].size();j++){r+=to_string(v[i][j]);if(j<v[i].size()-1)r+=",";}r+="]";if(i<v.size()-1)r+=",";}return r+"]";}\n'
+    outputCode = 'cout << _strvv(result) << endl;'
+  } else if (returnType.includes('vector<int>')) {
+    helperFuncs += 'string _strvec(vector<int> v){string r="[";for(unsigned i=0;i<v.size();i++){r+=to_string(v[i]);if(i<v.size()-1)r+=",";}return r+"]";}\n'
+    outputCode = 'cout << _strvec(result) << endl;'
+  } else if (returnType.includes('vector<char>')) {
+    helperFuncs += 'string _strvc(vector<char> v){string r="[";for(unsigned i=0;i<v.size();i++){r+="\\"";r+=v[i];r+="\\"";if(i<v.size()-1)r+=",";}return r+"]";}\n'
+    outputCode = 'cout << _strvc(result) << endl;'
+  } else if (returnType === 'bool') {
+    outputCode = 'cout << (result?"true":"false") << endl;'
+  } else if (returnType === 'string' || returnType.includes('string')) {
+    outputCode = 'cout << result << endl;'
+  } else if (returnType === 'void') {
+    return `${headers}using namespace std;\n${helperFuncs}${code}\nint main(){\nstring line;getline(cin,line);\n${parseVars}Solution sol;\nsol.${methodName}(${callArgs});\nreturn 0;\n}`
+  } else if (returnType.includes('vector<string>')) {
+    outputCode = 'cout << "[" << result[0]; for(unsigned i=1;i<result.size();i++)cout<<","<<result[i]; cout << "]" << endl;'
+  } else {
+    return null
+  }
+
+  return `${headers}using namespace std;\n${helperFuncs}${code}\nint main(){\nstring line;getline(cin,line);\n${parseVars}Solution sol;\nauto result=sol.${methodName}(${callArgs});\n${outputCode}\nreturn 0;\n}`
 }
 
 function executeCpp(code, input, harness) {
   const srcPath = join(tmpdir(), `${randomUUID()}.cpp`)
   const exePath = join(tmpdir(), `${randomUUID()}.exe`)
   const env = { ...process.env, PATH: `C:\\MinGW\\bin;${process.env.PATH || ''}` }
+  const fallbackHeaders = '#include <iostream>\n#include <vector>\n#include <string>\n#include <queue>\n#include <stack>\n#include <deque>\n#include <set>\n#include <map>\n#include <unordered_set>\n#include <unordered_map>\n#include <algorithm>\n#include <cmath>\n#include <numeric>\n#include <climits>\n#include <cstring>\n#include <iomanip>\n#include <sstream>\n#include <bitset>\n#include <functional>\n'
   const wrappedCode = harness
     ? harness.replace('{{USER_CODE}}', code)
-    : `#include <iostream>\n#include <string>\nusing namespace std;\n${code}\nint main(){string l;getline(cin,l);cout<<l<<endl;return 0;}`
+    : (generateCppHarness(code) || `${fallbackHeaders}using namespace std;\n${code}\nint main(){string l;getline(cin,l);cout<<l<<endl;return 0;}`)
   try {
     writeFileSync(srcPath, wrappedCode, 'utf-8')
     execSync(`g++ "${srcPath}" -o "${exePath}" -std=c++17`, { timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'], env })
@@ -66,22 +190,108 @@ function executeCpp(code, input, harness) {
     return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
   } catch (err) {
     if (err.status === 127 || err.code === 'ENOENT' || err.message?.includes('not recognized')) {
-      throw new Error('C++ compiler (g++) not available on this server')
+      throw new AppError('C++ compiler (g++) not available on this server', 500)
     }
     const stderr = err.stderr?.toString() || ''
-    throw new Error(stderr || err.message || 'C++ execution failed')
+    throw new AppError(stderr || err.message || 'C++ execution failed', 500)
   } finally {
     try { unlinkSync(srcPath) } catch {}
     try { unlinkSync(exePath) } catch {}
   }
 }
 
-function executeJava(code, input) {
+function generateJavaHarness(code) {
+  const clsMatch = code.match(/class\s+Solution\s*\{([\s\S]*?)\}/s)
+  if (!clsMatch) return null
+  const methodMatch = clsMatch[1].match(/(?:public\s+)?([\w<>[\]]+)\s+(\w+)\s*\(([^)]*)\)/s)
+  if (!methodMatch) return null
+
+  const returnType = methodMatch[1].trim()
+  const methodName = methodMatch[2].trim()
+  const paramsStr = methodMatch[3].trim()
+  const params = paramsStr.split(',').map(p => p.trim()).filter(p => p)
+  const paramTypes = params.map(p => p.replace(/final\s+/g, '').replace(/&/g, '').trim().split(/\s+/)).map(parts => ({ type: parts.slice(0, -1).join(' '), name: parts[parts.length - 1] }))
+
+  let parseCode = '', callArgs = '', helpers = ''
+  let scannerUse = 'Scanner sc = new Scanner(System.in);\nString _line = sc.nextLine();\n'
+
+  paramTypes.forEach((p, i) => {
+    callArgs += (i > 0 ? ', ' : '') + p.name
+    if (p.type.includes('int[') && p.type.includes('[')) {
+      helpers += 'static int[] _parseIntArray(String s) { s=s.trim(); if(s.startsWith("["))s=s.substring(1,s.lastIndexOf("]")); String[] p=s.split(","); int[] r=new int[p.length]; for(int i=0;i<p.length;i++)r[i]=Integer.parseInt(p[i].trim()); return r; }\n'
+      parseCode += `int[] ${p.name} = _parseIntArray(_line);\n`
+    } else if (p.type.includes('char[') && p.type.includes('[')) {
+      helpers += 'static char[] _parseCharArray(String s) { StringBuilder r=new StringBuilder(); boolean q=false; for(int i=0;i<s.length();i++){if(s.charAt(i)==\'\\"\'){q=!q;continue;}if(q)r.append(s.charAt(i));} return r.toString().toCharArray(); }\n'
+      parseCode += `char[] ${p.name} = _parseCharArray(_line);\n`
+    } else if (p.type === 'int' || p.type === 'Integer') {
+      helpers += 'static int _parseInt(String s) { s=s.trim(); int i=s.lastIndexOf(\']\'); if(i>=0)s=s.substring(i); StringBuilder n=new StringBuilder(); for(char c:s.toCharArray()){if(c==\'-\'||(c>=\'0\'&&c<=\'9\'))n.append(c);else if(n.length()>0)break;} return n.length()==0?0:Integer.parseInt(n.toString()); }\n'
+      parseCode += `int ${p.name} = _parseInt(_line);\n`
+    } else if (p.type === 'String') {
+      helpers += 'static String _parseStr(String s) { s=s.trim(); if(s.startsWith("\\\"")){int e=s.indexOf("\\\"",1);return e>0?s.substring(1,e):s.substring(1);} return s; }\n'
+      parseCode += `String ${p.name} = _parseStr(_line);\n`
+    } else if (p.type === 'boolean' || p.type === 'Boolean') {
+      parseCode += `boolean ${p.name} = _line.contains("true");\n`
+    } else if (p.type.includes('int[') && p.type.includes('][')) {
+      helpers += 'static int[][] _parseInt2d(String s) { s=s.trim(); java.util.List<int[]> l=new java.util.ArrayList<>(); int i=s.indexOf("["); while(i>=0){int j=s.indexOf("]",i); if(j<0)break; l.add(_parseIntArray(s.substring(i,j+1))); i=s.indexOf("[",j+1);} return l.toArray(new int[0][]); }\n'
+      parseCode += `int[][] ${p.name} = _parseInt2d(_line);\n`
+    } else { return null }
+  })
+
+  let resultVar = '', printCode
+  if (returnType === 'void') {
+    resultVar = ''
+    printCode = `\nnew Solution().${methodName}(${callArgs});\n`
+  } else if (returnType === 'int' || returnType === 'double' || returnType === 'float' || returnType === 'long') {
+    resultVar = `${returnType} result = `
+    printCode = `\nSystem.out.println(result);\n`
+  } else if (returnType.includes('int[') && !returnType.includes('][')) {
+    resultVar = 'int[] result = '
+    helpers += 'static String _arrToStr(int[] a) { StringBuilder r=new StringBuilder("["); for(int i=0;i<a.length;i++){r.append(a[i]);if(i<a.length-1)r.append(",");} r.append("]"); return r.toString(); }\n'
+    printCode = `\nSystem.out.println(_arrToStr(result));\n`
+  } else if (returnType.includes('char[')) {
+    resultVar = 'char[] result = '
+    helpers += 'static String _carrToStr(char[] a) { StringBuilder r=new StringBuilder("["); for(int i=0;i<a.length;i++){r.append("\\"").append(a[i]).append("\\"");if(i<a.length-1)r.append(",");} r.append("]"); return r.toString(); }\n'
+    printCode = `\nSystem.out.println(_carrToStr(result));\n`
+  } else if (returnType === 'boolean' || returnType === 'Boolean') {
+    resultVar = 'boolean result = '
+    printCode = `\nSystem.out.println(result);\n`
+  } else if (returnType === 'String') {
+    resultVar = 'String result = '
+    printCode = `\nSystem.out.println(result);\n`
+  } else if (returnType.includes('List')) {
+    resultVar = 'var result = '
+    printCode = `\nSystem.out.println(result);\n`
+  } else { return null }
+
+  return `import java.io.*;
+import java.util.*;
+import java.math.*;
+import java.text.*;
+import java.time.*;
+import java.util.stream.*;
+import java.util.concurrent.*;
+${helpers}
+public class Main {
+${code}
+
+  public static void main(String[] args) {
+    ${scannerUse}${parseCode}${resultVar}new Solution().${methodName}(${callArgs});${printCode}
+  }
+}`
+}
+
+function executeJava(code, input, harness) {
   const dir = tmpdir()
   const srcPath = join(dir, 'Main.java')
   const env = { ...process.env, PATH: `C:\\MinGW\\bin;${process.env.PATH || ''}` }
+  let wrappedCode
+  if (harness) {
+    wrappedCode = harness.replace('{{USER_CODE}}', code)
+  } else {
+    wrappedCode = generateJavaHarness(code) || code
+  }
   try {
-    writeFileSync(srcPath, code, 'utf-8')
+    writeFileSync(srcPath, wrappedCode, 'utf-8')
     execSync(`javac "${srcPath}"`, { timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'], env })
     const start = performance.now()
     const result = execSync(`java -cp "${dir}" Main`, { input, timeout: 5000, maxBuffer: 10 * 1024 * 1024, encoding: 'utf-8', env })
@@ -89,19 +299,66 @@ function executeJava(code, input) {
     return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
   } catch (err) {
     if (err.status === 127 || err.code === 'ENOENT' || err.message?.includes('not recognized')) {
-      throw new Error('Java compiler (javac) not available on this server')
+      throw new AppError('Java compiler (javac) not available on this server', 500)
     }
     const stderr = err.stderr?.toString() || ''
-    throw new Error(stderr || err.message || 'Java execution failed')
+    throw new AppError(stderr || err.message || 'Java execution failed', 500)
   } finally {
     try { unlinkSync(srcPath) } catch {}
     try { unlinkSync(join(dir, 'Main.class')) } catch {}
   }
 }
 
+function generatePythonHarness(code) {
+  const funcMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)\s*:/s)
+  if (!funcMatch) return null
+
+  const funcName = funcMatch[1].trim()
+  const paramsStr = funcMatch[2].trim()
+  const params = paramsStr.split(',').map(p => p.trim()).filter(p => p)
+
+  let callArgs = params.map(p => {
+    const parts = p.split(':')
+    return parts[0].trim()
+  })
+
+  let header = 'import sys, math, random, heapq, bisect, itertools, functools, collections, statistics\nfrom collections import *\nfrom heapq import *\nfrom itertools import *\nfrom functools import *\nfrom math import *\n'
+  let body
+  if (callArgs.length === 0) {
+    body = `line = sys.stdin.read().strip()
+_r = ${funcName}()
+if _r is not None: print(_r)`
+  } else {
+    body = `line = sys.stdin.read().strip()
+if not line:
+    _r = ${funcName}()
+    if _r is not None: print(_r)
+elif ',' in line or line.startswith('[') or line.startswith('"') or line.startswith("'"):
+    try:
+        args = ast.literal_eval('(' + line.replace('\\n', ',') + ')')
+        if not isinstance(args, tuple):
+            args = (args,)
+        _r = ${funcName}(*args)
+        if _r is not None: print(_r)
+    except:
+        _r = ${funcName}(line)
+        if _r is not None: print(_r)
+else:
+    _r = ${funcName}(line)
+    if _r is not None: print(_r)`
+  }
+
+  return `${header}\n${code}\n\n${body}\n`
+}
+
 function executePython(code, input) {
-  const wrappedCode = `
-import sys
+  const wrappedCode = generatePythonHarness(code) || `
+import sys, math, random, heapq, bisect, itertools, functools, collections, statistics
+from collections import *
+from heapq import *
+from itertools import *
+from functools import *
+from math import *
 def input():
     return sys.stdin.readline()
 ${code}
@@ -128,7 +385,7 @@ function executeCode(code, language, input, harness) {
   switch (language) {
     case 'javascript':
     case 'js':
-      return executeJS(code, input)
+      return executeJS(code, input, harness)
     case 'python':
     case 'py':
       return executePython(code, input)
@@ -136,7 +393,7 @@ function executeCode(code, language, input, harness) {
     case 'c++':
       return executeCpp(code, input, harness)
     case 'java':
-      return executeJava(code, input)
+      return executeJava(code, input, harness)
     default:
       throw new Error(`Language "${language}" is not supported for execution`)
   }

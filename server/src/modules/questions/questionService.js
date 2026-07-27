@@ -22,9 +22,17 @@ export async function createQuestion(data, userId) {
 }
 
 export async function getQuestionById(questionId) {
-  const question = await Question.findById(questionId)
-    .populate('tags', 'name color')
-    .populate('createdBy updatedBy', 'name email')
+  let question
+  try {
+    question = await Question.findById(questionId)
+      .populate('tags', 'name color')
+      .populate('createdBy updatedBy', 'name email')
+  } catch (err) {
+    if (err.name === 'CastError') {
+      throw new NotFoundError('Question')
+    }
+    throw err
+  }
   if (!question) throw new NotFoundError('Question')
   return question
 }
