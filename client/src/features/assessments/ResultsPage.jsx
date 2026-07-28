@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, Lightbulb, Target, Sparkles, TrendingUp, Loader2, AlertCircle } from 'lucide-react'
+import { ErrorState, EmptyState } from '@/components/shared'
 
 export default function ResultsPage() {
   const { id } = useParams()
@@ -26,13 +27,13 @@ export default function ResultsPage() {
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
-        <AlertCircle className="h-12 w-12 text-danger mx-auto" />
-        <h2 className="text-xl font-heading font-bold text-text-primary">Failed to Load Results</h2>
-        <p className="text-sm text-text-secondary">{error?.response?.data?.message || 'Something went wrong.'}</p>
-        <Button variant="secondary" onClick={() => navigate('/assessments')}>
-          <ArrowLeft className="h-4 w-4" /> Back to Assessments
-        </Button>
+      <div className="max-w-2xl mx-auto py-16">
+        <ErrorState
+          error={error}
+          title="Failed to Load Results"
+          onRetry={() => navigate('/assessments')}
+          retryLabel="Back to Assessments"
+        />
       </div>
     )
   }
@@ -44,13 +45,14 @@ export default function ResultsPage() {
 
   if (!attempt) {
     return (
-      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
-        <AlertCircle className="h-12 w-12 text-text-tertiary mx-auto opacity-40" />
-        <h2 className="text-xl font-heading font-bold text-text-primary">Attempt Not Found</h2>
-        <p className="text-sm text-text-secondary">This attempt may have been deleted or doesn't exist.</p>
-        <Button variant="secondary" onClick={() => navigate('/assessments')}>
-          <ArrowLeft className="h-4 w-4" /> Back to Assessments
-        </Button>
+      <div className="max-w-2xl mx-auto py-16">
+        <EmptyState
+          icon={AlertCircle}
+          title="Attempt Not Found"
+          description="This attempt may have been deleted or doesn't exist."
+          actionLabel="Back to Assessments"
+          onAction={() => navigate('/assessments')}
+        />
       </div>
     )
   }

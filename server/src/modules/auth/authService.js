@@ -80,7 +80,7 @@ export async function refreshToken(token) {
   if (!token) throw new UnauthorizedError('Refresh token required')
 
   const decoded = jwt.verify(token, config.jwt.refreshSecret)
-  const user = await User.findById(decoded.userId)
+  const user = await User.findById(decoded.userId).select('+refreshToken')
   if (!user || user.refreshToken !== token) throw new UnauthorizedError('Invalid refresh token')
 
   const tokens = generateTokens(user._id)

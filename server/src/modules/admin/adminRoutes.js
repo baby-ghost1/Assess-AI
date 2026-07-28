@@ -1,4 +1,6 @@
 import { Router } from 'express'
+import { z } from 'zod'
+import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { authorize } from '../../middleware/authorize.js'
 import * as adminController from './adminController.js'
@@ -11,7 +13,12 @@ router.use(authorize('admin', 'super_admin'))
 // Users
 router.get('/users', adminController.listUsers)
 router.get('/users/:id', adminController.getUserById)
-router.patch('/users/:id', adminController.updateUser)
+router.patch('/users/:id', validate(z.object({
+  name: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  role: z.enum(['candidate', 'setter', 'reviewer', 'admin']).optional(),
+  isActive: z.boolean().optional(),
+}).strict()), adminController.updateUser)
 router.delete('/users/:id', adminController.deleteUser)
 
 // Roles
@@ -19,7 +26,9 @@ router.get('/roles', adminController.listRoles)
 
 // Settings
 router.get('/settings', adminController.getSettings)
-router.patch('/settings/:key', adminController.updateSetting)
+router.patch('/settings/:key', validate(z.object({
+  value: z.any(),
+}).strict()), adminController.updateSetting)
 
 // System
 router.get('/stats', adminController.getPlatformStats)

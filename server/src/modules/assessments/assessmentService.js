@@ -324,11 +324,9 @@ export async function navigateQuestion(attemptId, questionIndex, userId) {
   const currentQuestionId = attempt.questionOrder[attempt.currentQuestionIndex]
   const submission = await Submission.findOne({ attempt: attemptId, question: currentQuestionId }).populate('question')
 
-  const questions = await Promise.all(
-    attempt.questionOrder.map((qId) =>
-      Submission.findOne({ attempt: attemptId, question: qId }).populate('question')
-    )
-  )
+  const allSubmissions = await Submission.find({ attempt: attemptId }).populate('question')
+  const submissionMap = new Map(allSubmissions.map(s => [s.question._id.toString(), s]))
+  const questions = attempt.questionOrder.map(qId => submissionMap.get(qId.toString()) || null)
 
   return { attempt, currentSubmission: submission, questions }
 }

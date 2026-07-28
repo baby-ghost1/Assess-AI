@@ -147,7 +147,7 @@ function SetterAnalyticsView() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['setter-analytics'],
-    queryFn: () => api.get('/analytics/setter').then((r) => r.data),
+    queryFn: () => api.get('/setter/analytics').then((r) => r.data),
   })
 
   if (isLoading) {

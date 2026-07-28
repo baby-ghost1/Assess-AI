@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Plus, Search, Upload, Sparkles, BookOpen, CheckCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { TableSkeleton } from '@/components/shared'
+import { TableSkeleton, EmptyState } from '@/components/shared'
 import { useAppSelector } from '@/hooks'
+import { notify } from '@/lib/notify'
 
 const typeColors = {
   single_correct: 'bg-blue-500/10 text-blue-400',
@@ -49,6 +50,7 @@ export default function QuestionBankPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] })
       setDeleteId(null)
+      notify.success('Question deleted')
     },
   })
 
@@ -173,13 +175,12 @@ export default function QuestionBankPage() {
               </div>
             )}
             {data?.data?.length === 0 ? (
-              <div className="flex flex-col items-center py-16 text-center">
-                <BookOpen className="h-12 w-12 text-text-tertiary mb-4" />
-                <p className="text-text-secondary text-sm">No questions found</p>
-                {!selectMode && (
-                  <Button variant="secondary" className="mt-4" onClick={() => navigate('/question-bank/create')}>Create your first question</Button>
-                )}
-              </div>
+              <EmptyState
+                icon={BookOpen}
+                title="No Questions Found"
+                description="Create your first question to get started"
+                action={!selectMode ? <Button variant="secondary" onClick={() => navigate('/question-bank/create')}>Create Question</Button> : undefined}
+              />
             ) : data?.data?.map((q) => {
               const isSelected = selectedIds.includes(q._id)
               return (

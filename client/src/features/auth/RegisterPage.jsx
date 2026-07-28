@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks'
 import { register as registerUser, clearError } from './authSlice'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Lock, User, Eye, EyeOff, Brain, ArrowRight, CheckCircle } from 'lucide-react'
+import { Mail, Lock, User, Eye, EyeOff, Brain, ArrowRight, CheckCircle, UserCheck, FileEdit } from 'lucide-react'
 import gsap from 'gsap'
 
 const registerSchema = z.object({
@@ -21,7 +21,7 @@ const PASSWORD_RULES = [
   { label: 'Contains a letter', test: (p) => /[a-zA-Z]/.test(p) },
 ]
 
-function FloatingInput({ label, icon: Icon, error, registration, type, showToggle, showState, onToggleShow }) {
+function FloatingInput({ label, icon: Icon, error, registration, type, showToggle, showState, onToggleShow, autoFocus }) {
   const [focused, setFocused] = useState(false)
   const [hasValue, setHasValue] = useState(false)
   const inputRef = useRef(null)
@@ -53,7 +53,8 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
 
   useEffect(() => {
     if (inputRef.current?.value) setHasValue(true)
-  }, [])
+    if (autoFocus && inputRef.current) inputRef.current.focus()
+  }, [autoFocus])
 
   return (
     <div className="form-field">
@@ -124,7 +125,7 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
 }
 
 function PasswordStrength({ value }) {
-  const passed = PASSWORD_RULES.filter((r) => r.test(value)).length
+  const passed = value ? PASSWORD_RULES.filter((r) => r.test(value)).length : 0
   const colors = ['bg-danger', 'bg-warning', 'bg-success']
   const labels = ['Weak', 'Fair', 'Strong']
   const labelColors = ['text-danger', 'text-warning', 'text-success']
@@ -133,9 +134,9 @@ function PasswordStrength({ value }) {
     <div className="form-field space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-text-tertiary font-medium uppercase tracking-wider">Password strength</span>
-        {passed > 0 && (
-          <span className={`text-[11px] font-semibold ${labelColors[passed - 1]}`}>{labels[passed - 1]}</span>
-        )}
+        <span className={`text-[11px] font-semibold ${passed > 0 ? labelColors[passed - 1] : 'text-text-tertiary'}`}>
+          {passed > 0 ? labels[passed - 1] : 'Not set'}
+        </span>
       </div>
 
       <div className="flex gap-1">
@@ -143,9 +144,9 @@ function PasswordStrength({ value }) {
           <div key={i} className="h-1.5 flex-1 rounded-full bg-bg-tertiary overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ease-out ${
-                i < passed ? colors[passed - 1] : ''
+                value && i < passed ? colors[passed - 1] : ''
               }`}
-              style={{ width: i < passed ? '100%' : '0%' }}
+              style={{ width: value && i < passed ? '100%' : '0%' }}
             />
           </div>
         ))}
@@ -153,20 +154,20 @@ function PasswordStrength({ value }) {
 
       <div className="space-y-1 pt-0.5">
         {PASSWORD_RULES.map((rule) => {
-          const passed = rule.test(value)
+          const checked = value && rule.test(value)
           return (
             <div key={rule.label} className="flex items-center gap-1.5">
               <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center transition-all duration-300 ${
-                passed ? 'bg-success/15' : 'bg-bg-tertiary'
+                checked ? 'bg-success/15' : 'bg-bg-tertiary'
               }`}>
                 <CheckCircle
                   className={`h-2.5 w-2.5 transition-all duration-300 ${
-                    passed ? 'text-success scale-100' : 'text-text-tertiary scale-75'
+                    checked ? 'text-success scale-100' : 'text-text-tertiary scale-75'
                   }`}
                 />
               </div>
               <span className={`text-[11px] transition-colors duration-200 ${
-                passed ? 'text-success' : 'text-text-tertiary'
+                checked ? 'text-success' : 'text-text-tertiary'
               }`}>
                 {rule.label}
               </span>
@@ -230,6 +231,7 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading, error } = useAppSelector((s) => s.auth)
   const [show, setShow] = useState({ pass: false, confirm: false })
+  const [role, setRole] = useState('candidate')
   const { register, handleSubmit, watch, formState: { errors } } = useForm({ resolver: zodResolver(registerSchema) })
   const passwordValue = watch('password', '')
 
@@ -346,7 +348,7 @@ export default function RegisterPage() {
           </div>
 
           <p ref={subtitleRef} className="mt-5 text-lg text-text-secondary leading-relaxed">
-            Create your candidate account and unlock AI-powered assessments, real-time proctoring, and instant performance analytics.
+            Create your account and unlock AI-powered assessments, smart question generation, and instant analytics.
           </p>
 
           <div ref={statsRef} className="mt-10 grid grid-cols-3 gap-4">
@@ -386,13 +388,57 @@ export default function RegisterPage() {
               }}
             />
 
-            <div className="relative rounded-2xl bg-bg-card p-8">
+            <div className="relative rounded-2xl bg-bg-card/95 backdrop-blur-xl p-8">
               <div className="mb-8">
                 <h3 className="text-2xl font-heading font-bold text-text-primary">Create an account</h3>
-                <p className="mt-1.5 text-sm text-text-secondary">Join as a candidate to start taking assessments</p>
+                <p className="mt-1.5 text-sm text-text-secondary">
+                  {role === 'candidate' ? 'Join as a candidate to start taking assessments' : 'Join as a setter to create and manage assessments'}
+                </p>
               </div>
 
-              <form ref={formRef} onSubmit={handleSubmit((d) => dispatch(registerUser({ name: d.name, email: d.email, password: d.password, role: 'candidate' })))} className="space-y-4">
+              {/* Role Selector */}
+              <div className="flex gap-3 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setRole('candidate')}
+                  className={`flex-1 flex items-center gap-3 rounded-xl border-2 p-3.5 transition-all duration-200 ${
+                    role === 'candidate'
+                      ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                      : 'border-border bg-bg-secondary hover:border-border-light hover:bg-bg-tertiary'
+                  }`}
+                >
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                    role === 'candidate' ? 'bg-primary/10 text-primary' : 'bg-bg-tertiary text-text-tertiary'
+                  }`}>
+                    <UserCheck className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <p className={`text-sm font-semibold ${role === 'candidate' ? 'text-primary' : 'text-text-primary'}`}>Candidate</p>
+                    <p className="text-[11px] text-text-tertiary">Take assessments</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('setter')}
+                  className={`flex-1 flex items-center gap-3 rounded-xl border-2 p-3.5 transition-all duration-200 ${
+                    role === 'setter'
+                      ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                      : 'border-border bg-bg-secondary hover:border-border-light hover:bg-bg-tertiary'
+                  }`}
+                >
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                    role === 'setter' ? 'bg-primary/10 text-primary' : 'bg-bg-tertiary text-text-tertiary'
+                  }`}>
+                    <FileEdit className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <p className={`text-sm font-semibold ${role === 'setter' ? 'text-primary' : 'text-text-primary'}`}>Setter</p>
+                    <p className="text-[11px] text-text-tertiary">Create questions</p>
+                  </div>
+                </button>
+              </div>
+
+              <form ref={formRef} onSubmit={handleSubmit((d) => dispatch(registerUser({ name: d.name, email: d.email, password: d.password, role })))} className="space-y-4">
                 {error && (
                   <div ref={errorRef} className="flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger/20 text-[10px] font-bold">!</span>
@@ -400,12 +446,22 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                <FloatingInput
-                  label="Full name"
-                  icon={User}
-                  error={errors.name?.message}
-                  registration={register('name')}
-                />
+                <div className="form-field">
+                  <FloatingInput
+                    label="Full name"
+                    icon={User}
+                    error={errors.name?.message}
+                    registration={register('name')}
+                    autoFocus
+                  />
+                  {watch('name') && (
+                    <div className="mt-1 ml-1 flex justify-end">
+                      <span className={`text-[10px] font-medium ${watch('name').length >= 2 ? 'text-success' : 'text-text-tertiary'}`}>
+                        {watch('name').length}/50
+                      </span>
+                    </div>
+                  )}
+                </div>
 
                 <FloatingInput
                   label="Email address"
@@ -425,7 +481,7 @@ export default function RegisterPage() {
                   onToggleShow={() => setShow({ ...show, pass: !show.pass })}
                 />
 
-                {passwordValue && <PasswordStrength value={passwordValue} />}
+                <PasswordStrength value={passwordValue} />
 
                 <FloatingInput
                   label="Confirm password"
@@ -444,7 +500,7 @@ export default function RegisterPage() {
                     disabled={isLoading}
                     className="w-full rounded-xl bg-gradient-to-r from-accent to-accent-dark px-4 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-accent/25 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                   >
-                    Create candidate account
+                    Create {role === 'candidate' ? 'candidate' : 'setter'} account
                     <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform duration-200" />
                   </RippleButton>
                 </div>
@@ -464,7 +520,7 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-secondary py-2.5 text-sm font-medium text-text-primary hover:bg-bg-tertiary hover:border-border-light transition-all duration-200"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-secondary py-2.5 text-sm font-medium text-text-primary hover:bg-bg-tertiary hover:border-border-light hover:scale-[1.02] hover:shadow-lg hover:shadow-accent/5 transition-all duration-200"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -476,7 +532,7 @@ export default function RegisterPage() {
                 </button>
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-secondary py-2.5 text-sm font-medium text-text-primary hover:bg-bg-tertiary hover:border-border-light transition-all duration-200"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-secondary py-2.5 text-sm font-medium text-text-primary hover:bg-bg-tertiary hover:border-border-light hover:scale-[1.02] hover:shadow-lg hover:shadow-accent/5 transition-all duration-200"
                 >
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>

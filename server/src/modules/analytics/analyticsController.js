@@ -9,6 +9,12 @@ export async function getUserAnalytics(req, res, next) {
 
 export async function getAssessmentAnalytics(req, res, next) {
   try {
+    const { default: Assessment } = await import('../assessments/Assessment.js')
+    const assessment = await Assessment.findById(req.params.id).select('createdBy')
+    if (!assessment) return res.status(404).json({ success: false, message: 'Assessment not found' })
+    if (req.user.role !== 'admin' && assessment.createdBy?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' })
+    }
     const data = await analyticsService.getAssessmentAnalytics(req.params.id)
     res.json({ success: true, data, message: 'Assessment analytics fetched', errors: null, meta: null })
   } catch (error) { next(error) }
@@ -30,6 +36,12 @@ export async function getSetterAnalytics(req, res, next) {
 
 export async function getQuestionAnalytics(req, res, next) {
   try {
+    const { default: Question } = await import('../questions/Question.js')
+    const question = await Question.findById(req.params.id).select('createdBy')
+    if (!question) return res.status(404).json({ success: false, message: 'Question not found' })
+    if (req.user.role !== 'admin' && question.createdBy?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' })
+    }
     const data = await analyticsService.getQuestionAnalytics(req.params.id)
     res.json({ success: true, data, message: 'Question analytics fetched', errors: null, meta: null })
   } catch (error) { next(error) }

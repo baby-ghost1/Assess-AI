@@ -79,7 +79,7 @@ export async function getPreferences(req, res, next) {
 
 export async function updatePreferences(req, res, next) {
   try {
-    const result = await authService.updatePreferences(req.user._id, req.body)
+    const result = await authService.updatePreferences(req.user._id, req.validatedBody)
     res.status(200).json({ success: true, data: result, message: 'Preferences updated', errors: null, meta: null })
   } catch (error) { next(error) }
 }

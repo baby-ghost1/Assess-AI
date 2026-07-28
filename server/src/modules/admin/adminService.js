@@ -10,13 +10,14 @@ import { createNotification } from '../notifications/notificationService.js'
 export async function listUsers(filters) {
   const query = {}
   if (filters.search) {
+    const escaped = filters.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     query.$or = [
-      { name: { $regex: filters.search, $options: 'i' } },
-      { email: { $regex: filters.search, $options: 'i' } },
+      { name: { $regex: escaped, $options: 'i' } },
+      { email: { $regex: escaped, $options: 'i' } },
     ]
   }
   if (filters.role) query.role = filters.role
-  if (filters.isActive !== undefined) query.isActive = filters.isActive === 'true'
+  if (filters.isActive !== undefined) query.isActive = filters.isActive === 'true' || filters.isActive === true
 
   const page = parseInt(filters.page) || 1
   const limit = parseInt(filters.limit) || 20

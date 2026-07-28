@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Loader2, Users, Shield, UserCheck, UserX, Search } from 'lucide-react'
+import { EmptyState } from '@/components/shared'
 import { useState } from 'react'
 
 export default function UsersPage() {
@@ -32,10 +33,11 @@ export default function UsersPage() {
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : users.length === 0 ? (
-        <div className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
-          <Users className="h-12 w-12 text-text-tertiary mx-auto mb-3" />
-          <p className="text-text-secondary">No users found</p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="No Users Found"
+          description={search ? 'No users match your search criteria' : 'No users registered yet'}
+        />
       ) : (
         <div className="rounded-xl border border-border overflow-hidden">
           <table className="w-full">

@@ -1,25 +1,29 @@
-import { defineConfig } from '@playwright/test'
+const { defineConfig, devices } = require('@playwright/test')
 
-export default defineConfig({
-  testDir: './e2e',
+module.exports = defineConfig({
+  testDir: './tests/e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 2 : 0,
   workers: 1,
-  globalSetup: './e2e/global-setup.js',
-  reporter: [['html', { outputFolder: 'e2e-report' }], ['line']],
+  reporter: [
+    ['html', { outputFolder: 'e2e-report', open: 'never' }],
+    ['list'],
+    ['json', { outputFile: 'e2e-report/results.json' }],
+  ],
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
   },
-  timeout: 30000,
-  expect: { timeout: 10000 },
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
+  outputDir: 'e2e-results',
 })

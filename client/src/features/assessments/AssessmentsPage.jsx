@@ -5,6 +5,8 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { Plus, Brain, Code2, Clock, BarChart3, AlertCircle, CheckCircle, Send, FileEdit, XCircle, Eye, Loader2, Trash2 } from 'lucide-react'
 import { useAppSelector } from '@/hooks'
+import { notify } from '@/lib/notify'
+import { EmptyState } from '@/components/shared'
 
 function CardSkeleton() {
   return (
@@ -296,7 +298,7 @@ export default function AssessmentsPage() {
 
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
     queryKey: ['admin-pending-assessments'],
-    queryFn: () => api.get('/assessments/admin/pending').then((r) => r.data),
+    queryFn: () => api.get('/admin/assessments/pending').then((r) => r.data),
     enabled: isAdmin && activeTab === 'pending_approval',
     refetchOnWindowFocus: true,
   })
@@ -323,6 +325,7 @@ export default function AssessmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
+      notify.success('Assessment approved successfully')
     },
   })
 
@@ -331,6 +334,7 @@ export default function AssessmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
+      notify.success('Assessment rejected')
     },
   })
 
@@ -340,6 +344,7 @@ export default function AssessmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
       setDeleteId(null)
+      notify.success('Assessment deleted')
     },
   })
 
@@ -417,17 +422,16 @@ export default function AssessmentsPage() {
           {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       ) : assessments.length === 0 ? (
-        <div className="rounded-xl border border-border bg-bg-card py-16 text-center">
-          <Brain className="h-12 w-12 text-text-tertiary mx-auto mb-4" />
-          <p className="text-text-secondary text-sm">
-            {isAdmin ? 'No assessments found for this filter' : isSetter ? 'No assessments yet. Create your first assessment!' : 'No assessments available'}
-          </p>
-          {isSetter && !isAdmin && (
-            <Button className="mt-4" onClick={() => navigate('/assessments/create')}>
+        <EmptyState
+          icon={Brain}
+          title={isAdmin ? 'No Assessments Found' : isSetter ? 'No Assessments Yet' : 'No Assessments Available'}
+          description={isAdmin ? 'No assessments found for this filter' : isSetter ? 'Create your first assessment to get started' : 'No published assessments available yet'}
+          action={isSetter && !isAdmin ? (
+            <Button onClick={() => navigate('/assessments/create')}>
               <Plus className="h-4 w-4" /> Create Assessment
             </Button>
-          )}
-        </div>
+          ) : undefined}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assessments.map((a) => (

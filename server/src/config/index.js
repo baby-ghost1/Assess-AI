@@ -2,20 +2,28 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
+function requireEnv(name, fallback) {
+  const value = process.env[name] || fallback
+  if (!value && process.env.NODE_ENV === 'production') {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+  return value
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-assessment-platform',
-  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  mongodbUri: requireEnv('MONGODB_URI', 'mongodb://localhost:27017/ai-assessment-platform'),
+  redisUrl: requireEnv('REDIS_URL', 'redis://localhost:6379'),
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+    accessSecret: requireEnv('JWT_ACCESS_SECRET', process.env.NODE_ENV === 'production' ? undefined : 'dev-access-secret-change-in-production'),
+    refreshSecret: requireEnv('JWT_REFRESH_SECRET', process.env.NODE_ENV === 'production' ? undefined : 'dev-refresh-secret-change-in-production'),
     accessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   admin: {
-    email: process.env.ADMIN_EMAIL || 'admin@assessai.com',
-    password: process.env.ADMIN_PASSWORD || 'Admin@123456',
+    email: requireEnv('ADMIN_EMAIL', 'admin@assessai.com'),
+    password: requireEnv('ADMIN_PASSWORD', process.env.NODE_ENV === 'production' ? undefined : 'Admin@123456'),
   },
 }

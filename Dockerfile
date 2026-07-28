@@ -15,7 +15,7 @@ COPY server/ .
 
 # ---- Production ----
 FROM node:20-alpine
-RUN apk add --no-cache tini
+RUN apk add --no-cache tini python3 py3-pip gcc g++ openjdk17-jdk
 WORKDIR /app
 
 COPY --from=server-build /app/server /app/server

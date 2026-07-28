@@ -7,6 +7,7 @@ import { createAssessmentSchema, updateAssessmentSchema, adminUpdateAssessmentSc
 import * as assessmentController from './assessmentController.js'
 
 const router = Router()
+const adminRouter = Router()
 
 router.use(authenticate)
 
@@ -14,9 +15,6 @@ router.use(authenticate)
 router.get('/', assessmentController.listAssessments)
 router.get('/my', authorize('setter', 'admin'), assessmentController.getSetterAssessments)
 router.post('/', authorize('setter', 'admin'), validate(createAssessmentSchema), assessmentController.createAssessment)
-
-// Pending assessments (admin) - must be before /:id
-router.get('/admin/pending', authorize('admin'), assessmentController.getPendingAssessments)
 
 router.get('/:id', assessmentController.getAssessment)
 router.put('/:id', authorize('setter', 'admin'), (req, res, next) => {
@@ -44,4 +42,9 @@ router.post('/attempt/:attemptId/navigate/:index(\\d+)', assessmentController.na
 router.post('/attempt/:attemptId/finish', assessmentController.finishAttempt)
 router.post('/attempt/:attemptId/timer', validate(z.object({ timeRemaining: z.number() })), assessmentController.syncTimer)
 
+// Admin assessments (mounted at /api/v1/admin/assessments)
+adminRouter.use(authenticate)
+adminRouter.get('/pending', authorize('admin'), assessmentController.getPendingAssessments)
+
 export default router
+export { adminRouter }

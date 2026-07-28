@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { useAppSelector } from '@/hooks'
 import { Button } from '@/components/ui'
-import { Brain, Code2, BarChart3, CheckCircle, Loader2, Clock, Trophy, Zap, Flame, Target, Star, ArrowUpRight, ArrowDownRight, TrendingUp, BookOpen, ChevronRight, Sparkles, Award, AlertTriangle, Quote, Calendar } from 'lucide-react'
+import { Brain, Code2, BarChart3, CheckCircle, Loader2, Clock, Trophy, Zap, Flame, Target, Star, ArrowUpRight, ArrowDownRight, TrendingUp, BookOpen, ChevronRight, Sparkles, Award, Quote, Calendar } from 'lucide-react'
+import { ErrorState } from '@/components/shared'
 import { useState, useEffect, useRef } from 'react'
 import AnimatedNumber from '@/lib/animatedNumber'
 
@@ -152,7 +153,7 @@ export default function CandidateDashboard() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['candidate-dashboard'],
-    queryFn: () => api.get('/dashboard/candidate').then((r) => r.data),
+    queryFn: () => api.get('/candidate/dashboard').then((r) => r.data),
   })
 
   if (isLoading) {
@@ -160,15 +161,7 @@ export default function CandidateDashboard() {
   }
 
   if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <div className="rounded-xl border border-border bg-bg-card p-6 text-center max-w-sm">
-          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-3" />
-          <p className="text-text-primary font-medium">Failed to load dashboard</p>
-          <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
-        </div>
-      </div>
-    )
+    return <ErrorState error={error} title="Failed to Load Dashboard" />
   }
 
   const d = data?.data

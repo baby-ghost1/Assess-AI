@@ -5,7 +5,7 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import {
-  Loader2, Send, ChevronDown, ArrowLeft,
+  Loader2, Send, ChevronDown, ArrowLeft, Plus, Trash2, History, MessageSquare,
 } from 'lucide-react'
 import TopToolbar from './TopToolbar'
 import ProblemLeft from './ProblemLeft'
@@ -17,6 +17,7 @@ const LANGUAGES = [
   { id: 'python', label: 'Python3', monaco: 'python', ext: 'py' },
   { id: 'java', label: 'Java', monaco: 'java', ext: 'java' },
   { id: 'cpp', label: 'C++', monaco: 'cpp', ext: 'cpp' },
+  { id: 'c', label: 'C', monaco: 'c', ext: 'c' },
 ]
 
 const HELLO_WORLD_PROBLEM = {
@@ -33,6 +34,7 @@ const HELLO_WORLD_PROBLEM = {
       python: `def hello_world():\n    # Write your solution here\n    pass`,
       java: `class Solution {\n    public void helloWorld() {\n        // Write your solution here\n        \n    }\n}`,
       cpp: `class Solution {\npublic:\n    void helloWorld() {\n        // Write your solution here\n        \n    }\n};`,
+      c: `void helloWorld() {\n    // Write your solution here\n    \n}`,
     },
     constraints: [],
     testCases: [
@@ -44,25 +46,64 @@ const HELLO_WORLD_PROBLEM = {
   },
 }
 
-const AUTOSAVE_KEY = 'coding-workspace-save'
+const SESSION_PROBLEM_KEY = 'coding-active-problem'
+const SESSION_LANGUAGE_KEY = 'coding-language'
+const SESSION_CODE_MAP_KEY = 'coding-code-map'
+const CHAT_HISTORY_KEY = 'coding-ai-chats'
 
-function loadAutosave(id) {
-  try { const d = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}'); return d[id] || null } catch { return null }
+function loadSessionJSON(key) {
+  try { const v = sessionStorage.getItem(key); return v ? JSON.parse(v) : null } catch { return null }
 }
 
-function saveAutosave(id, code, lang) {
-  try { const d = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}'); d[id] = { code, lang, at: Date.now() }; localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(d)) } catch {}
+function saveSessionJSON(key, value) {
+  try { sessionStorage.setItem(key, JSON.stringify(value)) } catch {}
 }
 
-function clearAutosave(id) {
-  try { const d = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || '{}'); delete d[id]; localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(d)) } catch {}
+function loadCodeForProblem(problemId, lang) {
+  try {
+    const map = JSON.parse(sessionStorage.getItem(SESSION_CODE_MAP_KEY) || '{}')
+    return map[problemId]?.[lang] || null
+  } catch { return null }
+}
+
+function saveCodeForProblem(problemId, lang, code) {
+  try {
+    const map = JSON.parse(sessionStorage.getItem(SESSION_CODE_MAP_KEY) || '{}')
+    if (!map[problemId]) map[problemId] = {}
+    map[problemId][lang] = code
+    sessionStorage.setItem(SESSION_CODE_MAP_KEY, JSON.stringify(map))
+  } catch {}
+}
+
+function loadConversations() {
+  try { return JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]') } catch { return [] }
+}
+
+function saveConversations(convs) {
+  try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(convs)) } catch {}
+}
+
+function createConversation() {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: 'New Chat',
+    messages: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
 }
 
 export default function CodingPage() {
   const { mode } = useAppSelector((s) => s.theme)
   const { user: currentUser } = useAppSelector((s) => s.auth)
-  const [language, setLanguage] = useState('cpp')
-  const [code, setCode] = useState(HELLO_WORLD_PROBLEM.codingDetails.starterCodes.cpp)
+  const [language, setLanguage] = useState(() => loadSessionJSON(SESSION_LANGUAGE_KEY) || 'cpp')
+  const [activeProblem, setActiveProblem] = useState(() => loadSessionJSON(SESSION_PROBLEM_KEY) || HELLO_WORLD_PROBLEM)
+  const [code, setCode] = useState(() => {
+    const savedLang = loadSessionJSON(SESSION_LANGUAGE_KEY) || 'cpp'
+    const savedProblem = loadSessionJSON(SESSION_PROBLEM_KEY) || HELLO_WORLD_PROBLEM
+    const savedCode = loadCodeForProblem(savedProblem._id, savedLang)
+    return savedCode || savedProblem.codingDetails?.starterCodes?.[savedLang] || ''
+  })
   const [results, setResults] = useState(null)
   const [elapsed, setElapsed] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
@@ -86,10 +127,16 @@ export default function CodingPage() {
   const [showProviderSelect, setShowProviderSelect] = useState(false)
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState('')
-  const [activeProblem, setActiveProblem] = useState(HELLO_WORLD_PROBLEM)
+  const [conversations, setConversations] = useState([])
+  const [activeConvId, setActiveConvId] = useState(null)
+  const [showHistory, setShowHistory] = useState(false)
   const chatEndRef = useRef(null)
 
   const editorTheme = mode === 'dark' ? 'vs-dark' : 'vs'
+
+  useEffect(() => { saveSessionJSON(SESSION_PROBLEM_KEY, activeProblem) }, [activeProblem])
+  useEffect(() => { saveSessionJSON(SESSION_LANGUAGE_KEY, language) }, [language])
+  useEffect(() => { saveCodeForProblem(activeProblem._id, language, code) }, [code, activeProblem._id, language])
 
   const { data: langsData } = useQuery({
     queryKey: ['coding-languages'],
@@ -101,7 +148,7 @@ export default function CodingPage() {
   const mergedLanguages = langs.length
     ? LANGUAGES.map(sLang => ({ ...sLang, available: langs.find(l => l.id === sLang.id)?.available ?? false }))
     : LANGUAGES.map(l => ({ ...l, available: true }))
-  const availableLangs = mergedLanguages.filter(l => l.available)
+  const availableLangs = mergedLanguages
 
   const { data: providersData } = useQuery({
     queryKey: ['ai-providers'],
@@ -112,8 +159,9 @@ export default function CodingPage() {
   useEffect(() => {
     if (availableLangs.length === 0) return
     setLanguage(prev => {
+      if (prev === 'cpp') return 'cpp'
       if (availableLangs.find(l => l.id === prev)) return prev
-      return availableLangs[0]?.id || 'cpp'
+      return 'cpp'
     })
   }, [availableLangs])
 
@@ -128,6 +176,22 @@ export default function CodingPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
+
+  useEffect(() => {
+    const saved = loadConversations()
+    setConversations(saved)
+    if (saved.length > 0) {
+      const last = saved[saved.length - 1]
+      setActiveConvId(last.id)
+      setChatMessages(last.messages)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!activeConvId || conversations.length === 0) return
+    const conv = conversations.find(c => c.id === activeConvId)
+    if (conv) setChatMessages(conv.messages)
+  }, [activeConvId])
 
   useEffect(() => {
     const handler = (e) => {
@@ -173,6 +237,23 @@ export default function CodingPage() {
   }, [bottomHeight])
 
   const queryClient = useQueryClient()
+  const activeConvIdRef = useRef(activeConvId)
+  activeConvIdRef.current = activeConvId
+
+  const updateConversation = useCallback((convId, getMessages) => {
+    setConversations(prev => {
+      const idx = prev.findIndex(c => c.id === convId)
+      if (idx === -1) return prev
+      const updated = [...prev]
+      const messages = typeof getMessages === 'function' ? getMessages(updated[idx].messages) : getMessages
+      const title = messages.length > 0 && messages[0].role === 'user'
+        ? messages[0].text.slice(0, 40) + (messages[0].text.length > 40 ? '...' : '')
+        : updated[idx].title
+      updated[idx] = { ...updated[idx], title, messages, updatedAt: Date.now() }
+      saveConversations(updated)
+      return updated
+    })
+  }, [])
 
   const runMutation = useMutation({
     mutationFn: (p) => api.post('/coding/run', p).then(r => r.data),
@@ -212,11 +293,17 @@ export default function CodingPage() {
     }).then(r => r.data),
     onSuccess: (res) => {
       const q = res?.data?.questions?.[0]
+      const convId = activeConvIdRef.current
       if (!q) {
-        setChatMessages(prev => [...prev, { role: 'assistant', text: 'Could not generate a question. Please try again.' }])
+        if (convId) {
+          setChatMessages(prev => {
+            const updated = [...prev, { role: 'assistant', text: 'Could not generate a question. Please try again.' }]
+            updateConversation(convId, updated)
+            return updated
+          })
+        }
         return
       }
-      // Server returns codingDetails from Question model
       const details = q.codingDetails || {}
       const starterCodes = details.starterCodes || {}
       const testCases = details.testCases || []
@@ -224,15 +311,11 @@ export default function CodingPage() {
       const hints = details.hints || []
       const topics = details.topics || []
       const rawDescription = q.description || ''
-
-      // Strip examples/constraints from AI description (we'll render them as formatted HTML)
       let cleanDescription = rawDescription
         .replace(/Example\s+\d+[\s\S]*?(?=Example\s+\d+|Constraints:|$)/gi, '')
         .replace(/Constraints:[\s\S]*$/gi, '')
         .trim()
-
       const fullDescription = cleanDescription || `<p>${q.title}</p>`
-
       const dynamicProblem = {
         _id: q._id,
         title: q.title,
@@ -259,16 +342,23 @@ export default function CodingPage() {
       setLeftTab('description')
       setHintsUsed(0)
       setResults(null)
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        text: `Here's your question: "${q.title}"\n\nClick "Description" to see full details. Starter code has been loaded in the editor.`,
-      }])
+      if (convId) {
+        setChatMessages(prev => {
+          const updated = [...prev, { role: 'assistant', text: `Here's your question: "${q.title}"\n\nClick "Description" to see full details. Starter code has been loaded in the editor.` }]
+          updateConversation(convId, updated)
+          return updated
+        })
+      }
     },
     onError: (err) => {
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        text: `Error: ${err?.response?.data?.message || 'Failed to generate question. Please try again.'}`,
-      }])
+      const convId = activeConvIdRef.current
+      if (convId) {
+        setChatMessages(prev => {
+          const updated = [...prev, { role: 'assistant', text: `Error: ${err?.response?.data?.message || 'Failed to generate question. Please try again.'}` }]
+          updateConversation(convId, updated)
+          return updated
+        })
+      }
     },
   })
 
@@ -286,25 +376,89 @@ export default function CodingPage() {
 
   const handleReset = useCallback(() => {
     if (!activeProblem) return
-    clearAutosave(activeProblem._id)
-    setCode(activeProblem.codingDetails?.starterCodes?.[language] || '')
+    const starter = activeProblem.codingDetails?.starterCodes?.[language] || ''
+    setCode(starter)
+    saveCodeForProblem(activeProblem._id, language, starter)
     setResults(null); setElapsed(0); setTimerActive(false); setConsoleOutput('')
   }, [activeProblem, language])
 
   const handleLanguageChange = useCallback((newLang) => {
-    setLanguage(newLang)
     if (activeProblem) {
-      setCode(activeProblem.codingDetails?.starterCodes?.[newLang] || '')
+      saveCodeForProblem(activeProblem._id, language, code)
+      const saved = loadCodeForProblem(activeProblem._id, newLang)
+      setCode(saved || activeProblem.codingDetails?.starterCodes?.[newLang] || '')
     }
-  }, [activeProblem])
+    setLanguage(newLang)
+  }, [activeProblem, language, code])
+
+  const handleNewChat = useCallback(() => {
+    const conv = createConversation()
+    setConversations(prev => {
+      const updated = [...prev, conv]
+      saveConversations(updated)
+      return updated
+    })
+    setActiveConvId(conv.id)
+    setChatMessages([])
+    setShowHistory(false)
+  }, [])
+
+  const handleDeleteConversation = useCallback((id, e) => {
+    e.stopPropagation()
+    const isActive = activeConvId === id
+    setConversations(prev => {
+      const remaining = prev.filter(c => c.id !== id)
+      if (remaining.length === 0) {
+        const conv = createConversation()
+        setActiveConvId(conv.id)
+        setChatMessages([])
+        saveConversations([conv])
+        return [conv]
+      }
+      if (isActive) {
+        const last = remaining[remaining.length - 1]
+        setActiveConvId(last.id)
+        setChatMessages(last.messages)
+      }
+      saveConversations(remaining)
+      return remaining
+    })
+  }, [activeConvId])
+
+  const handleSwitchConversation = useCallback((id) => {
+    setActiveConvId(id)
+    setShowHistory(false)
+  }, [])
 
   const handleChatSend = (e) => {
     e.preventDefault()
     if (!chatInput.trim()) return
-    setChatMessages(prev => [...prev, { role: 'user', text: chatInput }])
-    setChatMessages(prev => [...prev, { role: 'assistant', text: 'Generating a coding question for you...' }])
-    aiGenerateMutation.mutate(chatInput)
+
+    let convId = activeConvId
+    const userText = chatInput
     setChatInput('')
+
+    if (!convId) {
+      const conv = createConversation()
+      convId = conv.id
+      setActiveConvId(convId)
+      setConversations(prev => {
+        const updated = [...prev, conv]
+        saveConversations(updated)
+        return updated
+      })
+    }
+
+    const msgs = [
+      { role: 'user', text: userText },
+      { role: 'assistant', text: 'Generating a coding question for you...' },
+    ]
+    setChatMessages(prev => {
+      const updated = [...prev, ...msgs]
+      updateConversation(convId, updated)
+      return updated
+    })
+    aiGenerateMutation.mutate(userText)
   }
 
   return (
@@ -327,79 +481,129 @@ export default function CodingPage() {
         {/* AI Chat Panel */}
         {showAIChat && (
           <div className="w-80 border-r border-border bg-bg-card flex flex-col shrink-0">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-primary">AI</span>
-                <span className="text-sm font-semibold text-text-primary">Practice</span>
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1.5 min-w-0 shrink-0">
+                <span className="text-sm font-bold text-primary shrink-0">AI</span>
+                <span className="text-sm font-semibold text-text-primary truncate">
+                  {showHistory ? 'History' : 'Practice'}
+                </span>
               </div>
-              <div className="relative">
-                <button onClick={() => setShowProviderSelect(p => !p)}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-bg-secondary text-text-secondary hover:bg-bg-tertiary transition-colors">
-                  <span className="capitalize">{aiProvider}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-                {showProviderSelect && (
-                  <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-border rounded-xl shadow-xl py-1 w-40">
-                    {providers.filter(p => p.configured).map((p) => (
-                      <button key={p.name} onClick={() => { setAiProvider(p.name); setShowProviderSelect(false) }}
-                        className={cn(
-                          'w-full text-left px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors flex items-center gap-2',
-                          aiProvider === p.name && 'bg-primary/10 text-primary'
-                        )}>
-                        <span className="text-[10px] font-bold text-primary">AI</span>
-                        <span className="capitalize">{p.name}</span>
-                      </button>
-                    ))}
-                  </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {!showHistory && (
+                  <button onClick={handleNewChat}
+                    className="p-1.5 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary transition-colors"
+                    title="New Chat">
+                    <Plus className="h-4 w-4" />
+                  </button>
                 )}
+                <button onClick={() => { setShowHistory(p => !p); setShowProviderSelect(false) }}
+                  className={cn('p-1.5 rounded-lg transition-colors',
+                    showHistory ? 'bg-primary/10 text-primary' : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary')}
+                  title="Chat History">
+                  <History className="h-4 w-4" />
+                </button>
+                <div className="relative">
+                  <button onClick={() => setShowProviderSelect(p => !p)}
+                    className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border border-border bg-bg-secondary text-text-secondary hover:bg-bg-tertiary transition-colors">
+                    <span className="capitalize">{aiProvider}</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showProviderSelect && (
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-bg-card border border-border rounded-xl shadow-xl py-1 w-40">
+                      {providers.filter(p => p.configured).map((p) => (
+                        <button key={p.name} onClick={() => { setAiProvider(p.name); setShowProviderSelect(false) }}
+                          className={cn(
+                            'w-full text-left px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors flex items-center gap-2',
+                            aiProvider === p.name && 'bg-primary/10 text-primary'
+                          )}>
+                          <span className="text-[10px] font-bold text-primary">AI</span>
+                          <span className="capitalize">{p.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {chatMessages.length === 0 && (
-                <div className="text-center py-8 space-y-3">
-                  <span className="text-2xl font-bold text-primary/30">AI</span>
-                  <p className="text-sm text-text-secondary">Ask AI for a coding practice question</p>
-                  <p className="text-[11px] text-text-tertiary">e.g. "Give me a medium array question"</p>
-                </div>
-              )}
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  <div className={cn(
-                    'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm',
-                    msg.role === 'user'
-                      ? 'bg-primary text-white rounded-br-md'
-                      : 'bg-bg-secondary text-text-primary rounded-bl-md'
-                  )}>
-                    {msg.text}
+            {showHistory ? (
+              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                {conversations.length === 0 && (
+                  <div className="text-center py-8 text-sm text-text-secondary">No conversations yet</div>
+                )}
+                {[...conversations].reverse().map((conv) => (
+                  <div key={conv.id}
+                    onClick={() => handleSwitchConversation(conv.id)}
+                    className={cn(
+                      'flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors group',
+                      activeConvId === conv.id
+                        ? 'bg-primary/10 text-primary'
+                        : 'hover:bg-bg-tertiary text-text-secondary'
+                    )}>
+                    <MessageSquare className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs truncate">{conv.title}</p>
+                      <p className="text-[10px] text-text-tertiary mt-0.5">
+                        {new Date(conv.updatedAt).toLocaleDateString()} {new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <button onClick={(e) => handleDeleteConversation(conv.id, e)}
+                      className="p-1 rounded-md text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                      title="Delete">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                </div>
-              ))}
-              {aiGenerateMutation.isPending && (
-                <div className="flex justify-start">
-                  <div className="bg-bg-secondary rounded-2xl rounded-bl-md px-4 py-2.5 text-sm flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    <span className="text-text-secondary">Generating question...</span>
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            <form onSubmit={handleChatSend} className="p-3 border-t border-border shrink-0">
-              <div className="flex items-center gap-2">
-                <input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  className="flex-1 rounded-xl border border-border bg-bg-secondary py-2.5 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-                  placeholder="Ask for a practice question..."
-                  disabled={aiGenerateMutation.isPending}
-                />
-                <Button type="submit" size="sm" disabled={!chatInput.trim() || aiGenerateMutation.isPending} className="h-10 w-10 rounded-xl p-0">
-                  <Send className="h-4 w-4" />
-                </Button>
+                ))}
               </div>
-            </form>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {chatMessages.length === 0 && (
+                    <div className="text-center py-8 space-y-3">
+                      <span className="text-2xl font-bold text-primary/30">AI</span>
+                      <p className="text-sm text-text-secondary">Ask AI for a coding practice question</p>
+                      <p className="text-[11px] text-text-tertiary">e.g. "Give me a medium array question"</p>
+                    </div>
+                  )}
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                      <div className={cn(
+                        'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm',
+                        msg.role === 'user'
+                          ? 'bg-primary text-white rounded-br-md'
+                          : 'bg-bg-secondary text-text-primary rounded-bl-md'
+                      )}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  {aiGenerateMutation.isPending && (
+                    <div className="flex justify-start">
+                      <div className="bg-bg-secondary rounded-2xl rounded-bl-md px-4 py-2.5 text-sm flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        <span className="text-text-secondary">Generating question...</span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <form onSubmit={handleChatSend} className="p-3 border-t border-border shrink-0">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      className="flex-1 rounded-xl border border-border bg-bg-secondary py-2.5 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                      placeholder="Ask for a practice question..."
+                      disabled={aiGenerateMutation.isPending}
+                    />
+                    <Button type="submit" size="sm" disabled={!chatInput.trim() || aiGenerateMutation.isPending} className="h-10 w-10 rounded-xl p-0">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         )}
 

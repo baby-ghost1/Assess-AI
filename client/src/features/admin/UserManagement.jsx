@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Loader2, Search, Shield, Ban, Check, X, ChevronLeft, ChevronRight, CheckCircle, XCircle } from 'lucide-react'
+import { notify } from '@/lib/notify'
 
 export default function UserManagement() {
   const queryClient = useQueryClient()
@@ -16,12 +17,18 @@ export default function UserManagement() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.patch(`/admin/users/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      notify.success('User updated')
+    },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/admin/users/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      notify.success('User deleted')
+    },
   })
 
   const users = data?.data?.users || []

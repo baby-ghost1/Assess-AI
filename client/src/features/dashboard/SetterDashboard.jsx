@@ -4,6 +4,7 @@ import { useAppSelector } from '@/hooks'
 import { useNavigate } from 'react-router-dom'
 import { Brain, FileEdit, BarChart3, ClipboardCheck, Loader2, Clock, FileText, Plus, Upload, Sparkles, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { EmptyState } from '@/components/shared'
 
 function StatCard({ icon: Icon, label, value, color, onClick }) {
   return (
@@ -21,7 +22,7 @@ export default function SetterDashboard() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['setter-dashboard'],
-    queryFn: () => api.get('/dashboard/setter').then((r) => r.data),
+    queryFn: () => api.get('/setter/dashboard').then((r) => r.data),
   })
 
   const { data: recentQuestions } = useQuery({
@@ -79,7 +80,7 @@ export default function SetterDashboard() {
                 </div>
               </div>
             )) : (
-              <div className="px-6 py-8 text-center text-sm text-text-secondary">No assessments created yet.</div>
+              <EmptyState icon={FileEdit} title="No Assessments Yet" description="Create your first assessment to get started" className="py-8" />
             )}
           </div>
         </div>
@@ -102,7 +103,7 @@ export default function SetterDashboard() {
                 </span>
               </div>
             )) : (
-              <div className="px-6 py-8 text-center text-sm text-text-secondary">No questions yet. Create your first question!</div>
+              <EmptyState icon={BookOpen} title="No Questions Yet" description="Create your first question to get started" className="py-8" />
             )}
           </div>
         </div>

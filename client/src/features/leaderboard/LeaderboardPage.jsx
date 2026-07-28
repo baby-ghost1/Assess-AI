@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Trophy, Medal, Award, Users, Code2, AlertTriangle, Crown, Star } from 'lucide-react'
+import { Trophy, Medal, Award, Users, Code2, Crown, Star } from 'lucide-react'
+import { ErrorState, EmptyState } from '@/components/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useAppSelector } from '@/hooks'
 import api from '@/lib/api'
@@ -161,19 +162,13 @@ export default function LeaderboardPage() {
       {isLoading ? (
         <SkeletonLeaderboard />
       ) : error ? (
-        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
-          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-3" />
-          <p className="text-text-primary font-medium">Failed to load leaderboard</p>
-          <p className="text-sm text-text-secondary mt-1">{error?.message || 'Something went wrong'}</p>
-        </div>
+        <ErrorState error={error} title="Failed to Load Leaderboard" />
       ) : entries.length === 0 ? (
-        <div className="rounded-xl border border-border bg-bg-card p-12 text-center">
-          <Users className="h-12 w-12 text-text-tertiary mx-auto mb-3 opacity-40" />
-          <p className="text-text-primary font-medium">No data yet</p>
-          <p className="text-sm text-text-secondary mt-1">
-            {tab === 'assessments' ? 'Complete an assessment to appear here' : 'Solve coding problems to appear here'}
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="No Data Yet"
+          description={tab === 'assessments' ? 'Complete an assessment to appear here' : 'Solve coding problems to appear here'}
+        />
       ) : (
         <>
           {/* Top 3 Podium */}

@@ -18,7 +18,7 @@ export async function getUserById(req, res, next) {
 
 export async function updateUser(req, res, next) {
   try {
-    const data = await adminService.updateUser(req.params.id, req.body)
+    const data = await adminService.updateUser(req.params.id, req.validatedBody)
     res.json({ success: true, data, message: 'User updated', errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -50,7 +50,7 @@ export async function getSettings(req, res, next) {
 
 export async function updateSetting(req, res, next) {
   try {
-    const data = await adminService.updateSetting(req.params.key, req.body.value, req.user._id)
+    const data = await adminService.updateSetting(req.params.key, req.validatedBody.value, req.user._id)
     res.json({ success: true, data, message: 'Setting updated', errors: null, meta: null })
   } catch (error) { next(error) }
 }

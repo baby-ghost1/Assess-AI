@@ -28,6 +28,7 @@ api.interceptors.response.use(
         return api(original)
       } catch {
         localStorage.removeItem('accessToken')
+        window.dispatchEvent(new Event('session-expired'))
         window.location.href = '/login'
       }
     }

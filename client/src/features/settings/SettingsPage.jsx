@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2 } from 'lucide-react'
 import { changePassword } from '@/features/auth/authSlice'
 import { logout } from '@/features/auth/authSlice'
+import { notify } from '@/lib/notify'
 
 const TABS = [
   { id: 'account', label: 'Account', icon: User },
@@ -135,7 +136,6 @@ const NOTIFICATION_KEYS = [
 
 function NotificationsTab() {
   const queryClient = useQueryClient()
-  const [saved, setSaved] = useState(false)
 
   const { data: prefsData } = useQuery({
     queryKey: ['user-preferences'],
@@ -146,8 +146,7 @@ function NotificationsTab() {
     mutationFn: (prefs) => api.patch('/auth/preferences', prefs),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences'] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
+      notify.success('Preferences saved')
     },
   })
 
@@ -163,11 +162,6 @@ function NotificationsTab() {
         <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" /> Notification Preferences
         </h3>
-        {saved && (
-          <span className="flex items-center gap-1 text-xs text-success">
-            <CheckCircle className="h-3 w-3" /> Saved
-          </span>
-        )}
       </div>
       <div className="space-y-1">
         {NOTIFICATION_KEYS.map((item) => (
@@ -238,11 +232,11 @@ function ChangePasswordModal({ open, onClose }) {
     setLoading(true)
     try {
       await dispatch(changePassword({ oldPassword, newPassword })).unwrap()
-      setSuccess('Password changed successfully!')
+      notify.success('Password changed successfully')
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      setTimeout(() => { onClose(); setSuccess('') }, 1500)
+      setTimeout(() => onClose(), 1000)
     } catch (err) {
       setError(err || 'Failed to change password')
     } finally {
@@ -264,12 +258,6 @@ function ChangePasswordModal({ open, onClose }) {
           <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-4">
             <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
             <p className="text-sm text-red-500">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 mb-4">
-            <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
-            <p className="text-sm text-emerald-500">{success}</p>
           </div>
         )}
 

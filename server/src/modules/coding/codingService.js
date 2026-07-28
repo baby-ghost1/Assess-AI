@@ -1,32 +1,26 @@
-import { execSync } from 'child_process'
-import { randomUUID } from 'crypto'
-import { writeFileSync, unlinkSync } from 'fs'
-import { join } from 'path'
-import { tmpdir } from 'os'
-import { AppError } from '../../shared/errors/AppError.js'
+import { executeRemote } from './remoteExecutor.js'
 
-const availableLanguages = new Set()
+const JUDGE0_ENABLED = process.env.JUDGE0_ENABLED !== 'false'
 
 export function detectLanguages() {
-  const checks = [
-    { id: 'javascript', cmd: 'node --version' },
-    { id: 'python', cmd: process.platform === 'win32' ? 'python --version' : 'python3 --version' },
-    { id: 'cpp', cmd: 'g++ --version' },
-    { id: 'java', cmd: 'javac -version' },
-  ]
-  for (const { id, cmd } of checks) {
-    try { execSync(cmd, { stdio: 'ignore', timeout: 3000 }); availableLanguages.add(id) } catch {}
+  if (JUDGE0_ENABLED) {
+    console.log('Remote execution via Judge0 CE enabled (all languages available)')
+  } else {
+    console.log('Remote execution disabled')
   }
 }
 
 export function getSupportedLanguages() {
   return [
-    { id: 'javascript', label: 'JavaScript', available: availableLanguages.has('javascript') },
-    { id: 'python', label: 'Python', available: availableLanguages.has('python') },
-    { id: 'cpp', label: 'C++', available: availableLanguages.has('cpp') },
-    { id: 'java', label: 'Java', available: availableLanguages.has('java') },
+    { id: 'javascript', label: 'JavaScript', available: true },
+    { id: 'python', label: 'Python', available: true },
+    { id: 'cpp', label: 'C++', available: true },
+    { id: 'java', label: 'Java', available: true },
+    { id: 'c', label: 'C', available: true },
   ]
 }
+
+const COMMON_HEADERS_CPP = '#include <iostream>\n#include <vector>\n#include <string>\n#include <sstream>\n#include <queue>\n#include <stack>\n#include <set>\n#include <map>\n#include <algorithm>\n#include <cmath>\n#include <climits>\n'
 
 function generateJavaScriptHarness(code) {
   let m = code.match(/\bfunction\s+(\w+)\s*\(([^)]*)\)/s)
@@ -38,7 +32,7 @@ function generateJavaScriptHarness(code) {
   return `${code}\nif(typeof input!=='undefined'&&input!==null&&input!==''){try{var _args=JSON.parse('['+input.trim().replace(/\\n/g,',')+']');if(!Array.isArray(_args))_args=[_args];var _jr=${funcName}(..._args);if(_jr!==undefined)print(_jr);}catch(e){var _jr2=${funcName}(input.trim());if(_jr2!==undefined)print(_jr2);}}`
 }
 
-function executeJS(code, input, harness) {
+async function executeJS(code, input, harness) {
   let userCode = code
   if (harness) {
     userCode = harness.replace('{{USER_CODE}}', code)
@@ -60,16 +54,10 @@ ${userCode}
 }
 main();
 `.trim()
-  const filePath = join(tmpdir(), `${randomUUID()}.js`)
-  try {
-    writeFileSync(filePath, wrappedCode, 'utf-8')
-    const start = performance.now()
-    const result = execSync(`node "${filePath}"`, { timeout: 5000, maxBuffer: 10 * 1024 * 1024, encoding: 'utf-8' })
-    const executionTime = Math.round(performance.now() - start)
-    return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
-  } finally {
-    try { unlinkSync(filePath) } catch {}
-  }
+  const start = performance.now()
+  const result = await executeRemote(wrappedCode, 'javascript', '', 10000)
+  const executionTime = Math.round(performance.now() - start)
+  return { output: result.output, executionTime, memoryUsed: 0 }
 }
 
 function generateCppHarness(code) {
@@ -91,7 +79,6 @@ function generateCppHarness(code) {
   })
 
   let parseVars = '', callArgs = '', helperFuncs = ''
-  const headers = '#include <iostream>\n#include <vector>\n#include <string>\n#include <queue>\n#include <stack>\n#include <deque>\n#include <set>\n#include <map>\n#include <unordered_set>\n#include <unordered_map>\n#include <algorithm>\n#include <cmath>\n#include <numeric>\n#include <climits>\n#include <cstring>\n#include <iomanip>\n#include <sstream>\n#include <bitset>\n#include <functional>\n'
 
   paramInfos.forEach((p, i) => {
     callArgs += (i > 0 ? ', ' : '') + p.name
@@ -163,41 +150,87 @@ function generateCppHarness(code) {
   } else if (returnType === 'string' || returnType.includes('string')) {
     outputCode = 'cout << result << endl;'
   } else if (returnType === 'void') {
-    return `${headers}using namespace std;\n${helperFuncs}${code}\nint main(){\nstring line;getline(cin,line);\n${parseVars}Solution sol;\nsol.${methodName}(${callArgs});\nreturn 0;\n}`
+    return `${COMMON_HEADERS_CPP}using namespace std;\n${helperFuncs}${code}\nint main(){\nstring line;getline(cin,line);\n${parseVars}Solution sol;\nsol.${methodName}(${callArgs});\nreturn 0;\n}`
   } else if (returnType.includes('vector<string>')) {
     outputCode = 'cout << "[" << result[0]; for(unsigned i=1;i<result.size();i++)cout<<","<<result[i]; cout << "]" << endl;'
   } else {
     return null
   }
 
-  return `${headers}using namespace std;\n${helperFuncs}${code}\nint main(){\nstring line;getline(cin,line);\n${parseVars}Solution sol;\nauto result=sol.${methodName}(${callArgs});\n${outputCode}\nreturn 0;\n}`
+  return `${COMMON_HEADERS_CPP}using namespace std;\n${helperFuncs}${code}\nint main(){\nstring line;getline(cin,line);\n${parseVars}Solution sol;\nauto result=sol.${methodName}(${callArgs});\n${outputCode}\nreturn 0;\n}`
 }
 
-function executeCpp(code, input, harness) {
-  const srcPath = join(tmpdir(), `${randomUUID()}.cpp`)
-  const exePath = join(tmpdir(), `${randomUUID()}.exe`)
-  const env = { ...process.env, PATH: `C:\\MinGW\\bin;${process.env.PATH || ''}` }
-  const fallbackHeaders = '#include <iostream>\n#include <vector>\n#include <string>\n#include <queue>\n#include <stack>\n#include <deque>\n#include <set>\n#include <map>\n#include <unordered_set>\n#include <unordered_map>\n#include <algorithm>\n#include <cmath>\n#include <numeric>\n#include <climits>\n#include <cstring>\n#include <iomanip>\n#include <sstream>\n#include <bitset>\n#include <functional>\n'
+async function executeCpp(code, input, harness) {
   const wrappedCode = harness
     ? harness.replace('{{USER_CODE}}', code)
-    : (generateCppHarness(code) || `${fallbackHeaders}using namespace std;\n${code}\nint main(){string l;getline(cin,l);cout<<l<<endl;return 0;}`)
-  try {
-    writeFileSync(srcPath, wrappedCode, 'utf-8')
-    execSync(`g++ "${srcPath}" -o "${exePath}" -std=c++17`, { timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'], env })
-    const start = performance.now()
-    const result = execSync(`"${exePath}"`, { input, timeout: 5000, maxBuffer: 10 * 1024 * 1024, encoding: 'utf-8', env })
-    const executionTime = Math.round(performance.now() - start)
-    return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
-  } catch (err) {
-    if (err.status === 127 || err.code === 'ENOENT' || err.message?.includes('not recognized')) {
-      throw new AppError('C++ compiler (g++) not available on this server', 500)
-    }
-    const stderr = err.stderr?.toString() || ''
-    throw new AppError(stderr || err.message || 'C++ execution failed', 500)
-  } finally {
-    try { unlinkSync(srcPath) } catch {}
-    try { unlinkSync(exePath) } catch {}
-  }
+    : (generateCppHarness(code) || `${COMMON_HEADERS_CPP}using namespace std;\n${code}\nint main(){string l;getline(cin,l);cout<<l<<endl;return 0;}`)
+  const start = performance.now()
+  const result = await executeRemote(wrappedCode, 'cpp', input, 15000)
+  const executionTime = Math.round(performance.now() - start)
+  return { output: result.output, executionTime, memoryUsed: 0 }
+}
+
+function generateCHarness(code) {
+  const funcMatch = code.match(/([\w\s\*]+)\s+(\w+)\s*\(([^)]*)\)\s*\{/)
+  if (!funcMatch) return null
+  const returnType = funcMatch[1].trim()
+  const funcName = funcMatch[2].trim()
+  const paramsStr = funcMatch[3].trim()
+  const params = paramsStr.split(',').map(p => p.trim()).filter(p => p)
+  const paramNames = params.map(p => p.split(/\s+/).pop())
+
+  let parseCode = '', callArgs = ''
+  params.forEach((p, i) => {
+    const parts = p.split(/\s+/)
+    const type = parts.slice(0, -1).join(' ')
+    const name = parts[parts.length - 1]
+    callArgs += (i > 0 ? ', ' : '') + name
+    if (type.includes('int') && type.includes('*')) {
+      parseCode += `int ${name}; scanf("%d", &${name});\n`
+    } else if (type === 'int' || type === 'int ' || type.includes('int')) {
+      parseCode += `int ${name}; scanf("%d", &${name});\n`
+    } else if (type === 'char' || type === 'char ') {
+      parseCode += `char ${name}; scanf(" %c", &${name});\n`
+    } else if (type === 'double' || type === 'float') {
+      parseCode += `double ${name}; scanf("%lf", &${name});\n`
+    } else { return null }
+  })
+
+  let outputCode
+  if (returnType === 'void') {
+    outputCode = `${funcName}(${callArgs});`
+  } else if (returnType === 'int') {
+    outputCode = `int result = ${funcName}(${callArgs}); printf("%d", result);`
+  } else if (returnType === 'char') {
+    outputCode = `char result = ${funcName}(${callArgs}); printf("%c", result);`
+  } else if (returnType === 'double' || returnType === 'float') {
+    outputCode = `double result = ${funcName}(${callArgs}); printf("%g", result);`
+  } else if (returnType.includes('char') && returnType.includes('*')) {
+    outputCode = `char* result = ${funcName}(${callArgs}); printf("%s", result);`
+  } else { return null }
+
+  return `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <limits.h>
+#include <stdbool.h>
+
+${code}
+
+int main() {
+${parseCode}${outputCode}
+    return 0;
+}`
+}
+
+async function executeC(code, input) {
+  const headers = '#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <math.h>\n#include <limits.h>\n#include <stdbool.h>\n'
+  const wrappedCode = generateCHarness(code) || `${headers}\n${code}\nint main(){printf("Hello, World!\\n");return 0;}`
+  const start = performance.now()
+  const result = await executeRemote(wrappedCode, 'c', input, 15000)
+  const executionTime = Math.round(performance.now() - start)
+  return { output: result.output, executionTime, memoryUsed: 0 }
 }
 
 function generateJavaHarness(code) {
@@ -213,100 +246,114 @@ function generateJavaHarness(code) {
   const paramTypes = params.map(p => p.replace(/final\s+/g, '').replace(/&/g, '').trim().split(/\s+/)).map(parts => ({ type: parts.slice(0, -1).join(' '), name: parts[parts.length - 1] }))
 
   let parseCode = '', callArgs = '', helpers = ''
-  let scannerUse = 'Scanner sc = new Scanner(System.in);\nString _line = sc.nextLine();\n'
 
   paramTypes.forEach((p, i) => {
     callArgs += (i > 0 ? ', ' : '') + p.name
-    if (p.type.includes('int[') && p.type.includes('[')) {
-      helpers += 'static int[] _parseIntArray(String s) { s=s.trim(); if(s.startsWith("["))s=s.substring(1,s.lastIndexOf("]")); String[] p=s.split(","); int[] r=new int[p.length]; for(int i=0;i<p.length;i++)r[i]=Integer.parseInt(p[i].trim()); return r; }\n'
-      parseCode += `int[] ${p.name} = _parseIntArray(_line);\n`
+    if (p.type.includes('int[') && p.type.includes('][')) {
+      helpers += `    static int[][] _parseInt2d(String s) { s=s.trim(); java.util.List<int[]> l=new java.util.ArrayList<>(); int i=s.indexOf("["); while(i>=0){int j=s.indexOf("]",i); if(j<0)break; l.add(_parseIntArray(s.substring(i,j+1))); i=s.indexOf("[",j+1);} return l.toArray(new int[0][]); }\n`
+      parseCode += `    int[][] ${p.name} = _parseInt2d(_line);\n`
+    } else if (p.type.includes('int[') && p.type.includes('[')) {
+      helpers += `    static int[] _parseIntArray(String s) { s=s.trim(); if(s.startsWith("["))s=s.substring(1,s.lastIndexOf("]")); String[] p=s.split(","); int[] r=new int[p.length]; for(int i=0;i<p.length;i++)r[i]=Integer.parseInt(p[i].trim()); return r; }\n`
+      parseCode += `    int[] ${p.name} = _parseIntArray(_line);\n`
     } else if (p.type.includes('char[') && p.type.includes('[')) {
-      helpers += 'static char[] _parseCharArray(String s) { StringBuilder r=new StringBuilder(); boolean q=false; for(int i=0;i<s.length();i++){if(s.charAt(i)==\'\\"\'){q=!q;continue;}if(q)r.append(s.charAt(i));} return r.toString().toCharArray(); }\n'
-      parseCode += `char[] ${p.name} = _parseCharArray(_line);\n`
+      helpers += `    static char[] _parseCharArray(String s) { StringBuilder r=new StringBuilder(); boolean q=false; for(int i=0;i<s.length();i++){if(s.charAt(i)=='"'){q=!q;continue;}if(q)r.append(s.charAt(i));} return r.toString().toCharArray(); }\n`
+      parseCode += `    char[] ${p.name} = _parseCharArray(_line);\n`
     } else if (p.type === 'int' || p.type === 'Integer') {
-      helpers += 'static int _parseInt(String s) { s=s.trim(); int i=s.lastIndexOf(\']\'); if(i>=0)s=s.substring(i); StringBuilder n=new StringBuilder(); for(char c:s.toCharArray()){if(c==\'-\'||(c>=\'0\'&&c<=\'9\'))n.append(c);else if(n.length()>0)break;} return n.length()==0?0:Integer.parseInt(n.toString()); }\n'
-      parseCode += `int ${p.name} = _parseInt(_line);\n`
+      helpers += `    static int _parseInt(String s) { s=s.trim(); int i=s.lastIndexOf(']'); if(i>=0)s=s.substring(i); StringBuilder n=new StringBuilder(); for(char c:s.toCharArray()){if(c=='-'||(c>='0'&&c<='9'))n.append(c);else if(n.length()>0)break;} return n.length()==0?0:Integer.parseInt(n.toString()); }\n`
+      parseCode += `    int ${p.name} = _parseInt(_line);\n`
     } else if (p.type === 'String') {
-      helpers += 'static String _parseStr(String s) { s=s.trim(); if(s.startsWith("\\\"")){int e=s.indexOf("\\\"",1);return e>0?s.substring(1,e):s.substring(1);} return s; }\n'
-      parseCode += `String ${p.name} = _parseStr(_line);\n`
+      helpers += `    static String _parseStr(String s) { s=s.trim(); if(s.startsWith("\\"")){int e=s.indexOf("\\"",1);return e>0?s.substring(1,e):s.substring(1);} return s; }\n`
+      parseCode += `    String ${p.name} = _parseStr(_line);\n`
     } else if (p.type === 'boolean' || p.type === 'Boolean') {
-      parseCode += `boolean ${p.name} = _line.contains("true");\n`
-    } else if (p.type.includes('int[') && p.type.includes('][')) {
-      helpers += 'static int[][] _parseInt2d(String s) { s=s.trim(); java.util.List<int[]> l=new java.util.ArrayList<>(); int i=s.indexOf("["); while(i>=0){int j=s.indexOf("]",i); if(j<0)break; l.add(_parseIntArray(s.substring(i,j+1))); i=s.indexOf("[",j+1);} return l.toArray(new int[0][]); }\n'
-      parseCode += `int[][] ${p.name} = _parseInt2d(_line);\n`
+      parseCode += `    boolean ${p.name} = _line.contains("true");\n`
     } else { return null }
   })
 
-  let resultVar = '', printCode
+  let callExpr = `new Solution().${methodName}(${callArgs})`
+
   if (returnType === 'void') {
-    resultVar = ''
-    printCode = `\nnew Solution().${methodName}(${callArgs});\n`
-  } else if (returnType === 'int' || returnType === 'double' || returnType === 'float' || returnType === 'long') {
-    resultVar = `${returnType} result = `
-    printCode = `\nSystem.out.println(result);\n`
+    const mainBody = `
+    java.io.ByteArrayOutputStream __baos = new java.io.ByteArrayOutputStream();
+    java.io.PrintStream __orig = System.out;
+    System.setOut(new java.io.PrintStream(__baos));
+    ${callExpr};
+    System.setOut(__orig);
+    String __cap = __baos.toString().trim();
+    if (!__cap.isEmpty()) System.out.println(__cap);`
+    return `import java.io.*;
+import java.util.*;
+import java.math.*;
+
+${code}
+
+class Main {
+${helpers}
+  public static void main(String[] args) {
+    Scanner sc = new Scanner(System.in);
+    String _line = sc.nextLine();${parseCode}${mainBody}
+  }
+}`
+  }
+
+  let toStrExpr = ''
+  if (returnType === 'int' || returnType === 'double' || returnType === 'float' || returnType === 'long') {
+    toStrExpr = 'String __rStr = String.valueOf(result);'
   } else if (returnType.includes('int[') && !returnType.includes('][')) {
-    resultVar = 'int[] result = '
-    helpers += 'static String _arrToStr(int[] a) { StringBuilder r=new StringBuilder("["); for(int i=0;i<a.length;i++){r.append(a[i]);if(i<a.length-1)r.append(",");} r.append("]"); return r.toString(); }\n'
-    printCode = `\nSystem.out.println(_arrToStr(result));\n`
+    helpers += `    static String _arrToStr(int[] a) { StringBuilder r=new StringBuilder("["); for(int i=0;i<a.length;i++){r.append(a[i]);if(i<a.length-1)r.append(",");} r.append("]"); return r.toString(); }\n`
+    toStrExpr = 'String __rStr = _arrToStr(result);'
   } else if (returnType.includes('char[')) {
-    resultVar = 'char[] result = '
-    helpers += 'static String _carrToStr(char[] a) { StringBuilder r=new StringBuilder("["); for(int i=0;i<a.length;i++){r.append("\\"").append(a[i]).append("\\"");if(i<a.length-1)r.append(",");} r.append("]"); return r.toString(); }\n'
-    printCode = `\nSystem.out.println(_carrToStr(result));\n`
+    helpers += `    static String _carrToStr(char[] a) { StringBuilder r=new StringBuilder("["); for(int i=0;i<a.length;i++){r.append("\\"").append(a[i]).append("\\"");if(i<a.length-1)r.append(",");} r.append("]"); return r.toString(); }\n`
+    toStrExpr = 'String __rStr = _carrToStr(result);'
   } else if (returnType === 'boolean' || returnType === 'Boolean') {
-    resultVar = 'boolean result = '
-    printCode = `\nSystem.out.println(result);\n`
+    toStrExpr = 'String __rStr = String.valueOf(result);'
   } else if (returnType === 'String') {
-    resultVar = 'String result = '
-    printCode = `\nSystem.out.println(result);\n`
+    toStrExpr = 'String __rStr = result == null ? "null" : result;'
   } else if (returnType.includes('List')) {
-    resultVar = 'var result = '
-    printCode = `\nSystem.out.println(result);\n`
+    toStrExpr = 'String __rStr = String.valueOf(result);'
   } else { return null }
+
+  const mainBody = `
+    java.io.ByteArrayOutputStream __baos = new java.io.ByteArrayOutputStream();
+    java.io.PrintStream __orig = System.out;
+    System.setOut(new java.io.PrintStream(__baos));
+    ${returnType} result = ${callExpr};
+    System.setOut(__orig);
+    String __cap = __baos.toString().trim();
+    ${toStrExpr}
+    if (!__cap.isEmpty()) System.out.println(__cap);
+    else System.out.println(__rStr);`
 
   return `import java.io.*;
 import java.util.*;
 import java.math.*;
-import java.text.*;
-import java.time.*;
-import java.util.stream.*;
-import java.util.concurrent.*;
-${helpers}
-public class Main {
+
 ${code}
 
+class Main {
+${helpers}
   public static void main(String[] args) {
-    ${scannerUse}${parseCode}${resultVar}new Solution().${methodName}(${callArgs});${printCode}
+    Scanner sc = new Scanner(System.in);
+    String _line = sc.nextLine();${parseCode}${mainBody}
   }
 }`
 }
 
-function executeJava(code, input, harness) {
-  const dir = tmpdir()
-  const srcPath = join(dir, 'Main.java')
-  const env = { ...process.env, PATH: `C:\\MinGW\\bin;${process.env.PATH || ''}` }
+async function executeJava(code, input, harness) {
   let wrappedCode
   if (harness) {
     wrappedCode = harness.replace('{{USER_CODE}}', code)
   } else {
-    wrappedCode = generateJavaHarness(code) || code
-  }
-  try {
-    writeFileSync(srcPath, wrappedCode, 'utf-8')
-    execSync(`javac "${srcPath}"`, { timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'], env })
-    const start = performance.now()
-    const result = execSync(`java -cp "${dir}" Main`, { input, timeout: 5000, maxBuffer: 10 * 1024 * 1024, encoding: 'utf-8', env })
-    const executionTime = Math.round(performance.now() - start)
-    return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
-  } catch (err) {
-    if (err.status === 127 || err.code === 'ENOENT' || err.message?.includes('not recognized')) {
-      throw new AppError('Java compiler (javac) not available on this server', 500)
+    const genCode = generateJavaHarness(code)
+    if (genCode) {
+      wrappedCode = genCode
+    } else {
+      wrappedCode = code
     }
-    const stderr = err.stderr?.toString() || ''
-    throw new AppError(stderr || err.message || 'Java execution failed', 500)
-  } finally {
-    try { unlinkSync(srcPath) } catch {}
-    try { unlinkSync(join(dir, 'Main.class')) } catch {}
   }
+  const start = performance.now()
+  const result = await executeRemote(wrappedCode, 'java', input, 15000)
+  const executionTime = Math.round(performance.now() - start)
+  return { output: result.output, executionTime, memoryUsed: 0 }
 }
 
 function generatePythonHarness(code) {
@@ -322,7 +369,7 @@ function generatePythonHarness(code) {
     return parts[0].trim()
   })
 
-  let header = 'import sys, math, random, heapq, bisect, itertools, functools, collections, statistics\nfrom collections import *\nfrom heapq import *\nfrom itertools import *\nfrom functools import *\nfrom math import *\n'
+  let header = 'import sys, math, random, heapq, bisect, itertools, functools, collections, statistics, ast\nfrom collections import *\nfrom heapq import *\nfrom itertools import *\nfrom functools import *\nfrom math import *\n'
   let body
   if (callArgs.length === 0) {
     body = `line = sys.stdin.read().strip()
@@ -351,7 +398,7 @@ else:
   return `${header}\n${code}\n\n${body}\n`
 }
 
-function executePython(code, input) {
+async function executePython(code, input) {
   const wrappedCode = generatePythonHarness(code) || `
 import sys, math, random, heapq, bisect, itertools, functools, collections, statistics
 from collections import *
@@ -363,45 +410,35 @@ def input():
     return sys.stdin.readline()
 ${code}
   `
-  const filePath = join(tmpdir(), `${randomUUID()}.py`)
-  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
-  try {
-    writeFileSync(filePath, wrappedCode, 'utf-8')
-    const start = performance.now()
-    const result = execSync(`${pythonCmd} "${filePath}"`, {
-      input,
-      timeout: 5000,
-      maxBuffer: 10 * 1024 * 1024,
-      encoding: 'utf-8',
-    })
-    const executionTime = Math.round(performance.now() - start)
-    return { output: result.trim(), executionTime, memoryUsed: Math.round(process.memoryUsage().heapUsed / 1024) }
-  } finally {
-    try { unlinkSync(filePath) } catch {}
-  }
+  const start = performance.now()
+  const result = await executeRemote(wrappedCode, 'python', input, 10000)
+  const executionTime = Math.round(performance.now() - start)
+  return { output: result.output, executionTime, memoryUsed: 0 }
 }
 
-function executeCode(code, language, input, harness) {
+async function executeCode(code, language, input, harness) {
   switch (language) {
     case 'javascript':
     case 'js':
-      return executeJS(code, input, harness)
+      return await executeJS(code, input, harness)
     case 'python':
     case 'py':
-      return executePython(code, input)
+      return await executePython(code, input)
     case 'cpp':
     case 'c++':
-      return executeCpp(code, input, harness)
+      return await executeCpp(code, input, harness)
     case 'java':
-      return executeJava(code, input, harness)
+      return await executeJava(code, input, harness)
+    case 'c':
+      return await executeC(code, input)
     default:
       throw new Error(`Language "${language}" is not supported for execution`)
   }
 }
 
-function runSingleTestCase(code, language, testCase, harness) {
+async function runSingleTestCase(code, language, testCase, harness) {
   try {
-    const result = executeCode(code, language, testCase.input, harness)
+    const result = await executeCode(code, language, testCase.input, harness)
     const expected = (testCase.output || '').trim()
     const actual = (result.output || '').trim()
     return {
@@ -427,17 +464,21 @@ function runSingleTestCase(code, language, testCase, harness) {
   }
 }
 
-export function runTestCases(code, language, testCases, harness) {
-  return testCases.map((tc) => runSingleTestCase(code, language, tc, harness))
+export async function runTestCases(code, language, testCases, harness) {
+  const results = []
+  for (const tc of testCases) {
+    results.push(await runSingleTestCase(code, language, tc, harness))
+  }
+  return results
 }
 
-export function runSampleTests(code, language, testCases, harness) {
+export async function runSampleTests(code, language, testCases, harness) {
   const sample = testCases.filter((tc) => !tc.isHidden)
-  return runTestCases(code, language, sample, harness)
+  return await runTestCases(code, language, sample, harness)
 }
 
-export function runAllTests(code, language, testCases, harness) {
-  return runTestCases(code, language, testCases, harness)
+export async function runAllTests(code, language, testCases, harness) {
+  return await runTestCases(code, language, testCases, harness)
 }
 
 import Question from '../questions/Question.js'

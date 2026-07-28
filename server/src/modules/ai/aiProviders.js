@@ -33,7 +33,8 @@ Return ONLY valid JSON object (not array). The object must have:
       "javascript": "function solution() {\\n    // Write your solution here\\n}",
       "python": "def solution():\\n    # Write your solution here\\n    pass",
       "java": "class Solution {\\n    public int solve(int[] nums) {\\n        // Write your solution here\\n        return -1;\\n    }\\n}",
-      "cpp": "class Solution {\\npublic:\\n    int solve(vector<int>& nums) {\\n        // Write your solution here\\n        return -1;\\n    }\\n};"
+      "cpp": "class Solution {\\npublic:\\n    int solve(vector<int>& nums) {\\n        // Write your solution here\\n        return -1;\\n    }\\n};",
+      "c": "int solve(int* nums, int numsSize) {\\n    // Write your solution here\\n    return -1;\\n}"
     },
     "testCases": [
       { "input": "specific input values", "output": "expected output", "explanation": "brief explanation" },
@@ -90,6 +91,15 @@ Rules:
 - Response must be ONLY the JSON array, no other text`
 }
 
+function safeParseJSON(text, fallback = null) {
+  try {
+    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+    return JSON.parse(cleaned)
+  } catch {
+    return fallback
+  }
+}
+
 export async function fetchFromProvider(url, options) {
   const response = await fetch(url, options)
   if (!response.ok) {
@@ -113,23 +123,7 @@ async function geminiGenerate(topic, config) {
     }),
   })
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-}
-
-async function gptGenerate(topic, config) {
-  const cfg = PROVIDER_CONFIGS.gpt
-  const prompt = buildPrompt(topic, config)
-  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    }),
-  })
-  const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+  return safeParseJSON(text) || []
 }
 
 async function claudeGenerate(topic, config) {
@@ -145,101 +139,41 @@ async function claudeGenerate(topic, config) {
     }),
   })
   const text = data?.content?.[0]?.text || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+  return safeParseJSON(text) || []
 }
 
-async function deepseekGenerate(topic, config) {
-  const cfg = PROVIDER_CONFIGS.deepseek
+async function openAICompatibleGenerate(topic, config, providerName) {
+  const cfg = PROVIDER_CONFIGS[providerName]
   const prompt = buildPrompt(topic, config)
+  const body = {
+    model: cfg.model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: providerName === 'nvidia' ? 1 : 0.7,
+  }
+  if (providerName === 'nvidia') {
+    body.top_p = 0.95
+    body.max_tokens = 16384
+  }
   const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    }),
+    body: JSON.stringify(body),
   })
   const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-}
-
-async function openrouterGenerate(topic, config) {
-  const cfg = PROVIDER_CONFIGS.openrouter
-  const prompt = buildPrompt(topic, config)
-  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    }),
-  })
-  const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-}
-
-async function perplexityGenerate(topic, config) {
-  const cfg = PROVIDER_CONFIGS.perplexity
-  const prompt = buildPrompt(topic, config)
-  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-}
-
-async function groqGenerate(topic, config) {
-  const cfg = PROVIDER_CONFIGS.groq
-  const prompt = buildPrompt(topic, config)
-  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    }),
-  })
-  const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-}
-
-async function nvidiaGenerate(topic, config) {
-  const cfg = PROVIDER_CONFIGS.nvidia
-  const prompt = buildPrompt(topic, config)
-  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 1,
-      top_p: 0.95,
-      max_tokens: 16384,
-    }),
-  })
-  const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+  return safeParseJSON(text) || []
 }
 
 // --- Provider Registry ---
 
 const providers = {
   gemini: geminiGenerate,
-  gpt: gptGenerate,
   claude: claudeGenerate,
-  deepseek: deepseekGenerate,
-  openrouter: openrouterGenerate,
-  perplexity: perplexityGenerate,
-  groq: groqGenerate,
-  nvidia: nvidiaGenerate,
+  gpt: (t, c) => openAICompatibleGenerate(t, c, 'gpt'),
+  deepseek: (t, c) => openAICompatibleGenerate(t, c, 'deepseek'),
+  openrouter: (t, c) => openAICompatibleGenerate(t, c, 'openrouter'),
+  perplexity: (t, c) => openAICompatibleGenerate(t, c, 'perplexity'),
+  groq: (t, c) => openAICompatibleGenerate(t, c, 'groq'),
+  nvidia: (t, c) => openAICompatibleGenerate(t, c, 'nvidia'),
 }
 
 export async function generateQuestions(topic, config = {}) {

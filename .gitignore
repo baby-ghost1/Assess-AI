@@ -4,3 +4,7 @@ dist
 *.log
 .DS_Store
 .env.*
+e2e-report
+e2e-results
+test-results
+*.bak

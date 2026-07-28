@@ -19,11 +19,11 @@ import questionRoutes from './modules/questions/questionRoutes.js'
 import tagRoutes from './modules/tags/tagRoutes.js'
 import uploadRoutes from './modules/uploads/uploadRoutes.js'
 import aiRoutes from './modules/ai/aiRoutes.js'
-import assessmentRoutes from './modules/assessments/assessmentRoutes.js'
+import assessmentRoutes, { adminRouter as adminAssessmentRoutes } from './modules/assessments/assessmentRoutes.js'
 import proctoringRoutes from './modules/proctoring/proctoringRoutes.js'
-import analyticsRoutes from './modules/analytics/analyticsRoutes.js'
+import analyticsRoutes, { adminRouter as adminAnalyticsRoutes, setterRouter as setterAnalyticsRoutes } from './modules/analytics/analyticsRoutes.js'
 import adminRoutes from './modules/admin/adminRoutes.js'
-import dashboardRoutes from './modules/dashboard/dashboardRoutes.js'
+import { candidateRouter as candidateDashboardRoutes, setterRouter as setterDashboardRoutes } from './modules/dashboard/dashboardRoutes.js'
 import codingRoutes from './modules/coding/codingRoutes.js'
 import notificationRoutes from './modules/notifications/notificationRoutes.js'
 import { detectLanguages } from './modules/coding/codingService.js'
@@ -34,7 +34,18 @@ const httpServer = createServer(app)
 // Security
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", 'ws:', 'wss:'],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
 }))
 app.use(compression())
 app.use(cors({
@@ -67,7 +78,11 @@ app.use('/api/v1/assessments', assessmentRoutes)
 app.use('/api/v1/proctoring', proctoringRoutes)
 app.use('/api/v1/analytics', analyticsRoutes)
 app.use('/api/v1/admin', adminRoutes)
-app.use('/api/v1/dashboard', dashboardRoutes)
+app.use('/api/v1/admin/analytics', adminAnalyticsRoutes)
+app.use('/api/v1/admin/assessments', adminAssessmentRoutes)
+app.use('/api/v1/setter/analytics', setterAnalyticsRoutes)
+app.use('/api/v1/candidate/dashboard', candidateDashboardRoutes)
+app.use('/api/v1/setter/dashboard', setterDashboardRoutes)
 app.use('/api/v1/coding', codingRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
 

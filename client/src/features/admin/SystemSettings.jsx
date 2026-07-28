@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Loader2, Save, Settings2, Shield, Brain, Camera, FileText } from 'lucide-react'
+import { notify } from '@/lib/notify'
 
 const CATEGORY_ICONS = { general: Settings2, security: Shield, assessment: FileText, ai: Brain, proctoring: Camera }
 const CATEGORY_LABELS = { general: 'General', security: 'Security', assessment: 'Assessment', ai: 'AI', proctoring: 'Proctoring' }
@@ -69,7 +70,10 @@ export default function SystemSettings() {
 
   const updateMutation = useMutation({
     mutationFn: ({ key, value }) => api.patch(`/admin/settings/${key}`, { value }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-settings'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
+      notify.success('Settings saved')
+    },
   })
 
   const settings = data?.data || []

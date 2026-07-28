@@ -21,7 +21,7 @@ const sidebarConfig = {
     ]},
     { section: 'Insights', items: [
       { to: '/analytics', icon: BarChart3, label: 'Analytics', end: true },
-      { to: '/analytics/admin', icon: Shield, label: 'Platform Analytics' },
+      { to: '/admin/analytics', icon: Shield, label: 'Platform Analytics' },
       { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
     ]},
     { section: 'System', items: [
@@ -91,7 +91,7 @@ export default function Sidebar() {
 
   const { data: adminPendingAssessData } = useQuery({
     queryKey: ['sidebar-admin-pending-assessment-count'],
-    queryFn: () => api.get('/assessments/admin/pending').then((r) => r.data),
+    queryFn: () => api.get('/admin/assessments/pending').then((r) => r.data),
     enabled: role === 'admin',
     refetchInterval: 60000,
   })

@@ -384,6 +384,7 @@ export async function getLeaderboard(currentUser) {
 
 const insightsCache = new Map()
 const CACHE_TTL = 1000 * 60 * 30
+const CACHE_MAX_SIZE = 100
 
 function getCacheKey(userId, scope, providerName) {
   return `${userId}:${scope}:${providerName || 'default'}`
@@ -391,15 +392,23 @@ function getCacheKey(userId, scope, providerName) {
 
 function getCachedInsights(key) {
   const cached = insightsCache.get(key)
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.data
-  insightsCache.delete(key)
-  return null
+  if (!cached) return null
+  if (Date.now() - cached.timestamp >= CACHE_TTL) {
+    insightsCache.delete(key)
+    return null
+  }
+  cached.timestamp = Date.now()
+  return cached.data
 }
 
 function setCachedInsights(key, data) {
-  if (insightsCache.size > 100) {
-    const oldest = insightsCache.entries().next().value
-    if (oldest) insightsCache.delete(oldest[0])
+  if (insightsCache.size >= CACHE_MAX_SIZE && !insightsCache.has(key)) {
+    const toEvict = Math.ceil(CACHE_MAX_SIZE * 0.2)
+    const entries = [...insightsCache.entries()]
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp)
+    for (let i = 0; i < toEvict && i < entries.length; i++) {
+      insightsCache.delete(entries[i][0])
+    }
   }
   insightsCache.set(key, { data, timestamp: Date.now() })
 }

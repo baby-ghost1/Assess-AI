@@ -9,11 +9,15 @@ const router = Router()
 
 router.use(authenticate)
 
-router.get('/', async (req, res, next) => {
+router.get('/', validate(z.object({
+  search: z.string().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+}).strict(), 'query'), async (req, res, next) => {
   try {
-    const { search, page = 1, limit = 50 } = req.query
+    const { search, page, limit } = req.query
     const query = {}
-    if (search) query.name = { $regex: search, $options: 'i' }
+    if (search) query.name = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
     const tags = await Tag.find(query).sort({ usageCount: -1 }).skip((page - 1) * limit).limit(Number(limit))
     const total = await Tag.countDocuments(query)
     res.json({ success: true, data: tags, message: 'Tags fetched', errors: null, meta: { page, limit, total } })

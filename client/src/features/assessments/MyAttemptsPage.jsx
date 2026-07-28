@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Loader2, AlertCircle, Trophy, RotateCw } from 'lucide-react'
+import { ArrowLeft, Trophy, RotateCw, BarChart3, Clock, XCircle, CheckCircle } from 'lucide-react'
+import { EmptyState, ErrorState } from '@/components/shared'
 
 export default function MyAttemptsPage() {
   const navigate = useNavigate()
@@ -33,26 +34,20 @@ export default function MyAttemptsPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-danger shrink-0" />
-          <p className="text-sm text-danger">{error?.response?.data?.message || 'Failed to load attempts'}</p>
-        </div>
-      )}
+      {error && <ErrorState error={error} title="Failed to Load Attempts" />}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : attempts.length === 0 ? (
-        <div className="rounded-xl border border-border bg-bg-card py-16 text-center">
-          <Trophy className="h-12 w-12 text-text-tertiary mx-auto mb-4 opacity-40" />
-          <p className="text-text-secondary text-sm">No attempts yet</p>
-          <p className="text-xs text-text-tertiary mt-1">Start an assessment to see your history here</p>
-          <Button size="sm" className="mt-4" onClick={() => navigate('/assessments')}>
-            Browse Assessments
-          </Button>
-        </div>
+        <EmptyState
+          icon={Trophy}
+          title="No Attempts Yet"
+          description="Start an assessment to see your history here"
+          actionLabel="Browse Assessments"
+          onAction={() => navigate('/assessments')}
+        />
       ) : (
         <div className="space-y-3">
           {attempts.map((a) => {

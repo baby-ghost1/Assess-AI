@@ -1,20 +1,26 @@
 import { Router } from 'express'
+import { z } from 'zod'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
+import { authLimiter } from '../../middleware/rateLimiter.js'
 import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema } from './authValidation.js'
 import * as authController from './authController.js'
 
 const router = Router()
 
-router.post('/register', validate(registerSchema), authController.register)
-router.post('/login', validate(loginSchema), authController.login)
-router.post('/admin/login', validate(adminLoginSchema), authController.adminLogin)
+router.post('/register', authLimiter, validate(registerSchema), authController.register)
+router.post('/login', authLimiter, validate(loginSchema), authController.login)
+router.post('/admin/login', authLimiter, validate(adminLoginSchema), authController.adminLogin)
 router.post('/logout', authenticate, authController.logout)
 router.post('/refresh', authController.refreshToken)
 router.get('/me', authenticate, authController.getMe)
 router.post('/change-password', authenticate, validate(changePasswordSchema), authController.changePassword)
 router.patch('/profile', authenticate, validate(updateProfileSchema), authController.updateProfile)
 router.get('/preferences', authenticate, authController.getPreferences)
-router.patch('/preferences', authenticate, authController.updatePreferences)
+router.patch('/preferences', authenticate, validate(z.object({
+  theme: z.enum(['light', 'dark', 'system']).optional(),
+  emailNotifications: z.boolean().optional(),
+  language: z.string().min(1).max(20).optional(),
+}).strict()), authController.updatePreferences)
 
 export default router

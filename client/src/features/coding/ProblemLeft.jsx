@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DOMPurify from 'dompurify'
 import {
   FileText, Code, Lightbulb, CheckCircle, BookmarkCheck, Bookmark as BookmarkIcon,
   ChevronDown, ChevronUp, Users, Lock, MessageSquare, MessageCircle,
@@ -29,6 +30,8 @@ export default function ProblemLeft({ problem, submissions, onToggleBookmark, is
   const [seenInInterview, setSeenInInterview] = useState(null)
   const [showTopics, setShowTopics] = useState(false)
   const [showCompanies, setShowCompanies] = useState(false)
+  const [showHints, setShowHints] = useState(false)
+  const [expandedHints, setExpandedHints] = useState(new Set())
 
   if (!problem) return null
 
@@ -98,10 +101,10 @@ export default function ProblemLeft({ problem, submissions, onToggleBookmark, is
                   <Users className="h-3 w-3" /> Companies {showCompanies ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
                 {hints.length > 0 && (
-                  <button onClick={() => onUseHint(hintsUsed)}
+                  <button onClick={() => setShowHints(!showHints)}
                     className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary hover:bg-bg-tertiary transition-colors relative">
-                    <Lightbulb className="h-3 w-3" /> Hint {hintsUsed > 0 && `(${hintsUsed}/${hints.length})`}
-                    {hintsUsed < hints.length && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-400" />}
+                    <Lightbulb className="h-3 w-3" /> Hints ({hints.length})
+                    {showHints ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   </button>
                 )}
               </div>
@@ -124,23 +127,45 @@ export default function ProblemLeft({ problem, submissions, onToggleBookmark, is
                 </div>
               )}
 
-              {/* Revealed hints */}
-              {hintsUsed > 0 && (
-                <div className="space-y-2">
-                  {hints.slice(0, hintsUsed).map((hint, i) => (
-                    <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-                        <span className="text-xs font-medium text-amber-500">Hint {i + 1}</span>
+              {/* Hints accordion */}
+              {showHints && hints.length > 0 && (
+                <div className="space-y-1 -mt-1">
+                  {hints.map((hint, i) => {
+                    const isExpanded = expandedHints.has(i)
+                    return (
+                      <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/[0.03] overflow-hidden">
+                        <button
+                          onClick={() => {
+                            const next = new Set(expandedHints)
+                            if (isExpanded) next.delete(i)
+                            else next.add(i)
+                            setExpandedHints(next)
+                          }}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-amber-500/[0.05] transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <span className="text-xs font-medium text-amber-500">Hint {i + 1}</span>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronUp className="h-3 w-3 text-amber-400 shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3 text-amber-400 shrink-0" />
+                          )}
+                        </button>
+                        {isExpanded && (
+                          <div className="px-3 pb-3">
+                            <p className="text-sm text-text-secondary leading-relaxed">{hint.content || hint}</p>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-sm text-text-secondary leading-relaxed">{hint.content || hint}</p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
 
               {/* Description */}
-              <div className="text-sm text-text-primary leading-relaxed font-sans" dangerouslySetInnerHTML={{ __html: problem.description }} />
+              <div className="text-sm text-text-primary leading-relaxed font-sans" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(problem.description, { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'a'], ALLOWED_ATTR: ['href', 'target', 'rel'] }) }} />
 
               {/* Examples */}
               {problem.codingDetails?.testCases?.filter(tc => !tc.isHidden).map((tc, i) => (

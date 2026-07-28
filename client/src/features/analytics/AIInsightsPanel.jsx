@@ -24,7 +24,7 @@ function Section({ icon: Icon, title, items, color }) {
 
 export default function AIInsightsPanel({ scope, title }) {
   const [retrying, setRetrying] = useState(false)
-  const endpoint = scope === 'admin' ? '/analytics/insights/admin' : '/analytics/insights'
+  const endpoint = scope === 'admin' ? '/admin/analytics/insights' : '/analytics/insights'
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [endpoint],

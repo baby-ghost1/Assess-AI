@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { CheckCircle, XCircle, Clock, Eye, Brain, Code2, AlertTriangle, BarChart3, Send } from 'lucide-react'
-import { TableSkeleton } from '@/components/shared'
+import { TableSkeleton, EmptyState } from '@/components/shared'
+import { notify } from '@/lib/notify'
 import { useState } from 'react'
 
 function ConfirmModal({ open, title, message, onConfirm, onCancel, isPending, variant = 'primary' }) {
@@ -72,7 +73,7 @@ export default function AssessmentReviewPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['assessments-pending'],
-    queryFn: () => api.get('/assessments/admin/pending').then((r) => r.data),
+    queryFn: () => api.get('/admin/assessments/pending').then((r) => r.data),
     refetchInterval: 30000,
   })
 
@@ -83,6 +84,7 @@ export default function AssessmentReviewPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
       setConfirmApprove(null)
+      notify.success('Assessment approved successfully')
     },
   })
 
@@ -93,6 +95,7 @@ export default function AssessmentReviewPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
       setRejectTarget(null)
+      notify.success('Assessment rejected')
     },
   })
 
@@ -106,10 +109,11 @@ export default function AssessmentReviewPage() {
       </div>
 
       {isLoading ? <TableSkeleton rows={5} /> : assessments.length === 0 ? (
-        <div className="rounded-xl border border-border bg-bg-card py-16 text-center">
-          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
-          <p className="text-text-secondary text-sm">All caught up! No assessments pending review.</p>
-        </div>
+        <EmptyState
+          icon={CheckCircle}
+          title="All Caught Up!"
+          description="No assessments pending review. Check back later."
+        />
       ) : (
         <div className="space-y-4">
           {assessments.map((a) => {

@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'sonner'
 import { store } from '@/store'
-import { ErrorBoundary } from '@/components/shared'
+import { ErrorBoundary, OfflineOverlay, SlowInternetWarning, SessionExpiredModal, NotFoundPage } from '@/components/shared'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { setTheme } from '@/store/themeSlice'
 import { getCurrentUser } from '@/features/auth/authSlice'
@@ -58,7 +59,7 @@ function ThemeInitializer({ children }) {
 
 function AuthInitializer({ children }) {
   const dispatch = useAppDispatch()
-  const { isLoading, isAuthenticated } = useAppSelector((s) => s.auth)
+  const { isAuthenticated } = useAppSelector((s) => s.auth)
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
@@ -92,7 +93,7 @@ function AppRoutes() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
           <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
-          <Route path="/register/setter" element={<SetterRegisterPage />} />
+          <Route path="/setter/register" element={<SetterRegisterPage />} />
           <Route path="/admin/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <AdminLoginPage />} />
         </Route>
         <Route element={<DashboardLayout />}>
@@ -113,7 +114,7 @@ function AppRoutes() {
           <Route path="/results/:id" element={<ResultsPage />} />
           <Route path="/proctoring" element={<ProctoringDashboard />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/analytics/admin" element={<AdminAnalyticsPage />} />
+          <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="/analytics/assessment/:id" element={<AssessmentAnalyticsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/reviews" element={<AssessmentReviewPage />} />
@@ -126,11 +127,12 @@ function AppRoutes() {
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   )
 }
+
 export default function App() {
   return (
     <Provider store={store}>
@@ -140,6 +142,22 @@ export default function App() {
             <AuthInitializer>
               <ErrorBoundary>
                 <AppRoutes />
+                <Toaster
+                  position="top-right"
+                  richColors
+                  closeButton
+                  toastOptions={{
+                    className: 'font-sans text-sm',
+                    style: {
+                      background: 'var(--color-bg-card)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    },
+                  }}
+                />
+                <OfflineOverlay />
+                <SlowInternetWarning />
+                <SessionExpiredModal />
               </ErrorBoundary>
             </AuthInitializer>
           </ThemeInitializer>

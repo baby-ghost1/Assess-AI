@@ -12,7 +12,7 @@ export default function AdminAnalyticsPage() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-analytics'],
-    queryFn: () => api.get('/analytics/admin').then((r) => r.data),
+    queryFn: () => api.get('/admin/analytics').then((r) => r.data),
   })
 
   if (isLoading) {
@@ -77,7 +77,7 @@ export default function AdminAnalyticsPage() {
             <p className="text-sm text-text-secondary mt-1">Platform-wide performance overview</p>
           </div>
           <Button variant="outline" size="sm" asChild className="gap-2">
-            <a href="/api/v1/analytics/report/admin" download>
+            <a href="/api/v1/admin/analytics/report" download>
               <Download className="h-4 w-4" /> Export CSV
             </a>
           </Button>

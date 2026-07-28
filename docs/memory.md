@@ -104,8 +104,8 @@
 - [x] `getAssessmentAnalytics` — score distribution (6 buckets), per-question stats (correct/incorrect/skipped/avgTime/difficulty), recent attempts list
 - [x] `getAdminAnalytics` — platform-wide stats (users, assessments, questions, attempts, pass rate), assessment type distribution
 - [x] `getQuestionAnalytics` — difficulty index, correct/incorrect/skipped breakdown
-- [x] REST API endpoints (`/analytics/me`, `/analytics/assessment/:id`, `/analytics/question/:id`, `/analytics/admin`)
-- [x] Admin-only route guard for `/analytics/admin`
+- [x] REST API endpoints (`/analytics/me`, `/analytics/assessment/:id`, `/analytics/question/:id`, `/admin/analytics`)
+- [x] Admin-only route guard for `/admin/analytics`
 
 ### Frontend
 

@@ -58,11 +58,10 @@ const CPP_HARNESSES = {
 
 export async function runCode(req, res, next) {
   try {
-    const { code, language, questionId } = req.body
-    const lang = language || 'javascript'
+    const { code, language, questionId } = req.validatedBody
     const question = await resolveQuestion(questionId)
-    const { testCases, harness } = getTestData(questionId, question, lang)
-    const results = codingService.runSampleTests(code, lang, testCases, harness)
+    const { testCases, harness } = getTestData(questionId, question, language)
+    const results = await codingService.runSampleTests(code, language, testCases, harness)
     const totalTime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0)
     const maxMemory = Math.max(...results.map(r => r.memoryUsed || 0))
     res.json({ success: true, data: { results, executionTime: totalTime, memoryUsed: maxMemory }, message: 'Tests executed', errors: null, meta: null })
@@ -71,11 +70,10 @@ export async function runCode(req, res, next) {
 
 export async function submitCode(req, res, next) {
   try {
-    const { code, language, questionId } = req.body
-    const lang = language || 'javascript'
+    const { code, language, questionId } = req.validatedBody
     const question = await resolveQuestion(questionId)
-    const { testCases, harness } = getTestData(questionId, question, lang)
-    const results = codingService.runAllTests(code, lang, testCases, harness)
+    const { testCases, harness } = getTestData(questionId, question, language)
+    const results = await codingService.runAllTests(code, language, testCases, harness)
     const passed = results.filter((r) => r.passed).length
     const total = results.length
     const allPassed = passed === total
@@ -140,6 +138,9 @@ export async function getSubmissionById(req, res, next) {
   try {
     const submission = await CodingSubmission.findById(req.params.id)
     if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' })
+    if (submission.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this submission' })
+    }
     res.json({ success: true, data: submission, message: 'Submission fetched', errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -201,8 +202,7 @@ export async function getComments(req, res, next) {
 export async function addComment(req, res, next) {
   try {
     const { questionId } = req.params
-    const { content, parentComment } = req.body
-    if (!content || !content.trim()) return res.status(400).json({ success: false, message: 'Comment content required' })
+    const { content, parentComment } = req.validatedBody
     const comment = await CodingComment.create({
       user: req.user._id,
       question: questionId,

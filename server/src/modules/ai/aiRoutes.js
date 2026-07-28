@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { authorize } from '../../middleware/authorize.js'
+import { aiGenerateLimiter } from '../../middleware/rateLimiter.js'
 import { generateQuestions, getAvailableProviders, generateInsights, fetchFromProvider, PROVIDER_CONFIGS } from './aiProviders.js'
 import Assessment from '../assessments/Assessment.js'
 import Attempt from '../assessments/Attempt.js'
@@ -21,7 +22,7 @@ router.get('/providers', (_, res) => {
   res.json({ success: true, data: getAvailableProviders(), message: 'Providers fetched', errors: null, meta: null })
 })
 
-router.post('/generate', validate(z.object({
+router.post('/generate', aiGenerateLimiter, validate(z.object({
   topic: z.string().min(2, 'Topic required'),
   count: z.coerce.number().min(1).max(20).default(5),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),

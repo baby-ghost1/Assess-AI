@@ -45,8 +45,8 @@ export default function CodeEditorPanel({ language, code, onChange, onLanguageCh
       <div className="flex items-center justify-between px-4 py-1.5 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <select value={language} onChange={(e) => onLanguageChange(e.target.value)}
-            className="text-xs font-medium bg-transparent border border-border rounded px-2 py-1 text-text-primary focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-            {languages.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+            className="text-xs font-medium bg-transparent border border-border rounded px-2 py-1 text-text-primary focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer dark:bg-[#1e1e1e] dark:text-white">
+            {languages.map(l => <option key={l.id} value={l.id} className="dark:bg-[#1e1e1e] dark:text-white">{l.label}</option>)}
           </select>
           <div className="flex items-center gap-1 text-xs text-text-tertiary">
             <Lock className="h-3 w-3" />
