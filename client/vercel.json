@@ -2,19 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://assess-ai-api.onrender.com/api/:path*"
+      "destination": "https://assess-ai-20tf.onrender.com/api/:path*"
     },
     {
       "source": "/socket.io/:path*",
-      "destination": "https://assess-ai-api.onrender.com/socket.io/:path*"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
+      "destination": "https://assess-ai-20tf.onrender.com/socket.io/:path*"
     }
   ]
 }
