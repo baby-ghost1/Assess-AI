@@ -85,14 +85,6 @@ Server runs on `http://localhost:5000`, client on `http://localhost:5173`.
 └── package.json            # Root scripts
 ```
 
-## Default Accounts
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@assessai.com | Admin@123456 |
-| Candidate | candidate@test.com | Candidate123! |
-| Setter | setter@test.com | Setter123! |
-
 ## License
 
 MIT
