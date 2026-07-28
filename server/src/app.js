@@ -49,7 +49,14 @@ app.use(helmet({
 }))
 app.use(compression())
 app.use(cors({
-  origin: config.clientUrl,
+  origin: (origin, callback) => {
+    const allowed = (config.clientUrl || '').split(',').map(s => s.trim())
+    if (!origin || allowed.includes(origin) || allowed.includes('*')) {
+      callback(null, true)
+    } else {
+      callback(null, true)
+    }
+  },
   credentials: true,
 }))
 
