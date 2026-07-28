@@ -98,15 +98,26 @@ app.get('/api/health', (_, res) => {
   res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() })
 })
 
-// Serve static files from client build
+// Serve static files from client build (only if built locally)
+import fs from 'fs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const clientDist = path.resolve(__dirname, '../../client/dist')
-app.use(express.static(clientDist))
+const clientDistExists = fs.existsSync(clientDist)
+
+if (clientDistExists) {
+  app.use(express.static(clientDist))
+} else {
+  console.log('⚠️  client/dist not found — serving API only (frontend hosted on Vercel)')
+}
 
 // SPA catch-all: return index.html for non-API, non-file routes
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(clientDist, 'index.html'))
+    if (clientDistExists) {
+      res.sendFile(path.join(clientDist, 'index.html'))
+    } else {
+      res.status(404).json({ success: false, message: 'API only — frontend hosted separately' })
+    }
   } else {
     res.status(404).json({ success: false, message: 'Route not found' })
   }
