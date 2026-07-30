@@ -73,7 +73,8 @@ export async function getSystemHealth(req, res, next) {
 
 export async function deleteAllData(req, res, next) {
   try {
-    const data = await adminService.deleteAllData(req.user._id, req.validatedBody.confirmation)
+    const { confirmation, password } = req.validatedBody
+    const data = await adminService.deleteAllData(req.user._id, confirmation, password)
     res.json({ success: true, data: null, message: data.message, errors: null, meta: null })
   } catch (error) { next(error) }
 }

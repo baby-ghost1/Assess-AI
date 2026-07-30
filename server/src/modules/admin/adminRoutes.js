@@ -37,6 +37,7 @@ router.post('/delete-all', validate(z.object({
   confirmation: z.literal('DELETE ALL DATA', {
     errorMap: () => ({ message: 'Please type "DELETE ALL DATA" to confirm' }),
   }),
+  password: z.string().min(1, 'Password is required'),
 })), adminController.deleteAllData)
 
 export default router

@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { LayoutDashboard, Users, Shield, Settings2 } from 'lucide-react'
+import { LayoutDashboard, Users, Shield, Settings2, AlertTriangle } from 'lucide-react'
 import AdminOverview from './AdminOverview'
 import UserManagement from './UserManagement'
 import RoleManagement from './RoleManagement'
 import SystemSettings from './SystemSettings'
+import DangerZone from './DangerZone'
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, component: AdminOverview },
   { id: 'users', label: 'Users', icon: Users, component: UserManagement },
   { id: 'roles', label: 'Roles', icon: Shield, component: RoleManagement },
   { id: 'settings', label: 'Settings', icon: Settings2, component: SystemSettings },
+  { id: 'danger', label: 'Danger Zone', icon: AlertTriangle, component: DangerZone, danger: true },
 ]
 
 export default function AdminPage() {
@@ -23,16 +25,18 @@ export default function AdminPage() {
         <p className="text-sm text-text-secondary mt-1">Manage users, roles, and system settings</p>
       </div>
 
-      <div className="flex gap-1 border-b border-border pb-1">
+      <div className="flex gap-1 border-b border-border pb-1 overflow-x-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'text-primary border-b-2 border-primary'
+                  ? tab.danger
+                    ? 'text-error border-b-2 border-error'
+                    : 'text-primary border-b-2 border-primary'
                   : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
               }`}
             >

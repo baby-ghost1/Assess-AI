@@ -201,14 +201,19 @@ export async function getSystemHealth() {
   }
 }
 
-export async function deleteAllData(adminId, confirmation) {
+export async function deleteAllData(adminId, confirmation, password) {
   if (confirmation !== 'DELETE ALL DATA') {
     throw new Error('Invalid confirmation text')
   }
 
-  const admin = await User.findById(adminId)
+  const admin = await User.findById(adminId).select('+password')
   if (!admin || admin.role !== 'admin') {
     throw new Error('Only admin can perform this action')
+  }
+
+  const isPasswordValid = await admin.comparePassword(password)
+  if (!isPasswordValid) {
+    throw new Error('Incorrect password')
   }
 
   await Promise.all([
