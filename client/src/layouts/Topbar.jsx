@@ -3,9 +3,8 @@ import { toggleTheme } from '@/store/themeSlice'
 import { logout } from '@/features/auth/authSlice'
 import { fetchNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } from '@/features/notifications/notificationSlice'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2, Maximize, Minimize, Keyboard, Wifi, WifiOff, Clock, Menu, Search } from 'lucide-react'
+import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2, Maximize, Minimize, Keyboard, Wifi, WifiOff, Clock, Menu } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import GlobalSearch from '@/components/shared/GlobalSearch'
 
 const GRADIENT_VARIANTS = {
   mix: 'linear-gradient(90deg, transparent 0%, #F97316 10%, #EC4899 30%, #8B5CF6 50%, #EC4899 70%, #F97316 90%, transparent 100%)',
@@ -29,7 +28,6 @@ const TYPE_COLORS = {
 }
 
 const SHORTCUTS = [
-  { keys: ['⌘', 'K'], desc: 'Global search' },
   { keys: ['?'], desc: 'Show keyboard shortcuts' },
   { keys: ['D'], desc: 'Go to Dashboard' },
   { keys: ['A'], desc: 'Go to Analytics' },
@@ -120,7 +118,6 @@ export default function Topbar({ onMenuToggle }) {
   const [variant, setVariant] = useState('mix')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const online = useOnlineStatus()
   const profileRef = useRef(null)
   const notifRef = useRef(null)
@@ -145,7 +142,6 @@ export default function Topbar({ onMenuToggle }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('.monaco-editor')) return
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen((p) => !p); return }
       switch (e.key) {
         case '?': e.preventDefault(); setShortcutsOpen((p) => !p); break
         case 'd': case 'D': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); navigate('/dashboard') } break
@@ -155,7 +151,7 @@ export default function Topbar({ onMenuToggle }) {
         case 'n': case 'N': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setNotifOpen((p) => !p) } break
         case 't': case 'T': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); dispatch(toggleTheme()) } break
         case 'f': case 'F': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleFullscreen() } break
-        case 'Escape': setNotifOpen(false); setOpen(false); setShortcutsOpen(false); setSearchOpen(false); break
+        case 'Escape': setNotifOpen(false); setOpen(false); setShortcutsOpen(false); break
         default: break
       }
     }
@@ -222,14 +218,6 @@ export default function Topbar({ onMenuToggle }) {
           </button>
           <KeyboardShortcutsDropdown open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} dropdownRef={shortcutsRef} />
         </div>
-
-        {/* Global Search */}
-        <button onClick={() => setSearchOpen(true)} className="hidden sm:flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary transition-colors" title="Search (Ctrl+K)">
-          <Search className="h-3.5 w-3.5" />
-          <span className="text-xs">Search</span>
-          <kbd className="hidden lg:inline px-1 py-0.5 text-[9px] font-mono bg-bg-tertiary border border-border-light rounded">⌘K</kbd>
-        </button>
-        <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
 
         {/* Notifications Bell */}
         <div className="relative" ref={notifRef}>
