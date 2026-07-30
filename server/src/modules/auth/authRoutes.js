@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { authLimiter } from '../../middleware/rateLimiter.js'
-import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema } from './authValidation.js'
+import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema, deleteAccountSchema } from './authValidation.js'
 import * as authController from './authController.js'
 
 const router = Router()
@@ -22,5 +22,6 @@ router.patch('/preferences', authenticate, validate(z.object({
   emailNotifications: z.boolean().optional(),
   language: z.string().min(1).max(20).optional(),
 }).strict()), authController.updatePreferences)
+router.delete('/account', authenticate, validate(deleteAccountSchema), authController.deleteAccount)
 
 export default router

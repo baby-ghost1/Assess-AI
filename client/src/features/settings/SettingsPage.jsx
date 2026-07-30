@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { toggleTheme } from '@/store/themeSlice'
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2 } from 'lucide-react'
+import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2 } from 'lucide-react'
 import { changePassword } from '@/features/auth/authSlice'
 import { logout } from '@/features/auth/authSlice'
 import { notify } from '@/lib/notify'
+import DeleteAccountModal from './DeleteAccountModal'
 
 const TABS = [
   { id: 'account', label: 'Account', icon: User },
@@ -320,7 +321,7 @@ function ChangePasswordModal({ open, onClose }) {
   )
 }
 
-function SecurityTab({ onChangePassword }) {
+function SecurityTab({ onChangePassword, onDeleteAccount }) {
   const dispatch = useAppDispatch()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
@@ -341,14 +342,27 @@ function SecurityTab({ onChangePassword }) {
           <Shield className="h-4 w-4" /> Danger Zone
         </h3>
         <p className="text-sm text-text-secondary mb-4">Irreversible actions for your account.</p>
-        <div className="flex items-center justify-between rounded-lg border border-border bg-bg-card p-3">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Sign out</p>
-            <p className="text-xs text-text-secondary">Sign out from your account on this device</p>
+
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border border-border bg-bg-card p-3 gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary">Sign out</p>
+              <p className="text-xs text-text-secondary">Sign out from your account on this device</p>
+            </div>
+            <button onClick={() => setShowLogoutConfirm(true)} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors flex items-center gap-1.5 shrink-0">
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
           </div>
-          <button onClick={() => setShowLogoutConfirm(true)} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors flex items-center gap-1.5">
-            <LogOut className="h-3.5 w-3.5" /> Sign out
-          </button>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border border-danger/30 bg-bg-card p-3 gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-danger">Delete account</p>
+              <p className="text-xs text-text-secondary">Permanently delete your account and all associated data</p>
+            </div>
+            <button onClick={onDeleteAccount} className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/20 transition-colors flex items-center gap-1.5 shrink-0">
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
+          </div>
         </div>
       </div>
 
@@ -441,6 +455,7 @@ export default function SettingsPage() {
   const roleLabels = { admin: 'Administrator', setter: 'Question Setter', candidate: 'Candidate' }
   const [activeTab, setActiveTab] = useState('account')
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
 
   const allTabs = role === 'admin'
     ? [...TABS, { id: 'system', label: 'System', icon: Globe }]
@@ -461,14 +476,14 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="relative flex rounded-full border border-border bg-bg-card p-1">
+      <div className="relative flex rounded-full border border-border bg-bg-card p-1 overflow-x-auto scrollbar-none">
         {allTabs.map((t, i) => {
           const isActive = activeTab === t.id
           return (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`relative flex-1 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-colors duration-200 z-10 ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors duration-200 z-10 shrink-0 whitespace-nowrap ${
                 isActive ? 'text-white' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
@@ -488,10 +503,11 @@ export default function SettingsPage() {
       {activeTab === 'account' && <AccountTab user={user} />}
       {activeTab === 'appearance' && <AppearanceTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
-      {activeTab === 'security' && <SecurityTab onChangePassword={() => setShowChangePassword(true)} />}
+      {activeTab === 'security' && <SecurityTab onChangePassword={() => setShowChangePassword(true)} onDeleteAccount={() => setShowDeleteAccount(true)} />}
       {activeTab === 'system' && role === 'admin' && <SystemTab />}
 
       <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} />
+      <DeleteAccountModal open={showDeleteAccount} onClose={() => setShowDeleteAccount(false)} />
     </div>
   )
 }

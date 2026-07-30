@@ -5,7 +5,7 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import {
-  Loader2, Send, ChevronDown, ArrowLeft, Plus, Trash2, History, MessageSquare,
+  Loader2, Send, ChevronDown, ArrowLeft, Plus, Trash2, History, MessageSquare, PanelLeftClose, Code2,
 } from 'lucide-react'
 import TopToolbar from './TopToolbar'
 import ProblemLeft from './ProblemLeft'
@@ -131,6 +131,15 @@ export default function CodingPage() {
   const [activeConvId, setActiveConvId] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const chatEndRef = useRef(null)
+  const [mobileView, setMobileView] = useState('editor')
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const editorTheme = mode === 'dark' ? 'vs-dark' : 'vs'
 
@@ -211,29 +220,35 @@ export default function CodingPage() {
     document.body.style.userSelect = 'none'
     const onMove = (ev) => {
       if (!isDraggingV.current || !containerRef.current) return
+      const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX
       const rect = containerRef.current.getBoundingClientRect()
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100
+      const pct = ((clientX - rect.left) / rect.width) * 100
       setLeftWidth(Math.min(Math.max(pct, 25), 70))
     }
-    const onUp = () => { isDraggingV.current = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    const onUp = () => { isDraggingV.current = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onUp) }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onUp)
   }, [])
 
   const onHorizontalDrag = useCallback((e) => {
     isDraggingH.current = true
     document.body.style.cursor = 'row-resize'
     document.body.style.userSelect = 'none'
-    const startY = e.clientY
+    const startY = e.touches ? e.touches[0].clientY : e.clientY
     const startH = bottomHeight
     const onMove = (ev) => {
       if (!isDraggingH.current) return
-      const diff = startY - ev.clientY
+      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY
+      const diff = startY - clientY
       setBottomHeight(Math.min(Math.max(startH + diff, 100), 500))
     }
-    const onUp = () => { isDraggingH.current = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    const onUp = () => { isDraggingH.current = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onUp) }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onUp)
   }, [bottomHeight])
 
   const queryClient = useQueryClient()
@@ -477,10 +492,41 @@ export default function CodingPage() {
         onOpenDiscussion={() => setLeftTab('discussion')}
       />
 
+      {/* Mobile tab switcher */}
+      {isMobile && !showAIChat && (
+        <div className="flex border-b border-border bg-bg-card shrink-0">
+          <button
+            onClick={() => setMobileView('problem')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors border-b-2',
+              mobileView === 'problem'
+                ? 'text-primary border-primary bg-primary/5'
+                : 'text-text-secondary border-transparent hover:text-text-primary'
+            )}
+          >
+            <PanelLeftClose className="h-3.5 w-3.5" /> Problem
+          </button>
+          <button
+            onClick={() => setMobileView('editor')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors border-b-2',
+              mobileView === 'editor'
+                ? 'text-primary border-primary bg-primary/5'
+                : 'text-text-secondary border-transparent hover:text-text-primary'
+            )}
+          >
+            <Code2 className="h-3.5 w-3.5" /> Editor
+          </button>
+        </div>
+      )}
+
       <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* AI Chat Panel */}
         {showAIChat && (
-          <div className="w-80 border-r border-border bg-bg-card flex flex-col shrink-0">
+          <div className={cn(
+            'border-r border-border bg-bg-card flex flex-col shrink-0',
+            isMobile ? 'w-full' : 'w-80'
+          )}>
             <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-1">
               <div className="flex items-center gap-1.5 min-w-0 shrink-0">
                 <span className="text-sm font-bold text-primary shrink-0">AI</span>
@@ -608,7 +654,13 @@ export default function CodingPage() {
         )}
 
         {/* Left Panel - Problem */}
-        <div style={{ width: `${leftWidth}%` }} className="border-r border-border overflow-hidden shrink-0 flex flex-col">
+        <div
+          style={!isMobile ? { width: `${leftWidth}%` } : undefined}
+          className={cn(
+            'border-r border-border overflow-hidden shrink-0 flex flex-col',
+            isMobile ? (mobileView === 'problem' ? 'flex-1' : 'hidden') : ''
+          )}
+        >
           {showAIChat && activeProblem?._id?.startsWith('ai-') ? (
             <div className="h-full flex flex-col">
               <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
@@ -658,9 +710,12 @@ export default function CodingPage() {
           )}
         </div>
 
-        <div onMouseDown={onVerticalDrag} className="w-1 hover:bg-primary/30 bg-border/50 cursor-col-resize transition-colors shrink-0" />
+        {!isMobile && <div onMouseDown={onVerticalDrag} onTouchStart={onVerticalDrag} className="w-1 hover:bg-primary/30 bg-border/50 cursor-col-resize transition-colors shrink-0" />}
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className={cn(
+          'flex-1 flex flex-col overflow-hidden',
+          isMobile ? (mobileView === 'editor' ? 'flex-1' : 'hidden') : ''
+        )}>
           <div style={{ flex: 1, minHeight: 0 }}>
             <CodeEditorPanel
               language={language}
@@ -675,9 +730,9 @@ export default function CodingPage() {
             />
           </div>
 
-          <div onMouseDown={onHorizontalDrag} className="h-1 hover:bg-primary/30 bg-border/50 cursor-row-resize transition-colors shrink-0" />
+          {!isMobile && <div onMouseDown={onHorizontalDrag} onTouchStart={onHorizontalDrag} className="h-1 hover:bg-primary/30 bg-border/50 cursor-row-resize transition-colors shrink-0" />}
 
-          <div style={{ height: bottomHeight }} className="border-t border-border shrink-0 overflow-hidden">
+          <div style={isMobile ? { height: 150 } : { height: bottomHeight }} className="border-t border-border shrink-0 overflow-hidden">
             <TestResultsPanel results={results} running={running} consoleOutput={consoleOutput} error={runError} />
           </div>
         </div>

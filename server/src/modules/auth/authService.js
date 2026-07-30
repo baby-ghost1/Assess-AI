@@ -144,3 +144,22 @@ export async function updatePreferences(userId, prefs) {
   await user.save({ validateBeforeSave: false })
   return user.preferences
 }
+
+export async function deleteAccount(userId, { password }) {
+  const user = await User.findById(userId).select('+password')
+  if (!user) throw new UnauthorizedError('User not found')
+
+  const isMatch = await user.comparePassword(password)
+  if (!isMatch) throw new UnauthorizedError('Incorrect password')
+
+  user.isActive = false
+  user.name = 'Deleted User'
+  user.email = `deleted_${user._id}@removed.com`
+  user.password = password
+  user.refreshToken = null
+  user.avatar = null
+  user.preferences = {}
+  await user.save({ validateBeforeSave: false })
+
+  return { message: 'Account deleted successfully' }
+}

@@ -35,3 +35,11 @@ export const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100).optional(),
   email: z.string().email('Invalid email address').optional(),
 })
+
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+  confirmation: z.literal('DELETE MY ACCOUNT', {
+    errorMap: () => ({ message: 'Please type "DELETE MY ACCOUNT" to confirm' }),
+  }),
+  reason: z.string().max(500).optional(),
+})

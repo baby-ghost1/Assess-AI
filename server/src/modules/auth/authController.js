@@ -83,3 +83,11 @@ export async function updatePreferences(req, res, next) {
     res.status(200).json({ success: true, data: result, message: 'Preferences updated', errors: null, meta: null })
   } catch (error) { next(error) }
 }
+
+export async function deleteAccount(req, res, next) {
+  try {
+    const result = await authService.deleteAccount(req.user._id, req.validatedBody)
+    res.clearCookie('refreshToken', { path: '/' })
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, Sparkles, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, ChevronRight, CreditCard, HelpCircle } from 'lucide-react'
+import { LayoutDashboard, Brain, Sparkles, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, ChevronRight, CreditCard, HelpCircle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks'
@@ -74,7 +74,7 @@ function getActiveLabel(pathname, sections) {
   return ''
 }
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, onMobileClose }) {
   const [collapsed, setCollapsed] = useState(false)
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
@@ -132,9 +132,13 @@ export default function Sidebar() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  return (
+  useEffect(() => {
+    if (mobileOpen) onMobileClose?.()
+  }, [location.pathname])
+
+  const sidebarContent = (
     <aside className={cn(
-      'relative flex flex-col border-r border-border transition-all duration-300 ease-in-out overflow-hidden',
+      'relative flex flex-col border-r border-border transition-all duration-300 ease-in-out overflow-hidden h-full',
       collapsed ? 'w-[72px]' : 'w-[220px]'
     )}
       style={{
@@ -270,6 +274,31 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block shrink-0 h-full">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[60] md:hidden">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onMobileClose} />
+          <div className="relative h-full w-[220px] flex">
+            {sidebarContent}
+            <button
+              onClick={onMobileClose}
+              className="absolute top-4 right-2 p-1.5 rounded-lg bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors z-10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

@@ -3,7 +3,7 @@ import { toggleTheme } from '@/store/themeSlice'
 import { logout } from '@/features/auth/authSlice'
 import { fetchNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } from '@/features/notifications/notificationSlice'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2, Maximize, Minimize, Keyboard, Wifi, WifiOff, Clock } from 'lucide-react'
+import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2, Maximize, Minimize, Keyboard, Wifi, WifiOff, Clock, Menu } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const GRADIENT_VARIANTS = {
@@ -86,7 +86,7 @@ function KeyboardShortcutsDropdown({ open, onClose, dropdownRef }) {
 
   if (!open) return null
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-bg-card shadow-2xl z-50 flex flex-col" ref={dropdownRef}>
+    <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-xl border border-border bg-bg-card shadow-2xl z-50 flex flex-col" ref={dropdownRef}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <h4 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2"><Keyboard className="h-4 w-4 text-primary" /> Keyboard Shortcuts</h4>
         <button onClick={onClose} className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"><X className="h-4 w-4" /></button>
@@ -107,7 +107,7 @@ function KeyboardShortcutsDropdown({ open, onClose, dropdownRef }) {
   )
 }
 
-export default function Topbar() {
+export default function Topbar({ onMenuToggle }) {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const { mode } = useAppSelector((s) => s.theme)
@@ -179,27 +179,32 @@ export default function Topbar() {
   }, [])
 
   return (
-    <header className="relative z-50 flex h-16 items-center justify-between bg-bg-card/80 backdrop-blur-xl px-6">
+    <header className="relative z-50 flex h-16 items-center justify-between bg-bg-card/80 backdrop-blur-xl px-3 sm:px-6">
       <div className="absolute bottom-0 left-0 right-0 h-[1.5px]" style={{ background: GRADIENT_VARIANTS[variant] }} />
       <div className="flex items-center gap-3">
+        <button onClick={onMenuToggle} className="md:hidden rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title="Toggle menu">
+          <Menu className="h-5 w-5" />
+        </button>
         <button onClick={() => setVariant(variant === 'mix' ? 'single' : 'mix')}
           className="text-[10px] px-2 py-0.5 rounded-full border border-border text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary transition-colors cursor-pointer" title="Toggle border style">
           {variant === 'mix' ? 'Mix' : 'Orange'}
         </button>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Online/Offline Status */}
-        <div className="flex items-center gap-1.5" title={online ? 'Online' : 'Offline'}>
+        <div className="hidden sm:flex items-center gap-1.5" title={online ? 'Online' : 'Offline'}>
           {online ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : <WifiOff className="h-3.5 w-3.5 text-red-500" />}
           <span className={`text-[10px] font-medium ${online ? 'text-emerald-500' : 'text-red-500'}`}>{online ? 'Online' : 'Offline'}</span>
         </div>
 
-        <div className="w-px h-4 bg-border" />
+        <div className="hidden sm:block w-px h-4 bg-border" />
 
         {/* Live Clock */}
-        <LiveClock />
+        <div className="hidden md:block">
+          <LiveClock />
+        </div>
 
-        <div className="w-px h-4 bg-border" />
+        <div className="hidden md:block w-px h-4 bg-border" />
 
         {/* Fullscreen Toggle */}
         <button onClick={toggleFullscreen} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}>
@@ -207,7 +212,7 @@ export default function Topbar() {
         </button>
 
         {/* Keyboard Shortcuts */}
-        <div className="relative">
+        <div className="relative hidden sm:block">
           <button onClick={() => setShortcutsOpen(!shortcutsOpen)} className="rounded-lg p-2 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" title="Keyboard shortcuts (?)">
             <Keyboard className="h-5 w-5" />
           </button>
@@ -226,7 +231,7 @@ export default function Topbar() {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-96 max-h-[70vh] rounded-xl border border-border bg-bg-card shadow-2xl z-50 flex flex-col">
+            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-96 max-h-[70vh] rounded-xl border border-border bg-bg-card shadow-2xl z-50 flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
                 <h4 className="text-sm font-heading font-semibold text-text-primary">Notifications</h4>
                 <div className="flex items-center gap-1">

@@ -65,6 +65,15 @@ export const updateProfile = createAsyncThunk('auth/updateProfile', async (updat
   }
 })
 
+export const deleteAccount = createAsyncThunk('auth/deleteAccount', async (payload, { rejectWithValue }) => {
+  try {
+    const { data } = await api.delete('/auth/account', { data: payload })
+    return data.message
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Failed to delete account')
+  }
+})
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -87,6 +96,9 @@ const authSlice = createSlice({
       .addCase(updateProfile.pending, (s) => { s.isLoading = true; s.error = null })
       .addCase(updateProfile.fulfilled, (s, a) => { s.isLoading = false; s.user = a.payload })
       .addCase(updateProfile.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
+      .addCase(deleteAccount.pending, (s) => { s.isLoading = true; s.error = null })
+      .addCase(deleteAccount.fulfilled, (s) => { s.isLoading = false; s.user = null; s.isAuthenticated = false })
+      .addCase(deleteAccount.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
   },
 })
 
