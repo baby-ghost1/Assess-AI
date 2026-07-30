@@ -3,9 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/hooks'
 import { login, clearError } from './authSlice'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, Brain, ArrowRight, Shield, Zap, CheckCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, Sparkles, Zap, Shield, Globe, ChevronRight } from 'lucide-react'
 import gsap from 'gsap'
 
 const loginSchema = z.object({
@@ -14,80 +14,75 @@ const loginSchema = z.object({
   rememberMe: z.boolean().optional().default(true),
 })
 
-const FEATURES = [
-  { icon: Brain, text: 'AI-Powered Assessments', desc: 'Smart question generation' },
-  { icon: Shield, text: 'Real-time Proctoring', desc: 'Secure exam environment' },
-  { icon: Zap, text: 'Instant Results', desc: 'Analytics & insights' },
-]
-
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1'
 
-function FloatingInput({ label, icon: Icon, error, registration, type, showToggle, showState, onToggleShow, autoFocus }) {
+function FloatingInput({ label, icon: Icon, error, registration, type, showToggle, showState, onToggleShow, autoFocus, index = 0 }) {
   const [focused, setFocused] = useState(false)
   const [hasValue, setHasValue] = useState(false)
-  const inputRef = useRef(null)
   const wrapperRef = useRef(null)
-  const iconRef = useRef(null)
-  const glowRef = useRef(null)
+  const labelRef = useRef(null)
+  const lineRef = useRef(null)
 
   const isActive = focused || hasValue
 
-  const handleFocus = () => {
-    setFocused(true)
-    gsap.to(iconRef.current, { scale: 1.2, color: 'var(--color-primary)', duration: 0.3, ease: 'back.out(1.7)' })
-    gsap.to(glowRef.current, { opacity: 1, scaleX: 1, duration: 0.4, ease: 'power2.out' })
-    gsap.to(wrapperRef.current, { borderColor: 'var(--color-primary)', duration: 0.3 })
-  }
-
-  const handleBlur = (e) => {
-    setFocused(false)
-    setHasValue(e.target.value.length > 0)
-    gsap.to(iconRef.current, { scale: 1, color: 'var(--color-text-tertiary)', duration: 0.3 })
-    gsap.to(glowRef.current, { opacity: 0, scaleX: 0, duration: 0.3 })
-    gsap.to(wrapperRef.current, { borderColor: error ? 'var(--color-danger)' : 'var(--color-border)', duration: 0.3 })
-  }
-
-  const handleChange = (e) => setHasValue(e.target.value.length > 0)
-
   useEffect(() => {
-    if (inputRef.current?.value) setHasValue(true)
-    if (autoFocus && inputRef.current) inputRef.current.focus()
-  }, [autoFocus])
+    if (wrapperRef.current?.querySelector('input')?.value) setHasValue(true)
+  }, [])
 
   return (
-    <div className="form-field">
-      <div ref={wrapperRef} className="relative rounded-xl border border-border bg-bg-secondary transition-colors">
-        <div ref={iconRef} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
-          <Icon className="h-4 w-4 text-text-tertiary" />
+    <div className="group relative" style={{ '--i': index }}>
+      <div
+        ref={wrapperRef}
+        className={`relative rounded-2xl border-2 bg-white/[0.03] backdrop-blur-sm transition-all duration-300 ${
+          error ? 'border-red-500/50' : focused ? 'border-violet-500/60' : 'border-white/10'
+        } ${focused ? 'shadow-lg shadow-violet-500/10' : ''}`}
+      >
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none transition-all duration-300" style={{ color: focused ? '#8B5CF6' : 'rgba(255,255,255,0.3)' }}>
+          <Icon className="h-4 w-4" />
         </div>
-        <label className={`absolute z-10 pointer-events-none transition-all duration-300 ease-out ${
-          isActive
-            ? 'text-[11px] left-3 -top-2.5 text-primary font-medium scale-[0.92] origin-left bg-bg-card px-1'
-            : 'text-sm left-10 top-1/2 -translate-y-1/2 text-text-tertiary scale-100'
-        }`}>{label}</label>
-        <div className="relative overflow-hidden rounded-b-[11px]">
-          <div ref={glowRef} className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary to-accent opacity-0 origin-center" style={{ transform: 'scaleX(0)' }} />
+
+        <label
+          ref={labelRef}
+          className={`absolute z-10 pointer-events-none transition-all duration-300 origin-left ${
+            isActive
+              ? 'text-[10px] left-4 -top-2.5 font-semibold tracking-wide uppercase bg-[#0A0A0F] px-2'
+              : 'text-sm left-11 top-1/2 -translate-y-1/2'
+          } ${focused ? 'text-violet-400' : error ? 'text-red-400' : 'text-white/40'}`}
+        >
+          {label}
+        </label>
+
+        <div className="relative overflow-hidden rounded-[14px]">
+          <div
+            ref={lineRef}
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-violet-500 rounded-full transition-all duration-500"
+            style={{ width: focused ? '100%' : '0%', opacity: focused ? 1 : 0 }}
+          />
           <input
-            ref={inputRef}
             type={showToggle ? (showState ? 'text' : 'password') : type || 'text'}
+            autoFocus={autoFocus}
             {...registration}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onChange={(e) => { registration.onChange(e); handleChange(e) }}
-            className="w-full bg-transparent py-3 pl-10 pr-10 text-sm text-text-primary outline-none placeholder-transparent"
+            onFocus={() => setFocused(true)}
+            onBlur={(e) => { setFocused(false); setHasValue(e.target.value.length > 0) }}
+            onChange={(e) => { registration.onChange(e); setHasValue(e.target.value.length > 0) }}
+            className="w-full bg-transparent py-3.5 pl-11 pr-11 text-sm text-white/90 outline-none placeholder-transparent font-medium"
             placeholder={label}
           />
           {showToggle && (
-            <button type="button" onClick={onToggleShow} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary transition-colors p-0.5 z-20">
+            <button
+              type="button"
+              onClick={onToggleShow}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-all duration-200 p-1 rounded-lg hover:bg-white/5"
+            >
               {showState ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           )}
         </div>
       </div>
-      <div className="min-h-[20px]">
+      <div className="h-5 overflow-hidden pt-1">
         {error && (
-          <p className="mt-1 ml-1 text-xs text-danger flex items-center gap-1">
-            <span className="inline-block h-1 w-1 rounded-full bg-danger shrink-0" />
+          <p className="text-xs text-red-400 flex items-center gap-1.5 animate-slideDown font-medium">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400/80 shrink-0 animate-pulse" />
             {error}
           </p>
         )}
@@ -96,34 +91,118 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
   )
 }
 
-function RippleButton({ children, isLoading, disabled, className = '', ...props }) {
+function MagneticButton({ children, className = '', disabled, isLoading, ...props }) {
   const btnRef = useRef(null)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
 
-  const handleClick = (e) => {
+  const handleMouseMove = useCallback((e) => {
     const btn = btnRef.current
     if (!btn) return
     const rect = btn.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    const ripple = document.createElement('span')
-    ripple.className = 'absolute rounded-full bg-white/25 pointer-events-none'
-    ripple.style.cssText = `left:${x}px;top:${y}px;width:0;height:0`
-    btn.appendChild(ripple)
-    gsap.to(ripple, { width: 300, height: 300, x: -150, y: -150, opacity: 0, duration: 0.6, ease: 'power2.out', onComplete: () => ripple.remove() })
-  }
+    const x = e.clientX - rect.left - rect.width / 2
+    const y = e.clientY - rect.top - rect.height / 2
+    setPosition({ x: x * 0.3, y: y * 0.3 })
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    setPosition({ x: 0, y: 0 })
+  }, [])
 
   return (
-    <button ref={btnRef} onClick={handleClick} disabled={disabled || isLoading} className={`group/btn relative overflow-hidden ${className}`} {...props}>
-      {isLoading ? (
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-          <span>Please wait...</span>
-        </div>
-      ) : (
-        <span className="flex items-center justify-center gap-2">{children}</span>
-      )}
+    <button
+      ref={btnRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      disabled={disabled || isLoading}
+      className={`group relative overflow-hidden rounded-2xl font-semibold transition-all duration-200 ${className}`}
+      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+      {...props}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute -inset-1 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-violet-400 rounded-2xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
+      <div className="relative z-10 flex items-center justify-center gap-2 px-6 py-3.5">
+        {isLoading ? (
+          <div className="flex items-center gap-2.5">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <span className="text-sm">Signing in...</span>
+          </div>
+        ) : (
+          <>
+            <span className="text-sm">{children}</span>
+            <ArrowRight className="h-4 w-4 group-hover:translate-x-1.5 group-hover:-translate-y-0.5 transition-all duration-300" />
+          </>
+        )}
+      </div>
     </button>
   )
+}
+
+function ParticleField() {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    let animId
+    let particles = []
+    const count = 60
+
+    const resize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.random() * 2 + 0.5,
+        a: Math.random() * 0.3 + 0.1,
+      })
+    }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      particles.forEach((p) => {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0) p.x = canvas.width
+        if (p.x > canvas.width) p.x = 0
+        if (p.y < 0) p.y = canvas.height
+        if (p.y > canvas.height) p.y = 0
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(139, 92, 246, ${p.a})`
+        ctx.fill()
+
+        particles.forEach((p2) => {
+          const dx = p.x - p2.x
+          const dy = p.y - p2.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 120) {
+            ctx.beginPath()
+            ctx.moveTo(p.x, p.y)
+            ctx.lineTo(p2.x, p2.y)
+            ctx.strokeStyle = `rgba(139, 92, 246, ${0.08 * (1 - dist / 120)})`
+            ctx.lineWidth = 0.5
+            ctx.stroke()
+          }
+        })
+      })
+      animId = requestAnimationFrame(draw)
+    }
+    draw()
+
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize) }
+  }, [])
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />
 }
 
 export default function LoginPage() {
@@ -131,21 +210,18 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isAuthenticated, isLoading, error } = useAppSelector((s) => s.auth)
-  const [show, setShow] = useState(false)
+  const [showPass, setShowPass] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema) })
 
   const containerRef = useRef(null)
-  const leftPanelRef = useRef(null)
   const cardRef = useRef(null)
-  const cardBorderRef = useRef(null)
-  const logoRef = useRef(null)
-  const titleRef = useRef(null)
-  const subtitleRef = useRef(null)
-  const featuresRef = useRef(null)
+  const glowRef = useRef(null)
   const formRef = useRef(null)
   const errorRef = useRef(null)
-  const orbsRef = useRef(null)
   const dividerRef = useRef(null)
+  const socialRef = useRef(null)
+  const footerRef = useRef(null)
+  const mouseRef = useRef({ x: 0.5, y: 0.5 })
 
   useEffect(() => {
     const authError = searchParams.get('error')
@@ -157,137 +233,143 @@ export default function LoginPage() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
+      gsap.set(cardRef.current, { y: 40, opacity: 0, scale: 0.97 })
+      gsap.set(formRef.current?.children || [], { y: 20, opacity: 0 })
+      gsap.set(dividerRef.current, { scaleX: 0, opacity: 0 })
+      gsap.set(socialRef.current?.children || [], { y: 15, opacity: 0 })
+      gsap.set(footerRef.current, { y: 10, opacity: 0 })
+
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
-      tl.from(leftPanelRef.current, { x: -80, opacity: 0, duration: 0.8 })
-        .from(logoRef.current, { scale: 0, rotation: -180, duration: 0.6, ease: 'elastic.out(1, 0.5)' }, '-=0.4')
-        .from(titleRef.current?.children || [], { y: 40, opacity: 0, stagger: 0.1, duration: 0.5 }, '-=0.3')
-        .from(subtitleRef.current, { y: 20, opacity: 0, duration: 0.4 }, '-=0.2')
-        .from(featuresRef.current?.children || [], { x: -30, opacity: 0, stagger: 0.12, duration: 0.4 }, '-=0.2')
+      tl.to(cardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.8, ease: 'power2.out' })
+        .to(formRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.06, duration: 0.5 }, '-=0.4')
+        .to(dividerRef.current, { scaleX: 1, opacity: 1, duration: 0.5 }, '-=0.2')
+        .to(socialRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.08, duration: 0.4 }, '-=0.3')
+        .to(footerRef.current, { y: 0, opacity: 1, duration: 0.3 }, '-=0.1')
+    })
 
-      gsap.from(cardRef.current, { y: 60, opacity: 0, scale: 0.96, duration: 0.7, ease: 'power2.out', delay: 0.3 })
-      gsap.to(cardBorderRef.current, { backgroundPosition: '200% center', duration: 4, repeat: -1, ease: 'none' })
-
-      const formFields = formRef.current?.querySelectorAll('.form-field') || []
-      gsap.from(formFields, { y: 25, opacity: 0, stagger: 0.08, duration: 0.4, delay: 0.6, ease: 'power2.out' })
-
-      if (dividerRef.current) gsap.from(dividerRef.current, { scaleX: 0, opacity: 0, duration: 0.5, delay: 0.9, ease: 'power2.out' })
-
-      const orbs = orbsRef.current?.querySelectorAll('.orb') || []
-      orbs.forEach((orb, i) => {
-        gsap.to(orb, { y: `${20 + i * 10}`, x: `${10 + i * 5}`, duration: 3 + i * 0.5, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: i * 0.3 })
-        gsap.to(orb, { scale: 1 + i * 0.15, opacity: 0.5 + i * 0.1, duration: 2 + i * 0.3, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: i * 0.2 })
-      })
-    }, containerRef)
     return () => ctx.revert()
   }, [])
 
   useEffect(() => {
-    if (error) {
-      if (errorRef.current) gsap.fromTo(errorRef.current, { x: -15, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: 'elastic.out(1, 0.3)' })
-      if (cardRef.current) gsap.fromTo(cardRef.current, { x: -6 }, { x: 0, duration: 0.5, ease: 'elastic.out(1, 0.2)' })
+    if (error && errorRef.current) {
+      gsap.fromTo(errorRef.current, { x: -15, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.5, ease: 'elastic.out(1, 0.3)' })
+      gsap.fromTo(cardRef.current, { x: -4 },
+        { x: 0, duration: 0.4, ease: 'elastic.out(1, 0.2)' })
     }
   }, [error])
 
+  useEffect(() => {
+    const handleMouse = (e) => {
+      mouseRef.current = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight }
+      if (glowRef.current) {
+        gsap.to(glowRef.current, {
+          left: `${e.clientX - 150}px`,
+          top: `${e.clientY - 150}px`,
+          duration: 1.5,
+          ease: 'power2.out',
+        })
+      }
+    }
+    window.addEventListener('mousemove', handleMouse)
+    return () => window.removeEventListener('mousemove', handleMouse)
+  }, [])
+
   return (
-    <div ref={containerRef} className="flex min-h-screen bg-bg-primary overflow-hidden">
-      {/* LEFT PANEL */}
-      <div ref={leftPanelRef} className="hidden lg:flex lg:w-[55%] relative items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-bg-primary to-accent/10" />
-        <div ref={orbsRef} className="absolute inset-0 pointer-events-none">
-          <div className="orb absolute top-[15%] left-[20%] w-72 h-72 rounded-full bg-primary/15 blur-3xl" />
-          <div className="orb absolute top-[55%] right-[15%] w-56 h-56 rounded-full bg-accent/15 blur-3xl" />
-          <div className="orb absolute bottom-[10%] left-[30%] w-40 h-40 rounded-full bg-primary/10 blur-2xl" />
-        </div>
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="relative z-10 max-w-lg px-12">
-          <div ref={logoRef} className="mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-dark shadow-2xl shadow-primary/25">
-            <Brain className="h-10 w-10 text-white" />
-          </div>
-          <div ref={titleRef}>
-            <h1 className="text-5xl font-heading font-extrabold text-text-primary leading-tight">AssessAI</h1>
-            <h2 className="mt-2 text-3xl font-heading font-bold text-text-primary">Smart Assessment Platform</h2>
-          </div>
-          <p ref={subtitleRef} className="mt-5 text-lg text-text-secondary leading-relaxed">
-            AI-powered assessments with smart question generation, real-time proctoring, and instant analytics.
-          </p>
-          <div ref={featuresRef} className="mt-10 space-y-4">
-            {FEATURES.map(({ icon: Icon, text, desc }) => (
-              <div key={text} className="flex items-center gap-4 group">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors duration-300">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors duration-300">{text}</p>
-                  <p className="text-xs text-text-tertiary">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div ref={containerRef} className="relative min-h-screen bg-[#0A0A0F] overflow-hidden flex items-center justify-center select-none">
+      <ParticleField />
+
+      {/* Animated gradient background */}
+      <div className="fixed inset-0 z-[1]">
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-950/40 via-transparent to-fuchsia-950/40" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-violet-600/10 blur-[120px] animate-[float_8s_ease-in-out_infinite]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-fuchsia-600/10 blur-[120px] animate-[float_8s_ease-in-out_infinite_2s]" />
+        <div ref={glowRef} className="absolute w-[300px] h-[300px] rounded-full bg-violet-500/8 blur-[100px] pointer-events-none transition-all duration-1000" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
       </div>
 
-      {/* RIGHT PANEL (Form) */}
-      <div className="flex w-full lg:w-[45%] items-center justify-center px-6 py-12">
-        <div ref={cardRef} className="w-full max-w-md">
-          <div className="lg:hidden mb-8 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dark shadow-lg">
-              <Brain className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-xl font-heading font-bold text-text-primary">AssessAI</span>
+      {/* Grid overlay */}
+      <div className="fixed inset-0 z-[1] opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(139,92,246,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.3) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+
+      {/* Decorative rings */}
+      <div className="fixed top-1/4 left-1/4 w-96 h-96 border border-violet-500/10 rounded-full animate-[spin_30s_linear_infinite] pointer-events-none z-[1]" />
+      <div className="fixed bottom-1/4 right-1/4 w-64 h-64 border border-fuchsia-500/10 rounded-full animate-[spin_20s_linear_infinite_reverse] pointer-events-none z-[1]" />
+
+      {/* Main Card */}
+      <div ref={cardRef} className="relative z-10 w-full max-w-[420px] mx-4">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-2xl shadow-violet-500/30 mb-5 animate-[float_4s_ease-in-out_infinite]">
+            <Sparkles className="h-8 w-8 text-white" />
           </div>
+          <h1 className="text-3xl font-heading font-extrabold bg-gradient-to-r from-white via-violet-200 to-fuchsia-200 bg-clip-text text-transparent">
+            AssessAI
+          </h1>
+          <p className="mt-2 text-sm text-white/40 font-medium tracking-wide">
+            Welcome back to the future of assessments
+          </p>
+        </div>
 
-          <div className="relative rounded-2xl p-[1px] overflow-hidden">
-            <div ref={cardBorderRef} className="absolute inset-0 rounded-2xl" style={{ background: 'linear-gradient(135deg, #27272A, #4F46E5, #06B6D4, #27272A)', backgroundSize: '300% 300%' }} />
-            <div className="relative rounded-2xl bg-bg-card/95 backdrop-blur-xl p-8">
-              <div className="mb-8">
-                <h3 className="text-2xl font-heading font-bold text-text-primary">Welcome back</h3>
-                <p className="mt-1.5 text-sm text-text-secondary">Sign in to continue your assessment journey</p>
+        {/* Card */}
+        <div className="relative rounded-3xl p-[1.5px] overflow-hidden">
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-violet-500/40 via-fuchsia-500/20 to-violet-500/40 animate-[spin_4s_linear_infinite]" style={{ filter: 'blur(1px)' }} />
+          <div className="absolute inset-[1.5px] rounded-3xl bg-[#0E0E16] overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+          </div>
+          <div className="relative rounded-3xl bg-gradient-to-b from-[#12121D] to-[#0A0A0F] backdrop-blur-2xl p-8">
+            <form ref={formRef} onSubmit={handleSubmit((d) => dispatch(login(d)))} className="space-y-2">
+              <div className="mb-6">
+                <h2 className="text-xl font-heading font-bold text-white/90">Sign In</h2>
+                <p className="text-sm text-white/30 mt-1">Enter your credentials to continue</p>
               </div>
 
-              <form ref={formRef} onSubmit={handleSubmit((d) => dispatch(login(d)))} className="space-y-4">
-                {error && (
-                  <div ref={errorRef} className="flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger/20 text-[10px] font-bold">!</span>
-                    {error}
-                  </div>
-                )}
-                <FloatingInput label="Email address" icon={Mail} error={errors.email?.message} registration={register('email')} type="email" autoFocus />
-                <FloatingInput label="Password" icon={Lock} error={errors.password?.message} registration={register('password')} showToggle showState={show} onToggleShow={() => setShow(!show)} />
+              {error && (
+                <div ref={errorRef} className="flex items-center gap-2.5 rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-[10px] font-bold">!</div>
+                  {error}
+                </div>
+              )}
 
-                <div className="flex items-center justify-between pt-1">
-                  <label className="flex items-center gap-2.5 cursor-pointer group/check">
-                    <div className="relative">
-                      <input type="checkbox" {...register('rememberMe')} defaultChecked className="peer sr-only" />
-                      <div className="h-4 w-4 rounded border border-border bg-bg-secondary peer-checked:bg-primary peer-checked:border-primary transition-all duration-200 flex items-center justify-center">
-                        <CheckCircle className="h-3 w-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
-                      </div>
-                      <svg className="absolute top-0 left-0 h-4 w-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+              <FloatingInput label="Email Address" icon={Mail} error={errors.email?.message} registration={register('email')} type="email" autoFocus index={0} />
+              <FloatingInput label="Password" icon={Lock} error={errors.password?.message} registration={register('password')} showToggle showState={showPass} onToggleShow={() => setShowPass(!showPass)} index={1} />
+
+              <div className="flex items-center justify-between pt-1 pb-2">
+                <label className="flex items-center gap-2.5 cursor-pointer group/check">
+                  <div className="relative">
+                    <input type="checkbox" {...register('rememberMe')} defaultChecked className="peer sr-only" />
+                    <div className="h-4.5 w-4.5 rounded-md border border-white/20 bg-white/5 peer-checked:bg-gradient-to-r peer-checked:from-violet-600 peer-checked:to-fuchsia-600 peer-checked:border-transparent transition-all duration-200 flex items-center justify-center">
+                      <CheckCircle className="h-3 w-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                     </div>
-                    <span className="text-sm text-text-secondary group-hover/check:text-text-primary transition-colors">Remember me</span>
-                  </label>
-                  <Link to="/forgot-password" className="text-sm text-primary hover:text-primary-light transition-colors font-medium">Forgot password?</Link>
-                </div>
-
-                <div className="form-field pt-2">
-                  <RippleButton type="submit" isLoading={isLoading} disabled={isLoading}
-                    className="w-full rounded-xl bg-gradient-to-r from-primary to-primary-dark px-4 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary/25 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-bg-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300">
-                    Sign in
-                    <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform duration-200" />
-                  </RippleButton>
-                </div>
-              </form>
-
-              <div ref={dividerRef} className="relative my-7">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-bg-card px-3 text-text-tertiary font-medium tracking-wider">or continue with</span>
-                </div>
+                  </div>
+                  <span className="text-xs text-white/40 group-hover/check:text-white/60 transition-colors font-medium">Remember me</span>
+                </label>
+                <Link to="/forgot-password" className="text-xs text-violet-400 hover:text-violet-300 transition-colors font-medium flex items-center gap-1">
+                  Forgot password? <ChevronRight className="h-3 w-3" />
+                </Link>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <a href={`${API_BASE}/auth/google`} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-secondary py-2.5 text-sm font-medium text-text-primary hover:bg-bg-tertiary hover:border-border-light hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/5 transition-all duration-200">
+              <MagneticButton type="submit" isLoading={isLoading} disabled={isLoading} className="w-full">
+                Sign In
+              </MagneticButton>
+            </form>
+
+            {/* Divider */}
+            <div ref={dividerRef} className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/5" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-4 text-[10px] uppercase tracking-[0.2em] font-bold text-white/20 bg-[#0E0E16]">or continue with</span>
+              </div>
+            </div>
+
+            {/* Social */}
+            <div ref={socialRef} className="grid grid-cols-2 gap-3">
+              <a
+                href={`${API_BASE}/auth/google`}
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-white/60 hover:text-white transition-all duration-300 hover:border-violet-500/30 hover:bg-violet-500/5 hover:shadow-lg hover:shadow-violet-500/10"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-600/0 via-violet-600/5 to-fuchsia-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 flex items-center justify-center gap-2.5">
                   <svg className="h-4 w-4" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -295,25 +377,64 @@ export default function LoginPage() {
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                   </svg>
                   Google
-                </a>
-                <a href={`${API_BASE}/auth/github`} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-secondary py-2.5 text-sm font-medium text-text-primary hover:bg-bg-tertiary hover:border-border-light hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/5 transition-all duration-200">
+                </span>
+              </a>
+              <a
+                href={`${API_BASE}/auth/github`}
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-white/60 hover:text-white transition-all duration-300 hover:border-violet-500/30 hover:bg-violet-500/5 hover:shadow-lg hover:shadow-violet-500/10"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-600/0 via-fuchsia-600/5 to-violet-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 flex items-center justify-center gap-2.5">
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                   </svg>
                   GitHub
-                </a>
-              </div>
+                </span>
+              </a>
+            </div>
 
-              <div className="mt-7 pt-6 border-t border-border">
-                <p className="text-center text-sm text-text-secondary">
-                  Don't have an account?{' '}
-                  <Link to="/register" className="font-semibold text-primary hover:text-primary-light transition-colors">Sign up free</Link>
-                </p>
-              </div>
+            {/* Footer */}
+            <div ref={footerRef} className="mt-6 pt-5 border-t border-white/5">
+              <p className="text-center text-sm text-white/30">
+                Don't have an account?{' '}
+                <Link to="/register" className="text-violet-400 hover:text-violet-300 font-semibold transition-colors relative group/link">
+                  Sign up free
+                  <span className="absolute -bottom-px left-0 right-0 h-px bg-gradient-to-r from-violet-400 to-fuchsia-400 scale-x-0 group-hover/link:scale-x-100 transition-transform duration-300 origin-left" />
+                </Link>
+              </p>
             </div>
           </div>
         </div>
+
+        {/* Features strip */}
+        <div className="flex justify-center gap-6 mt-8">
+          {[
+            { icon: Zap, label: 'AI Powered' },
+            { icon: Shield, label: 'Secure' },
+            { icon: Globe, label: 'Global' },
+          ].map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-2 text-white/20 group">
+              <Icon className="h-3.5 w-3.5 group-hover:text-violet-400 transition-colors duration-300" />
+              <span className="text-[11px] font-medium tracking-wide group-hover:text-white/40 transition-colors duration-300">{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-30px) scale(1.05); }
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
