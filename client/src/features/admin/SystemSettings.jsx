@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Save, Settings2, Shield, Brain, Camera, FileText } from 'lucide-react'
+import { Loader2, Save, Settings2, Shield, Brain, Camera, FileText, AlertTriangle } from 'lucide-react'
 import { notify } from '@/lib/notify'
+import DangerZone from './DangerZone'
 
-const CATEGORY_ICONS = { general: Settings2, security: Shield, assessment: FileText, ai: Brain, proctoring: Camera }
-const CATEGORY_LABELS = { general: 'General', security: 'Security', assessment: 'Assessment', ai: 'AI', proctoring: 'Proctoring' }
+const CATEGORY_ICONS = { general: Settings2, security: Shield, assessment: FileText, ai: Brain, proctoring: Camera, danger: AlertTriangle }
+const CATEGORY_LABELS = { general: 'General', security: 'Security', assessment: 'Assessment', ai: 'AI', proctoring: 'Proctoring', danger: 'Danger Zone' }
 
 function SettingRow({ setting, onUpdate }) {
   const [value, setValue] = useState(setting.value)
@@ -77,7 +78,7 @@ export default function SystemSettings() {
   })
 
   const settings = data?.data || []
-  const categories = [...new Set(settings.map((s) => s.category))]
+  const categories = [...new Set(settings.map((s) => s.category)), 'danger']
   const filteredSettings = settings.filter((s) => s.category === activeCategory)
 
   if (isLoading) {
@@ -95,8 +96,12 @@ export default function SystemSettings() {
               onClick={() => setActiveCategory(cat)}
               className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 activeCategory === cat
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-text-secondary hover:bg-bg-tertiary'
+                  ? cat === 'danger'
+                    ? 'border-error bg-error/10 text-error'
+                    : 'border-primary bg-primary/10 text-primary'
+                  : cat === 'danger'
+                    ? 'border-error/30 text-error/70 hover:bg-error/5'
+                    : 'border-border text-text-secondary hover:bg-bg-tertiary'
               }`}
             >
               <Icon className="h-4 w-4" /> {CATEGORY_LABELS[cat] || cat}
@@ -106,19 +111,25 @@ export default function SystemSettings() {
       </div>
 
       <div className="rounded-xl border border-border bg-bg-card p-5">
-        <h3 className="text-lg font-heading font-semibold text-text-primary mb-2 capitalize">
-          {CATEGORY_LABELS[activeCategory] || activeCategory} Settings
-        </h3>
-        <p className="text-sm text-text-secondary mb-4">
-          {filteredSettings.length} setting{filteredSettings.length !== 1 ? 's' : ''}
-        </p>
-        {filteredSettings.map((s) => (
-          <SettingRow
-            key={s.key}
-            setting={s}
-            onUpdate={(key, value) => updateMutation.mutate({ key, value })}
-          />
-        ))}
+        {activeCategory === 'danger' ? (
+          <DangerZone />
+        ) : (
+          <>
+            <h3 className="text-lg font-heading font-semibold text-text-primary mb-2 capitalize">
+              {CATEGORY_LABELS[activeCategory] || activeCategory} Settings
+            </h3>
+            <p className="text-sm text-text-secondary mb-4">
+              {filteredSettings.length} setting{filteredSettings.length !== 1 ? 's' : ''}
+            </p>
+            {filteredSettings.map((s) => (
+              <SettingRow
+                key={s.key}
+                setting={s}
+                onUpdate={(key, value) => updateMutation.mutate({ key, value })}
+              />
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
