@@ -26,4 +26,14 @@ export const config = {
     email: requireEnv('ADMIN_EMAIL', 'admin@assessai.com'),
     password: requireEnv('ADMIN_PASSWORD', process.env.NODE_ENV === 'production' ? undefined : 'Admin@123456'),
   },
+  oauth: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID || '',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+    },
+  },
 }

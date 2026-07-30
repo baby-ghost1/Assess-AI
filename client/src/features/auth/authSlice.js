@@ -74,6 +74,17 @@ export const deleteAccount = createAsyncThunk('auth/deleteAccount', async (paylo
   }
 })
 
+export const oauthCallback = createAsyncThunk('auth/oauthCallback', async ({ accessToken }, { dispatch, rejectWithValue }) => {
+  try {
+    localStorage.setItem('accessToken', accessToken)
+    const result = await dispatch(getCurrentUser()).unwrap()
+    return result
+  } catch (error) {
+    localStorage.removeItem('accessToken')
+    return rejectWithValue(error || 'OAuth authentication failed')
+  }
+})
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,

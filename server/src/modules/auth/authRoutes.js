@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/authenticate.js'
 import { authLimiter } from '../../middleware/rateLimiter.js'
 import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema, deleteAccountSchema } from './authValidation.js'
 import * as authController from './authController.js'
+import * as oauthController from './oauthController.js'
 
 const router = Router()
 
@@ -23,5 +24,10 @@ router.patch('/preferences', authenticate, validate(z.object({
   language: z.string().min(1).max(20).optional(),
 }).strict()), authController.updatePreferences)
 router.delete('/account', authenticate, validate(deleteAccountSchema), authController.deleteAccount)
+
+router.get('/google', oauthController.googleAuth)
+router.get('/google/callback', oauthController.googleCallback)
+router.get('/github', oauthController.githubAuth)
+router.get('/github/callback', oauthController.githubCallback)
 
 export default router

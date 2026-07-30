@@ -1,0 +1,75 @@
+import * as oauthService from './oauthService.js'
+import { config } from '../../config/index.js'
+
+function setRefreshCookie(res, refreshToken) {
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: '/',
+  })
+}
+
+function redirectWithTokens(res, result, provider) {
+  setRefreshCookie(res, result.refreshToken)
+  const params = new URLSearchParams({
+    accessToken: result.accessToken,
+    provider,
+  })
+  res.redirect(`${config.clientUrl}/auth/callback?${params.toString()}`)
+}
+
+export async function googleAuth(req, res) {
+  const scopes = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+  ].join(' ')
+
+  const params = new URLSearchParams({
+    client_id: config.oauth.google.clientId,
+    redirect_uri: `${config.clientUrl}/auth/callback?provider=google`,
+    response_type: 'code',
+    scope: scopes,
+    access_type: 'offline',
+    prompt: 'consent',
+  })
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`)
+}
+
+export async function googleCallback(req, res, next) {
+  try {
+    const { code, error } = req.query
+    if (error || !code) {
+      return res.redirect(`${config.clientUrl}/login?error=google_auth_failed`)
+    }
+    const result = await oauthService.handleGoogleCallback(code)
+    redirectWithTokens(res, result, 'google')
+  } catch (error) {
+    res.redirect(`${config.clientUrl}/login?error=${encodeURIComponent(error.message)}`)
+  }
+}
+
+export async function githubAuth(req, res) {
+  const params = new URLSearchParams({
+    client_id: config.oauth.github.clientId,
+    redirect_uri: `${config.clientUrl}/auth/callback?provider=github`,
+    scope: 'user:email',
+  })
+
+  res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`)
+}
+
+export async function githubCallback(req, res, next) {
+  try {
+    const { code, error } = req.query
+    if (error || !code) {
+      return res.redirect(`${config.clientUrl}/login?error=github_auth_failed`)
+    }
+    const result = await oauthService.handleGithubCallback(code)
+    redirectWithTokens(res, result, 'github')
+  } catch (error) {
+    res.redirect(`${config.clientUrl}/login?error=${encodeURIComponent(error.message)}`)
+  }
+}

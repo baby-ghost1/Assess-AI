@@ -4,12 +4,14 @@ import bcrypt from 'bcrypt'
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true, minlength: 6, select: false },
+  password: { type: String, minlength: 6, select: false },
   role: { type: String, enum: ['candidate', 'setter', 'admin'], default: 'candidate' },
   isApproved: { type: Boolean, default: false },
   avatar: { type: String, default: null },
   isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
+  provider: { type: String, enum: ['local', 'google', 'github'], default: 'local' },
+  providerId: { type: String, select: false },
   refreshToken: { type: String, select: false },
   lastLoginAt: { type: Date },
   preferences: {
@@ -26,6 +28,7 @@ const userSchema = new mongoose.Schema({
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next()
+  if (!this.password) return next()
   this.password = await bcrypt.hash(this.password, 12)
   next()
 })

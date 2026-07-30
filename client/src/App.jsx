@@ -16,6 +16,7 @@ import LoginPage from '@/features/auth/LoginPage'
 import RegisterPage from '@/features/auth/RegisterPage'
 import AdminLoginPage from '@/features/auth/AdminLoginPage'
 import SetterRegisterPage from '@/features/auth/SetterRegisterPage'
+import AuthCallbackPage from '@/features/auth/AuthCallbackPage'
 
 const DashboardPage = lazy(() => import('@/features/auth/DashboardPage'))
 const QuestionBankPage = lazy(() => import('@/features/question-bank/QuestionBankPage'))
@@ -95,6 +96,7 @@ function AppRoutes() {
           <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
           <Route path="/setter/register" element={<SetterRegisterPage />} />
           <Route path="/admin/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <AdminLoginPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
         </Route>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
