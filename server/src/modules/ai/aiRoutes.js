@@ -36,7 +36,15 @@ router.post('/generate', aiGenerateLimiter, validate(z.object({
 
     const created = []
     for (const qData of questions) {
-      const question = await Question.create({ ...qData, createdBy: req.user._id, updatedBy: req.user._id })
+      const question = await Question.create({
+        ...qData,
+        createdBy: req.user._id,
+        updatedBy: req.user._id,
+        status: 'draft',
+        source: 'ai_generated',
+        isAiGenerated: true,
+        aiModel: provider,
+      })
       await QuestionVersion.create({
         question: question._id, version: 1, data: question.toObject(),
         changes: `AI-generated via ${provider}`, changedBy: req.user._id,

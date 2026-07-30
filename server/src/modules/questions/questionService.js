@@ -1,5 +1,6 @@
 import Question from './Question.js'
 import QuestionVersion from './QuestionVersion.js'
+import Assessment from '../assessments/Assessment.js'
 import Tag from '../tags/Tag.js'
 import { NotFoundError, ForbiddenError } from '../../shared/errors/AppError.js'
 
@@ -49,6 +50,29 @@ export async function listQuestions(filters) {
   if (filters.category) query.category = filters.category
   if (filters.tags) query.tags = { $in: filters.tags.split(',') }
   if (filters.createdBy) query.createdBy = filters.createdBy
+
+  if (filters.source) {
+    query.source = filters.source
+  } else {
+    query.source = { $ne: 'ai_generated' }
+  }
+
+  const nonPublishedAssessments = await Assessment.find({
+    status: { $nin: ['published'] },
+  }).select('sections.questions').lean()
+
+  const hiddenQuestionIds = new Set()
+  for (const a of nonPublishedAssessments) {
+    for (const section of a.sections || []) {
+      for (const qId of section.questions || []) {
+        hiddenQuestionIds.add(qId.toString())
+      }
+    }
+  }
+
+  if (hiddenQuestionIds.size > 0) {
+    query._id = { $nin: [...hiddenQuestionIds] }
+  }
 
   const page = filters.page || 1
   const limit = filters.limit || 20

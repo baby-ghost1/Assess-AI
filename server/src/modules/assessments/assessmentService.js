@@ -142,6 +142,14 @@ export async function approveAssessment(assessmentId, userId) {
   assessment.updatedBy = userId
   await assessment.save()
 
+  const allQuestionIds = assessment.sections.flatMap((s) => s.questions || [])
+  if (allQuestionIds.length > 0) {
+    await Question.updateMany(
+      { _id: { $in: allQuestionIds }, status: { $ne: 'approved' } },
+      { $set: { status: 'approved', updatedBy: userId } }
+    )
+  }
+
   if (assessment.createdBy && assessment.createdBy.toString() !== userId.toString()) {
     await createNotification(assessment.createdBy, {
       type: 'assessment_published',
@@ -190,6 +198,14 @@ export async function approveAllQuestions(assessmentId, userId) {
   assessment.status = 'published'
   assessment.updatedBy = userId
   await assessment.save()
+
+  const allQuestionIds = assessment.sections.flatMap((s) => s.questions || [])
+  if (allQuestionIds.length > 0) {
+    await Question.updateMany(
+      { _id: { $in: allQuestionIds }, status: { $ne: 'approved' } },
+      { $set: { status: 'approved', updatedBy: userId } }
+    )
+  }
 
   if (assessment.createdBy && assessment.createdBy.toString() !== userId.toString()) {
     await createNotification(assessment.createdBy, {
