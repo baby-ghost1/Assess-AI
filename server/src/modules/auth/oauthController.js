@@ -20,13 +20,17 @@ function redirectWithTokens(res, result, provider) {
   res.redirect(`${config.clientUrl}/auth/callback?${params.toString()}`)
 }
 
+function getBackendUrl(req) {
+  return process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`
+}
+
 export async function googleAuth(req, res) {
   const scopes = [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
   ].join(' ')
 
-  const backendUrl = process.env.BACKEND_URL || `http://localhost:${config.port}`
+  const backendUrl = getBackendUrl(req)
 
   const params = new URLSearchParams({
     client_id: config.oauth.google.clientId,
@@ -46,7 +50,9 @@ export async function googleCallback(req, res, next) {
     if (error || !code) {
       return res.redirect(`${config.clientUrl}/login?error=google_auth_failed`)
     }
-    const result = await oauthService.handleGoogleCallback(code)
+    const backendUrl = getBackendUrl(req)
+    const redirectUri = `${backendUrl}/api/v1/auth/google/callback`
+    const result = await oauthService.handleGoogleCallback(code, redirectUri)
     redirectWithTokens(res, result, 'google')
   } catch (error) {
     res.redirect(`${config.clientUrl}/login?error=${encodeURIComponent(error.message)}`)
@@ -54,7 +60,7 @@ export async function googleCallback(req, res, next) {
 }
 
 export async function githubAuth(req, res) {
-  const backendUrl = process.env.BACKEND_URL || `http://localhost:${config.port}`
+  const backendUrl = getBackendUrl(req)
 
   const params = new URLSearchParams({
     client_id: config.oauth.github.clientId,
