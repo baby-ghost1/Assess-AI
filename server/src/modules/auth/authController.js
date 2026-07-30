@@ -91,3 +91,17 @@ export async function deleteAccount(req, res, next) {
     res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
   } catch (error) { next(error) }
 }
+
+export async function forgotPassword(req, res, next) {
+  try {
+    const result = await authService.forgotPassword(req.validatedBody.email)
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function resetPassword(req, res, next) {
+  try {
+    const result = await authService.resetPassword(req.validatedBody.token, req.validatedBody.password)
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}

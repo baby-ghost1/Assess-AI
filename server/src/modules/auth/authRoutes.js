@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { authLimiter } from '../../middleware/rateLimiter.js'
-import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema, deleteAccountSchema } from './authValidation.js'
+import { registerSchema, loginSchema, adminLoginSchema, changePasswordSchema, updateProfileSchema, deleteAccountSchema, forgotPasswordSchema, resetPasswordSchema } from './authValidation.js'
 import * as authController from './authController.js'
 import * as oauthController from './oauthController.js'
 
@@ -29,5 +29,8 @@ router.get('/google', oauthController.googleAuth)
 router.get('/google/callback', oauthController.googleCallback)
 router.get('/github', oauthController.githubAuth)
 router.get('/github/callback', oauthController.githubCallback)
+
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), authController.forgotPassword)
+router.post('/reset-password', authLimiter, validate(resetPasswordSchema), authController.resetPassword)
 
 export default router

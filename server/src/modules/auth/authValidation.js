@@ -43,3 +43,16 @@ export const deleteAccountSchema = z.object({
   }),
   reason: z.string().max(500).optional(),
 })
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+})
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters').max(128),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+})

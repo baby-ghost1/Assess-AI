@@ -17,6 +17,9 @@ import RegisterPage from '@/features/auth/RegisterPage'
 import AdminLoginPage from '@/features/auth/AdminLoginPage'
 import SetterRegisterPage from '@/features/auth/SetterRegisterPage'
 import AuthCallbackPage from '@/features/auth/AuthCallbackPage'
+import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
+import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
+import LandingPage from '@/features/landing/LandingPage'
 
 const DashboardPage = lazy(() => import('@/features/auth/DashboardPage'))
 const QuestionBankPage = lazy(() => import('@/features/question-bank/QuestionBankPage'))
@@ -97,6 +100,8 @@ function AppRoutes() {
           <Route path="/setter/register" element={<SetterRegisterPage />} />
           <Route path="/admin/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <AdminLoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         </Route>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -128,7 +133,7 @@ function AppRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>

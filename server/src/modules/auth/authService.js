@@ -163,3 +163,50 @@ export async function deleteAccount(userId, { password }) {
 
   return { message: 'Account deleted successfully' }
 }
+
+export async function forgotPassword(email) {
+  const user = await User.findOne({ email })
+  if (!user) {
+    return { message: 'If an account exists with this email, a reset link has been sent.' }
+  }
+
+  const resetToken = jwt.sign({ userId: user._id, purpose: 'password-reset' }, config.jwt.accessSecret, { expiresIn: '1h' })
+  user.refreshToken = resetToken
+  await user.save({ validateBeforeSave: false })
+
+  await createNotification(user._id, {
+    type: 'account_update',
+    title: 'Password Reset Requested',
+    message: `A password reset was requested. Use this token to reset your password: ${resetToken}`,
+  })
+
+  return { message: 'If an account exists with this email, a reset link has been sent.', resetToken }
+}
+
+export async function resetPassword(token, newPassword) {
+  if (!token) throw new UnauthorizedError('Reset token required')
+
+  let decoded
+  try {
+    decoded = jwt.verify(token, config.jwt.accessSecret)
+  } catch {
+    throw new UnauthorizedError('Invalid or expired reset token')
+  }
+
+  if (decoded.purpose !== 'password-reset') throw new UnauthorizedError('Invalid reset token')
+
+  const user = await User.findById(decoded.userId).select('+refreshToken')
+  if (!user || user.refreshToken !== token) throw new UnauthorizedError('Invalid or expired reset token')
+
+  user.password = newPassword
+  user.refreshToken = null
+  await user.save()
+
+  await createNotification(user._id, {
+    type: 'password_change',
+    title: 'Password Reset Successfully',
+    message: 'Your password has been reset. You can now log in with your new password.',
+  })
+
+  return { message: 'Password reset successful. You can now log in.' }
+}
