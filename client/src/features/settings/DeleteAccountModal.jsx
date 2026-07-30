@@ -23,9 +23,10 @@ const DELETION_REASONS = [
   'Other',
 ]
 
-export default function DeleteAccountModal({ open, onClose }) {
+export default function DeleteAccountModal({ open, onClose, user }) {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const isOAuth = user?.provider && user.provider !== 'local'
   const [step, setStep] = useState(1)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -50,13 +51,13 @@ export default function DeleteAccountModal({ open, onClose }) {
 
   const handleDelete = async () => {
     setError('')
-    if (!password) { setError('Please enter your password'); return }
+    if (!isOAuth && !password) { setError('Please enter your password'); return }
     if (confirmation !== 'DELETE MY ACCOUNT') { setError('Please type "DELETE MY ACCOUNT" to confirm'); return }
 
     setLoading(true)
     try {
       await dispatch(deleteAccount({
-        password,
+        ...(!isOAuth && { password }),
         confirmation,
         reason: selectedReason === 'Other' ? customReason : selectedReason,
       })).unwrap()
@@ -169,24 +170,26 @@ export default function DeleteAccountModal({ open, onClose }) {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-text-primary flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-danger" /> Confirm your password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your current password"
-                    className="w-full rounded-xl border border-border bg-bg-secondary px-4 py-3 pr-10 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-danger/50 focus:border-danger transition-colors"
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary transition-colors">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+              {!isOAuth && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-text-primary flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-danger" /> Confirm your password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your current password"
+                      className="w-full rounded-xl border border-border bg-bg-secondary px-4 py-3 pr-10 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-danger/50 focus:border-danger transition-colors"
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary transition-colors">
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {error && (
                 <div className="flex items-center gap-2 rounded-xl bg-danger/10 border border-danger/20 px-4 py-3">
@@ -201,8 +204,8 @@ export default function DeleteAccountModal({ open, onClose }) {
                   Go Back
                 </button>
                 <button
-                  onClick={() => { if (password) setStep(3); else setError('Please enter your password') }}
-                  disabled={!password}
+                  onClick={() => { if (isOAuth || password) setStep(3); else setError('Please enter your password') }}
+                  disabled={!isOAuth && !password}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white hover:bg-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continue <ArrowRight className="h-4 w-4" />

@@ -507,7 +507,7 @@ export default function SettingsPage() {
       {activeTab === 'system' && role === 'admin' && <SystemTab />}
 
       <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} />
-      <DeleteAccountModal open={showDeleteAccount} onClose={() => setShowDeleteAccount(false)} />
+      <DeleteAccountModal open={showDeleteAccount} onClose={() => setShowDeleteAccount(false)} user={user} />
     </div>
   )
 }
