@@ -45,7 +45,7 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
           ref={labelRef}
           className={`absolute z-10 pointer-events-none transition-all duration-300 origin-left ${
             isActive
-              ? 'text-[10px] left-4 -top-2.5 font-semibold tracking-wide uppercase bg-[#0A0A0F] px-2'
+              ? 'text-[10px] left-4 -top-2.5 font-semibold tracking-wide uppercase px-2'
               : 'text-sm left-11 top-1/2 -translate-y-1/2'
           } ${focused ? 'text-violet-400' : error ? 'text-red-400' : 'text-white/40'}`}
         >
@@ -276,7 +276,7 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <div ref={containerRef} className="relative min-h-screen bg-[#0A0A0F] overflow-hidden flex items-center justify-center select-none">
+    <div ref={containerRef} className="relative min-h-screen bg-[#0A0A0F] overflow-hidden flex items-center justify-center select-none py-16">
       <ParticleField />
 
       {/* Animated gradient background */}
@@ -398,7 +398,7 @@ export default function LoginPage() {
               <p className="text-center text-sm text-white/30">
                 Don't have an account?{' '}
                 <Link to="/register" className="text-violet-400 hover:text-violet-300 font-semibold transition-colors relative group/link">
-                  Sign up free
+                  Sign Up
                   <span className="absolute -bottom-px left-0 right-0 h-px bg-gradient-to-r from-violet-400 to-fuchsia-400 scale-x-0 group-hover/link:scale-x-100 transition-transform duration-300 origin-left" />
                 </Link>
               </p>
