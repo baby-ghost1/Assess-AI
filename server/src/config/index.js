@@ -27,7 +27,7 @@ export const config = {
     email: requireEnv('ADMIN_EMAIL', 'admin@assessai.com'),
     password: requireEnv('ADMIN_PASSWORD', process.env.NODE_ENV === 'production' ? undefined : 'Admin@123456'),
   },
-  resendApiKey: process.env.RESEND_API_KEY || '',
+  brevoApiKey: process.env.BREVO_API_KEY || '',
   fromEmail: process.env.FROM_EMAIL || 'noreply@assessai.com',
   oauth: {
     google: {

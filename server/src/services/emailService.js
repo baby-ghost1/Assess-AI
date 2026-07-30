@@ -1,21 +1,19 @@
-import { Resend } from 'resend'
+import { BrevoClient } from '@getbrevo/brevo'
 import { config } from '../config/index.js'
 
-let resend
+let brevo
 
-function getResend() {
-  if (!resend) {
-    resend = new Resend(config.resendApiKey)
+function getBrevo() {
+  if (!brevo) {
+    brevo = new BrevoClient({ apiKey: config.brevoApiKey })
   }
-  return resend
+  return brevo
 }
 
 export async function sendOTPEmail({ email, name, otp }) {
-  const { data, error } = await getResend().emails.send({
-    from: `AssessAI <${config.fromEmail}>`,
-    to: email,
+  const result = await getBrevo().transactionalEmails.sendTransacEmail({
     subject: 'Delete Account OTP',
-    html: `<!DOCTYPE html>
+    htmlContent: `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #0f0f0f;">
@@ -35,8 +33,9 @@ export async function sendOTPEmail({ email, name, otp }) {
   </table>
 </body>
 </html>`,
+    sender: { name: 'AssessAI', email: config.fromEmail },
+    to: [{ email }],
   })
 
-  if (error) throw new Error(error.message)
-  return data
+  return result
 }
