@@ -59,6 +59,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
     try {
       await dispatch(sendDeleteOtp()).unwrap()
       setOtpSent(true)
+      setStep(4)
       notify.success('OTP sent to your email')
     } catch (err) {
       setError(err || 'Failed to send OTP')
