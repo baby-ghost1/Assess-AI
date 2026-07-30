@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Save, Settings2, Shield, Brain, Camera, FileText } from 'lucide-react'
+import { Loader2, Save, Settings2, Shield, Brain, Camera, FileText, Trash2, AlertTriangle, X } from 'lucide-react'
 import { notify } from '@/lib/notify'
 
 const CATEGORY_ICONS = { general: Settings2, security: Shield, assessment: FileText, ai: Brain, proctoring: Camera }
@@ -59,9 +59,66 @@ function SettingRow({ setting, onUpdate }) {
   )
 }
 
+function ResetModal({ onClose, onConfirm, isPending }) {
+  const [confirmation, setConfirmation] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-bg-card shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-error/10">
+            <AlertTriangle className="h-5 w-5 text-error" />
+          </div>
+          <div>
+            <h2 className="text-lg font-heading font-semibold text-text-primary">Delete All Data</h2>
+            <p className="text-sm text-text-secondary">This cannot be undone</p>
+          </div>
+          <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-bg-tertiary text-text-secondary"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="rounded-lg border border-error/30 bg-error/5 p-3 mb-4">
+          <p className="text-sm text-text-primary font-medium">This will permanently delete:</p>
+          <ul className="mt-2 text-sm text-text-secondary space-y-1">
+            <li>All users (except your admin account)</li>
+            <li>All assessments</li>
+            <li>All questions</li>
+            <li>All coding submissions & progress</li>
+            <li>All attempts & submissions</li>
+            <li>All notifications, tags, settings</li>
+          </ul>
+        </div>
+
+        <label className="block text-sm font-medium text-text-primary mb-2">
+          Type <span className="font-mono bg-error/10 text-error px-1.5 py-0.5 rounded">DELETE ALL DATA</span> to confirm:
+        </label>
+        <input
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-error focus:outline-none mb-4"
+          placeholder="DELETE ALL DATA"
+          autoFocus
+        />
+
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-tertiary rounded-lg">Cancel</button>
+          <button
+            onClick={() => onConfirm(confirmation)}
+            disabled={isPending || confirmation !== 'DELETE ALL DATA'}
+            className="px-4 py-2 text-sm font-medium text-white bg-error hover:bg-error/90 rounded-lg disabled:opacity-40 inline-flex items-center gap-2"
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete All Data
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SystemSettings() {
   const queryClient = useQueryClient()
   const [activeCategory, setActiveCategory] = useState('general')
+  const [showResetModal, setShowResetModal] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-settings'],
@@ -74,6 +131,15 @@ export default function SystemSettings() {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
       notify.success('Settings saved')
     },
+  })
+
+  const resetMutation = useMutation({
+    mutationFn: (confirmation) => api.post('/admin/delete-all', { confirmation }),
+    onSuccess: () => {
+      setShowResetModal(false)
+      notify.success('All data deleted successfully')
+    },
+    onError: (err) => notify.error(err.response?.data?.message || 'Failed to delete data'),
   })
 
   const settings = data?.data || []
@@ -120,6 +186,27 @@ export default function SystemSettings() {
           />
         ))}
       </div>
+
+      <div className="rounded-xl border border-error/30 bg-error/5 p-5 mt-6">
+        <h3 className="text-lg font-heading font-semibold text-text-primary mb-2 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-error" /> Danger Zone
+        </h3>
+        <p className="text-sm text-text-secondary mb-4">Irreversible actions that permanently delete data</p>
+        <button
+          onClick={() => setShowResetModal(true)}
+          className="px-4 py-2 text-sm font-medium text-white bg-error hover:bg-error/90 rounded-lg inline-flex items-center gap-2"
+        >
+          <Trash2 className="h-4 w-4" /> Delete All Data
+        </button>
+      </div>
+
+      {showResetModal && (
+        <ResetModal
+          onClose={() => setShowResetModal(false)}
+          onConfirm={(confirmation) => resetMutation.mutate(confirmation)}
+          isPending={resetMutation.isPending}
+        />
+      )}
     </div>
   )
 }

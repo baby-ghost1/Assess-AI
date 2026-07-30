@@ -1,8 +1,17 @@
 import User from '../users/User.js'
 import Assessment from '../assessments/Assessment.js'
 import Question from '../questions/Question.js'
+import QuestionVersion from '../questions/QuestionVersion.js'
 import Attempt from '../assessments/Attempt.js'
+import Submission from '../assessments/Submission.js'
 import Settings from '../settings/Settings.js'
+import Tag from '../tags/Tag.js'
+import Notification from '../notifications/Notification.js'
+import ProctoringViolation from '../proctoring/ProctoringViolation.js'
+import CodingSubmission from '../coding/CodingSubmission.js'
+import CodingProgress from '../coding/CodingProgress.js'
+import CodingComment from '../coding/CodingComment.js'
+import CodingBookmark from '../coding/CodingBookmark.js'
 import { createNotification } from '../notifications/notificationService.js'
 
 // ─── User Management ────────────────────────────────────
@@ -190,4 +199,40 @@ export async function getSystemHealth() {
     nodeVersion: process.version,
     platform: process.platform,
   }
+}
+
+export async function deleteAllData(adminId, confirmation) {
+  if (confirmation !== 'DELETE ALL DATA') {
+    throw new Error('Invalid confirmation text')
+  }
+
+  const admin = await User.findById(adminId)
+  if (!admin || admin.role !== 'admin') {
+    throw new Error('Only admin can perform this action')
+  }
+
+  await Promise.all([
+    User.deleteMany({ _id: { $ne: adminId } }),
+    Assessment.deleteMany({}),
+    Question.deleteMany({}),
+    QuestionVersion.deleteMany({}),
+    Attempt.deleteMany({}),
+    Submission.deleteMany({}),
+    Tag.deleteMany({}),
+    Settings.deleteMany({}),
+    Notification.deleteMany({ user: { $ne: adminId } }),
+    ProctoringViolation.deleteMany({}),
+    CodingSubmission.deleteMany({}),
+    CodingProgress.deleteMany({}),
+    CodingComment.deleteMany({}),
+    CodingBookmark.deleteMany({}),
+  ])
+
+  await User.findByIdAndUpdate(adminId, {
+    refreshToken: null,
+    lastLoginAt: null,
+    preferences: {},
+  })
+
+  return { message: 'All data has been deleted. Admin account preserved.' }
 }

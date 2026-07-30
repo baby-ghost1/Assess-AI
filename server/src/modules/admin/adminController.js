@@ -70,3 +70,10 @@ export async function getSystemHealth(req, res, next) {
     res.json({ success: true, data, message: 'System health fetched', errors: null, meta: null })
   } catch (error) { next(error) }
 }
+
+export async function deleteAllData(req, res, next) {
+  try {
+    const data = await adminService.deleteAllData(req.user._id, req.validatedBody.confirmation)
+    res.json({ success: true, data: null, message: data.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}

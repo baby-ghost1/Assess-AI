@@ -33,5 +33,10 @@ router.patch('/settings/:key', validate(z.object({
 // System
 router.get('/stats', adminController.getPlatformStats)
 router.get('/health', adminController.getSystemHealth)
+router.post('/delete-all', validate(z.object({
+  confirmation: z.literal('DELETE ALL DATA', {
+    errorMap: () => ({ message: 'Please type "DELETE ALL DATA" to confirm' }),
+  }),
+})), adminController.deleteAllData)
 
 export default router
