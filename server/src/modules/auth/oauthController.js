@@ -26,9 +26,11 @@ export async function googleAuth(req, res) {
     'https://www.googleapis.com/auth/userinfo.profile',
   ].join(' ')
 
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${config.port}`
+
   const params = new URLSearchParams({
     client_id: config.oauth.google.clientId,
-    redirect_uri: `${config.clientUrl}/auth/callback?provider=google`,
+    redirect_uri: `${backendUrl}/api/v1/auth/google/callback`,
     response_type: 'code',
     scope: scopes,
     access_type: 'offline',
@@ -52,9 +54,11 @@ export async function googleCallback(req, res, next) {
 }
 
 export async function githubAuth(req, res) {
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${config.port}`
+
   const params = new URLSearchParams({
     client_id: config.oauth.github.clientId,
-    redirect_uri: `${config.clientUrl}/auth/callback?provider=github`,
+    redirect_uri: `${backendUrl}/api/v1/auth/github/callback`,
     scope: 'user:email',
   })
 

@@ -48,6 +48,8 @@ async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar
 }
 
 export async function handleGoogleCallback(code) {
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:5000`
+
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -55,7 +57,7 @@ export async function handleGoogleCallback(code) {
       code,
       client_id: config.oauth.google.clientId,
       client_secret: config.oauth.google.clientSecret,
-      redirect_uri: `${config.clientUrl}/auth/callback?provider=google`,
+      redirect_uri: `${backendUrl}/api/v1/auth/google/callback`,
       grant_type: 'authorization_code',
     }),
   })
