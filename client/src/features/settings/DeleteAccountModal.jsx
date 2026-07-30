@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch } from '@/hooks'
-import { deleteAccount, logout } from '@/features/auth/authSlice'
+import { deleteAccount, sendDeleteOtp, verifyDeleteOtp, logout } from '@/features/auth/authSlice'
 import { notify } from '@/lib/notify'
 import {
   X, Heart, AlertTriangle, Eye, EyeOff, Loader2, ArrowRight,
-  BarChart3, Brain, Trophy, Users, Sparkles, Shield, Mail, Trash2
+  BarChart3, Brain, Trophy, Users, Sparkles, Shield, Mail, Trash2, KeyRound
 } from 'lucide-react'
 
 const RETENTION_REASONS = [
@@ -33,6 +33,8 @@ export default function DeleteAccountModal({ open, onClose, user }) {
   const [confirmation, setConfirmation] = useState('')
   const [selectedReason, setSelectedReason] = useState('')
   const [customReason, setCustomReason] = useState('')
+  const [otp, setOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -45,8 +47,24 @@ export default function DeleteAccountModal({ open, onClose, user }) {
     setConfirmation('')
     setSelectedReason('')
     setCustomReason('')
+    setOtp('')
+    setOtpSent(false)
     setError('')
     onClose()
+  }
+
+  const handleSendOtp = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      await dispatch(sendDeleteOtp()).unwrap()
+      setOtpSent(true)
+      notify.success('OTP sent to your email')
+    } catch (err) {
+      setError(err || 'Failed to send OTP')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -56,11 +74,15 @@ export default function DeleteAccountModal({ open, onClose, user }) {
 
     setLoading(true)
     try {
-      await dispatch(deleteAccount({
-        ...(!isOAuth && { password }),
-        confirmation,
-        reason: selectedReason === 'Other' ? customReason : selectedReason,
-      })).unwrap()
+      if (isOAuth) {
+        await dispatch(verifyDeleteOtp(otp)).unwrap()
+      } else {
+        await dispatch(deleteAccount({
+          password,
+          confirmation,
+          reason: selectedReason === 'Other' ? customReason : selectedReason,
+        })).unwrap()
+      }
       notify.success('Account deleted successfully')
       localStorage.removeItem('accessToken')
       handleClose()
@@ -95,7 +117,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
 
         {/* Progress bar */}
         <div className="h-1 bg-bg-tertiary shrink-0">
-          <div className="h-full bg-danger transition-all duration-500 ease-out" style={{ width: `${(step / 3) * 100}%` }} />
+          <div className="h-full bg-danger transition-all duration-500 ease-out" style={{ width: `${(step / (isOAuth ? 4 : 3)) * 100}%` }} />
         </div>
 
         {/* Content */}
@@ -190,6 +212,14 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                   </div>
                 </div>
               )}
+              {isOAuth && (
+                <div className="rounded-xl border border-border bg-bg-secondary p-4">
+                  <p className="text-sm text-text-secondary flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary shrink-0" />
+                    You'll receive a one-time code at <strong>{user?.email}</strong> to verify your identity.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="flex items-center gap-2 rounded-xl bg-danger/10 border border-danger/20 px-4 py-3">
@@ -271,13 +301,92 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                   className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">
                   Go Back
                 </button>
+                {isOAuth ? (
+                  <button
+                    onClick={() => { handleSendOtp() }}
+                    disabled={loading || confirmation !== 'DELETE MY ACCOUNT'}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white hover:bg-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Sending OTP...</>
+                    ) : (
+                      <><KeyRound className="h-4 w-4" /> Send OTP to Email</>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleDelete}
+                    disabled={loading || confirmation !== 'DELETE MY ACCOUNT'}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white hover:bg-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</>
+                    ) : (
+                      <><Trash2 className="h-4 w-4" /> Delete My Account</>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: OTP verification (OAuth only) */}
+          {step === 4 && (
+            <div className="space-y-5">
+              <div className="text-center space-y-3">
+                <div className="inline-flex mx-auto rounded-full bg-primary/10 p-4">
+                  <KeyRound className="h-10 w-10 text-primary" />
+                </div>
+                <h4 className="text-xl font-heading font-bold text-text-primary">Check Your Email</h4>
+                <p className="text-sm text-text-secondary max-w-sm mx-auto">
+                  We sent a 6-digit code to <strong className="text-text-primary">{user?.email}</strong>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary text-center block">
+                  Enter verification code
+                </label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="w-full text-center text-2xl font-mono tracking-[12px] rounded-xl border border-border bg-bg-secondary px-4 py-4 text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+                />
+                <p className="text-xs text-text-tertiary text-center">Expires in 10 minutes</p>
+              </div>
+
+              {!otpSent && (
+                <p className="text-sm text-text-secondary text-center">
+                  Didn't get it?{' '}
+                  <button onClick={handleSendOtp} disabled={loading}
+                    className="text-primary hover:text-primary/80 font-medium transition-colors">
+                    Resend
+                  </button>
+                </p>
+              )}
+
+              {error && (
+                <div className="flex items-center gap-2 rounded-xl bg-danger/10 border border-danger/20 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 text-danger shrink-0" />
+                  <p className="text-sm text-danger">{error}</p>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={() => { setStep(3); setOtp(''); setError('') }}
+                  className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">
+                  Go Back
+                </button>
                 <button
                   onClick={handleDelete}
-                  disabled={loading || confirmation !== 'DELETE MY ACCOUNT'}
+                  disabled={loading || otp.length !== 6}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white hover:bg-danger/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</>
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Verifying...</>
                   ) : (
                     <><Trash2 className="h-4 w-4" /> Delete My Account</>
                   )}

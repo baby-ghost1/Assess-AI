@@ -1,8 +1,11 @@
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import { config } from '../../config/index.js'
 import User from '../users/User.js'
+import Otp from './Otp.js'
 import { ConflictError, UnauthorizedError } from '../../shared/errors/AppError.js'
 import { createNotification } from '../notifications/notificationService.js'
+import { sendOTPEmail } from '../../services/emailService.js'
 
 function generateTokens(userId, rememberMe = false) {
   const accessTokenExpiry = rememberMe ? '30d' : '15m'
@@ -143,6 +146,42 @@ export async function updatePreferences(userId, prefs) {
   user.preferences = { ...DEFAULT_PREFERENCES, ...prefs }
   await user.save({ validateBeforeSave: false })
   return user.preferences
+}
+
+export async function sendDeleteOtp(userId) {
+  const user = await User.findById(userId)
+  if (!user) throw new UnauthorizedError('User not found')
+  if (user.password) throw new UnauthorizedError('Password users can delete directly')
+
+  await Otp.deleteMany({ user: userId, purpose: 'delete_account' })
+
+  const otp = crypto.randomInt(100000, 999999).toString()
+  await Otp.create({
+    user: userId,
+    otp,
+    purpose: 'delete_account',
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  })
+
+  await sendOTPEmail({ email: user.email, name: user.name, otp })
+
+  return { message: 'OTP sent to your email' }
+}
+
+export async function verifyDeleteOtp(userId, { otp }) {
+  const record = await Otp.findOne({ user: userId, purpose: 'delete_account', otp })
+  if (!record) throw new UnauthorizedError('Invalid or expired OTP')
+  if (record.expiresAt < new Date()) {
+    await Otp.deleteOne({ _id: record._id })
+    throw new UnauthorizedError('OTP has expired')
+  }
+
+  await Otp.deleteOne({ _id: record._id })
+
+  const user = await User.findByIdAndDelete(userId)
+  if (!user) throw new UnauthorizedError('User not found')
+
+  return { message: 'Account deleted successfully' }
 }
 
 export async function deleteAccount(userId, { password }) {

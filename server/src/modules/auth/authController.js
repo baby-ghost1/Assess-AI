@@ -92,6 +92,21 @@ export async function deleteAccount(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function sendDeleteOtp(req, res, next) {
+  try {
+    const result = await authService.sendDeleteOtp(req.user._id)
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function verifyDeleteOtp(req, res, next) {
+  try {
+    const result = await authService.verifyDeleteOtp(req.user._id, req.validatedBody)
+    res.clearCookie('refreshToken', { path: '/' })
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
 export async function forgotPassword(req, res, next) {
   try {
     const result = await authService.forgotPassword(req.validatedBody.email)

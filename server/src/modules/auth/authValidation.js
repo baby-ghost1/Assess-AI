@@ -44,6 +44,12 @@ export const deleteAccountSchema = z.object({
   reason: z.string().max(500).optional(),
 })
 
+export const sendDeleteOtpSchema = z.object({})
+
+export const verifyDeleteOtpSchema = z.object({
+  otp: z.string().length(6, 'OTP must be 6 digits'),
+})
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
 })

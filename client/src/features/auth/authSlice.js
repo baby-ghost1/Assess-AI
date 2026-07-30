@@ -74,6 +74,24 @@ export const deleteAccount = createAsyncThunk('auth/deleteAccount', async (paylo
   }
 })
 
+export const sendDeleteOtp = createAsyncThunk('auth/sendDeleteOtp', async (_, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post('/auth/send-delete-otp')
+    return data.message
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Failed to send OTP')
+  }
+})
+
+export const verifyDeleteOtp = createAsyncThunk('auth/verifyDeleteOtp', async (otp, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post('/auth/verify-delete-otp', { otp })
+    return data.message
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Failed to verify OTP')
+  }
+})
+
 export const oauthCallback = createAsyncThunk('auth/oauthCallback', async ({ accessToken }, { dispatch, rejectWithValue }) => {
   try {
     localStorage.setItem('accessToken', accessToken)
