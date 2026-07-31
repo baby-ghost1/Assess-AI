@@ -55,8 +55,8 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
         <div className="relative overflow-hidden rounded-[14px]">
           <div
             ref={lineRef}
-            className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-violet-500 rounded-full transition-all duration-500"
-            style={{ width: focused ? '100%' : '0%', opacity: focused ? 1 : 0 }}
+            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-violet-500 transition-all duration-500"
+            style={{ opacity: focused ? 1 : 0 }}
           />
           <input
             type={showToggle ? (showState ? 'text' : 'password') : type || 'text'}

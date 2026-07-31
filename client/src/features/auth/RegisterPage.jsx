@@ -50,7 +50,7 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
         <label
           className={`absolute z-10 pointer-events-none transition-all duration-300 origin-left ${
             isActive
-              ? 'text-[10px] left-4 -top-2.5 font-semibold tracking-wide uppercase bg-[#0A0A0F] px-2'
+              ? 'text-[10px] left-4 -top-2.5 font-semibold tracking-wide uppercase px-2'
               : 'text-sm left-11 top-1/2 -translate-y-1/2'
           } ${focused ? 'text-emerald-400' : error ? 'text-emerald-400' : 'text-white/40'}`}
         >
@@ -59,7 +59,7 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
 
         <div className="relative overflow-hidden rounded-[14px]">
           <div
-            className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 rounded-full transition-all duration-500 ${focused ? 'w-full opacity-100' : 'w-0 opacity-0'}`}
+            className={`absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 transition-all duration-500 ${focused ? 'opacity-100' : 'opacity-0'}`}
           />
           <input
             type={showToggle ? (showState ? 'text' : 'password') : type || 'text'}
@@ -357,13 +357,6 @@ export default function RegisterPage() {
                     ? 'border-emerald-500/60 bg-emerald-500/5 shadow-lg shadow-emerald-500/10'
                     : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                 }`}>
-                {role === 'candidate' && (
-                  <div ref={roleIndicatorRef} className="absolute top-2 right-2">
-                    <div className="h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <CheckCircle className="h-2.5 w-2.5 text-white" />
-                    </div>
-                  </div>
-                )}
                 <div className="flex items-center gap-3">
                   <div className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${role === 'candidate' ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
                     <UserCheck className={`h-4.5 w-4.5 ${role === 'candidate' ? 'text-emerald-400' : 'text-white/30'}`} />
@@ -380,13 +373,6 @@ export default function RegisterPage() {
                     ? 'border-emerald-500/60 bg-emerald-500/5 shadow-lg shadow-emerald-500/10'
                     : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                 }`}>
-                {role === 'setter' && (
-                  <div className="absolute top-2 right-2">
-                    <div className="h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <CheckCircle className="h-2.5 w-2.5 text-white" />
-                    </div>
-                  </div>
-                )}
                 <div className="flex items-center gap-3">
                   <div className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${role === 'setter' ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
                     <FileEdit className={`h-4.5 w-4.5 ${role === 'setter' ? 'text-emerald-400' : 'text-white/30'}`} />
@@ -418,7 +404,9 @@ export default function RegisterPage() {
               <FloatingInput label="Email Address" icon={Mail} error={errors.email?.message} registration={register('email')} type="email" />
               <FloatingInput label="Password" icon={Lock} error={errors.password?.message} registration={register('password')} showToggle showState={show.pass} onToggleShow={() => setShow({ ...show, pass: !show.pass })} />
               <PasswordStrength value={passwordValue} />
-              <FloatingInput label="Confirm Password" icon={Lock} error={errors.confirmPassword?.message} registration={register('confirmPassword')} showToggle showState={show.confirm} onToggleShow={() => setShow({ ...show, confirm: !show.confirm })} />
+              <div className="mt-6">
+                <FloatingInput label="Confirm Password" icon={Lock} error={errors.confirmPassword?.message} registration={register('confirmPassword')} showToggle showState={show.confirm} onToggleShow={() => setShow({ ...show, confirm: !show.confirm })} />
+              </div>
 
               <div className="pt-3">
                 <MagneticButton type="submit" isLoading={isLoading} disabled={isLoading} className="w-full">
