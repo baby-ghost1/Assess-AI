@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const otpSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   otp: { type: String, required: true },
-  purpose: { type: String, enum: ['delete_account'], required: true },
+  purpose: { type: String, enum: ['delete_account', 'password_reset'], required: true },
   expiresAt: { type: Date, required: true },
 }, { timestamps: true })
 

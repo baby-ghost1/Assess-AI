@@ -8,6 +8,7 @@ import { changePassword } from '@/features/auth/authSlice'
 import { logout } from '@/features/auth/authSlice'
 import { notify } from '@/lib/notify'
 import DeleteAccountModal from './DeleteAccountModal'
+import OAuthChangePasswordModal from './OAuthChangePasswordModal'
 
 const TABS = [
   { id: 'account', label: 'Account', icon: User },
@@ -321,7 +322,7 @@ function ChangePasswordModal({ open, onClose }) {
   )
 }
 
-function SecurityTab({ onChangePassword, onDeleteAccount }) {
+function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth }) {
   const dispatch = useAppDispatch()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
@@ -333,7 +334,7 @@ function SecurityTab({ onChangePassword, onDeleteAccount }) {
         </h3>
         <p className="text-sm text-text-secondary mb-4">Manage your password and account security.</p>
         <button onClick={onChangePassword} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
-          Change Password
+          {isOAuth ? 'Set Password' : 'Change Password'}
         </button>
       </div>
 
@@ -452,6 +453,7 @@ function SystemTab() {
 export default function SettingsPage() {
   const { user } = useAppSelector((s) => s.auth)
   const role = user?.role || 'candidate'
+  const isOAuth = user?.provider && user.provider !== 'local'
   const roleLabels = { admin: 'Administrator', setter: 'Question Setter', candidate: 'Candidate' }
   const [activeTab, setActiveTab] = useState('account')
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -503,10 +505,11 @@ export default function SettingsPage() {
       {activeTab === 'account' && <AccountTab user={user} />}
       {activeTab === 'appearance' && <AppearanceTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
-      {activeTab === 'security' && <SecurityTab onChangePassword={() => setShowChangePassword(true)} onDeleteAccount={() => setShowDeleteAccount(true)} />}
+      {activeTab === 'security' && <SecurityTab isOAuth={isOAuth} onChangePassword={() => setShowChangePassword(true)} onDeleteAccount={() => setShowDeleteAccount(true)} />}
       {activeTab === 'system' && role === 'admin' && <SystemTab />}
 
-      <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} />
+      <ChangePasswordModal open={showChangePassword && !isOAuth} onClose={() => setShowChangePassword(false)} />
+      <OAuthChangePasswordModal open={showChangePassword && isOAuth} onClose={() => setShowChangePassword(false)} user={user} />
       <DeleteAccountModal open={showDeleteAccount} onClose={() => setShowDeleteAccount(false)} user={user} />
     </div>
   )

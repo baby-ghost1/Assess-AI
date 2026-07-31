@@ -107,6 +107,20 @@ export async function verifyDeleteOtp(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function sendPasswordOtp(req, res, next) {
+  try {
+    const result = await authService.sendPasswordOtp(req.user._id)
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function verifyPasswordOtp(req, res, next) {
+  try {
+    const result = await authService.verifyPasswordOtp(req.user._id, req.validatedBody)
+    res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
 export async function forgotPassword(req, res, next) {
   try {
     const result = await authService.forgotPassword(req.validatedBody.email)

@@ -205,6 +205,55 @@ export async function deleteAccount(userId, { password }) {
   return { message: 'Account deleted successfully' }
 }
 
+export async function sendPasswordOtp(userId) {
+  const user = await User.findById(userId)
+  if (!user) throw new UnauthorizedError('User not found')
+  if (!user.provider || user.provider === 'local') throw new UnauthorizedError('Only OAuth users can use this flow')
+
+  await Otp.deleteMany({ user: userId, purpose: 'password_reset' })
+
+  const otp = crypto.randomInt(100000, 999999).toString()
+  await Otp.create({
+    user: userId,
+    otp,
+    purpose: 'password_reset',
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  })
+
+  await sendOTPEmail({ email: user.email, name: user.name, otp, purpose: 'password_reset' })
+
+  return { message: 'OTP sent to your email' }
+}
+
+export async function verifyPasswordOtp(userId, { otp, newPassword }) {
+  const record = await Otp.findOne({ user: userId, purpose: 'password_reset', otp })
+  if (!record) throw new UnauthorizedError('Invalid or expired OTP')
+  if (record.expiresAt < new Date()) {
+    await Otp.deleteOne({ _id: record._id })
+    throw new UnauthorizedError('OTP has expired')
+  }
+
+  if (!newPassword) {
+    return { message: 'OTP verified' }
+  }
+
+  await Otp.deleteOne({ _id: record._id })
+
+  const user = await User.findById(userId).select('+password')
+  if (!user) throw new UnauthorizedError('User not found')
+
+  user.password = newPassword
+  await user.save()
+
+  await createNotification(userId, {
+    type: 'password_change',
+    title: 'Password Set',
+    message: 'Your password was set successfully. You can now log in with your email and password.',
+  })
+
+  return { message: 'Password set successfully' }
+}
+
 export async function forgotPassword(email) {
   const user = await User.findOne({ email })
   if (!user) {
