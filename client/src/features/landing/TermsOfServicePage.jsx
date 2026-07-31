@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Brain, ArrowLeft } from 'lucide-react'
+import { BrandLogo } from '@/components/shared'
 
 export default function TermsOfServicePage() {
   return (
@@ -10,7 +11,7 @@ export default function TermsOfServicePage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
               <Brain className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-heading font-bold text-text-primary">AssessAI</span>
+            <BrandLogo className="text-lg" />
           </Link>
           <Link to="/" className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors">
             <ArrowLeft className="h-4 w-4" />

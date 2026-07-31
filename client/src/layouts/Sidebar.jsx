@@ -1,6 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Brain, Sparkles, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, ChevronRight, CreditCard, HelpCircle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BrandLogo } from '@/components/shared'
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -152,7 +153,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
         </div>
         {!collapsed && (
           <div className="flex flex-col overflow-hidden">
-            <span className="font-heading text-lg font-bold text-text-primary leading-tight">AssessAI</span>
+            <BrandLogo className="text-lg leading-tight" />
             <span className="text-[9px] text-text-tertiary leading-tight capitalize">{role}</span>
           </div>
         )}

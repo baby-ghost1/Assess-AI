@@ -6,6 +6,7 @@ import {
   Target, Menu, X, ChevronLeft, ChevronRight, Zap, Globe,
   TrendingUp, Star, CheckCircle2, Play,
 } from 'lucide-react'
+import { BrandLogo } from '@/components/shared'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -115,7 +116,7 @@ function Navbar() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
             <Brain className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-heading font-bold text-text-primary">AssessAI</span>
+          <BrandLogo className="text-lg" />
         </Link>
 
         <div className="hidden md:flex items-center gap-1">
@@ -531,7 +532,7 @@ function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
                 <Brain className="h-4 w-4 text-white" />
               </div>
-              <span className="font-heading font-bold text-text-primary">AssessAI</span>
+              <BrandLogo />
             </Link>
             <p className="text-sm text-text-secondary leading-relaxed">
               AI-powered assessment platform for modern teams.

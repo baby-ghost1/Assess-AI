@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Lock, Eye, EyeOff, Brain, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
+import { BrandLogo } from '@/components/shared'
 
 export default function ResetPasswordPage() {
   const { token } = useParams()
@@ -42,7 +43,7 @@ export default function ResetPasswordPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dark shadow-lg">
             <Brain className="h-6 w-6 text-white" />
           </div>
-          <span className="text-xl font-heading font-bold text-text-primary">AssessAI</span>
+          <BrandLogo className="text-xl" />
         </div>
 
         <div className="rounded-2xl border border-border bg-bg-card p-8">
