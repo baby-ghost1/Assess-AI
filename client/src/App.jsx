@@ -20,6 +20,8 @@ import AuthCallbackPage from '@/features/auth/AuthCallbackPage'
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
 import LandingPage from '@/features/landing/LandingPage'
+import PrivacyPolicyPage from '@/features/landing/PrivacyPolicyPage'
+import TermsOfServicePage from '@/features/landing/TermsOfServicePage'
 
 const DashboardPage = lazy(() => import('@/features/auth/DashboardPage'))
 const QuestionBankPage = lazy(() => import('@/features/question-bank/QuestionBankPage'))
@@ -134,6 +136,8 @@ function AppRoutes() {
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>

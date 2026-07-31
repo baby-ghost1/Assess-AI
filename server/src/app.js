@@ -26,6 +26,9 @@ import adminRoutes from './modules/admin/adminRoutes.js'
 import { candidateRouter as candidateDashboardRoutes, setterRouter as setterDashboardRoutes } from './modules/dashboard/dashboardRoutes.js'
 import codingRoutes from './modules/coding/codingRoutes.js'
 import notificationRoutes from './modules/notifications/notificationRoutes.js'
+import privacyRouter from './modules/legal/privacyRouter.js'
+import termsRouter from './modules/legal/termsRouter.js'
+import homeRouter from './modules/legal/homeRouter.js'
 import { detectLanguages } from './modules/coding/codingService.js'
 
 const app = express()
@@ -92,6 +95,11 @@ app.use('/api/v1/candidate/dashboard', candidateDashboardRoutes)
 app.use('/api/v1/setter/dashboard', setterDashboardRoutes)
 app.use('/api/v1/coding', codingRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
+
+// Legal pages (Google OAuth branding verification)
+app.use(homeRouter)
+app.use(privacyRouter)
+app.use(termsRouter)
 
 // Health check
 app.get('/api/health', (_, res) => {

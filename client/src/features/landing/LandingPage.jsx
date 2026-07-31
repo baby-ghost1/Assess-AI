@@ -538,16 +538,20 @@ function Footer() {
             </p>
           </div>
           {[
-            { title: 'Product', links: ['Features', 'Pricing', 'Changelog', 'Docs'] },
-            { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
-            { title: 'Legal', links: ['Privacy', 'Terms', 'Security', 'GDPR'] },
+            { title: 'Product', links: [{ label: 'Features', href: '#features' }, { label: 'Pricing', href: '#' }, { label: 'Changelog', href: '#' }, { label: 'Docs', href: '#' }] },
+            { title: 'Company', links: [{ label: 'About', href: '#' }, { label: 'Blog', href: '#' }, { label: 'Careers', href: '#' }, { label: 'Contact', href: '#' }] },
+            { title: 'Legal', links: [{ label: 'Privacy', href: '/privacy' }, { label: 'Terms', href: '/terms' }, { label: 'Security', href: '#' }, { label: 'GDPR', href: '#' }] },
           ].map((col) => (
             <div key={col.title}>
               <p className="font-heading font-semibold text-text-primary mb-4">{col.title}</p>
               <ul className="space-y-2.5">
-                {col.links.map((link) => (
-                  <li key={link}>
-                    <a href="#" className="text-sm text-text-secondary hover:text-text-primary transition-colors">{link}</a>
+                {col.links.map(({ label, href }) => (
+                  <li key={label}>
+                    {href.startsWith('/') ? (
+                      <Link to={href} className="text-sm text-text-secondary hover:text-text-primary transition-colors">{label}</Link>
+                    ) : (
+                      <a href={href} className="text-sm text-text-secondary hover:text-text-primary transition-colors">{label}</a>
+                    )}
                   </li>
                 ))}
               </ul>
