@@ -301,7 +301,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-2xl shadow-violet-500/30 mb-5 animate-[float_4s_ease-in-out_infinite]">
             <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-heading font-extrabold bg-gradient-to-r from-white via-violet-200 to-fuchsia-200 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-logo font-extrabold bg-gradient-to-r from-white via-violet-200 to-fuchsia-200 bg-clip-text text-transparent">
             AssessAI
           </h1>
           <p className="mt-2 text-sm text-white/40 font-medium tracking-wide">
