@@ -4,9 +4,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import {
-  Sparkles, Loader2, Brain, Zap, Clock, AlertCircle, CheckCircle,
-  History, RotateCcw, Trophy, Target, BookOpen, Hash, ChevronRight,
-  Timer, BarChart3, ArrowRight, X, Search
+  Sparkles, Loader2, Brain, Zap, AlertCircle, CheckCircle,
+  History, RotateCcw, Trophy, Target, BookOpen, Hash,
+  Timer, BarChart3, Search
 } from 'lucide-react'
 
 const QUESTION_TYPE_OPTIONS = [
@@ -96,7 +96,6 @@ export default function AIQuizPage() {
     timeLimit: 10,
     language: 'English',
   })
-  const [showTopicInput, setShowTopicInput] = useState(false)
 
   const { data: providersData } = useQuery({
     queryKey: ['ai-providers'],
@@ -248,7 +247,6 @@ export default function AIQuizPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {QUESTION_TYPE_OPTIONS.map((qt) => {
                     const selected = form.questionTypes.includes(qt.value)
-                    const Icon = qt.icon
                     return (
                       <button type="button" key={qt.value} onClick={() => toggleQuestionType(qt.value)}
                         className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-all ${

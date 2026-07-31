@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, CheckCircle, XCircle, Clock, Brain, Code2, AlertTriangle, BarChart3, Send, Eye } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Clock, Brain, Code2, AlertTriangle, BarChart3 } from 'lucide-react'
 import { useState } from 'react'
 
 const typeColors = {
@@ -40,7 +40,6 @@ function ConfirmModal({ open, title, message, onConfirm, onCancel, isPending, va
 }
 
 function QuestionCard({ question, status, onApprove, onReject, isPending }) {
-  const [showAnswer, setShowAnswer] = useState(false)
   const statusConfig = {
     pending_review: { color: 'bg-warning/10 text-warning', label: 'Pending', icon: Clock },
     approved: { color: 'bg-success/10 text-success', label: 'Approved', icon: CheckCircle },
@@ -130,16 +129,6 @@ export default function AssessmentReviewDetailPage() {
     },
   })
 
-  const rejectMutation = useMutation({
-    mutationFn: (reason) => api.post(`/assessments/${id}/reject`, { reason }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments-pending'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
-      navigate('/admin/reviews')
-    },
-  })
-
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto space-y-8">
@@ -159,7 +148,6 @@ export default function AssessmentReviewDetailPage() {
   const approvedCount = allQuestionIds.filter((qId) => questionStatus[qId?.toString()] === 'approved').length
   const rejectedCount = allQuestionIds.filter((qId) => questionStatus[qId?.toString()] === 'rejected').length
   const pendingCount = allQuestionIds.filter((qId) => !questionStatus[qId?.toString()] || questionStatus[qId?.toString()] === 'pending_review').length
-  const allReviewed = pendingCount === 0 && allQuestionIds.length > 0
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

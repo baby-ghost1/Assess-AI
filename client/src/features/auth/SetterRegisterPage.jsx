@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks'
 import { register as registerUser, clearError } from './authSlice'
 import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { UserPlus, Mail, Lock, User, Eye, EyeOff, Brain, FileEdit, CheckCircle, ArrowRight } from 'lucide-react'
+import { UserPlus, Mail, Lock, User, Eye, EyeOff, FileEdit, CheckCircle, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const registerSchema = z.object({

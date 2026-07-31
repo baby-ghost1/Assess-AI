@@ -18,27 +18,6 @@ const TABS = [
   { id: 'security', label: 'Security', icon: Lock },
 ]
 
-function SkeletonSettings() {
-  return (
-    <div className="max-w-3xl mx-auto space-y-6 py-6">
-      <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse">
-        <div className="h-7 bg-bg-tertiary rounded w-32 mb-2" />
-        <div className="h-4 bg-bg-tertiary rounded w-48" />
-      </div>
-      <div className="flex gap-2">
-        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 bg-bg-tertiary rounded-lg w-24" />)}
-      </div>
-      <div className="rounded-xl border border-border bg-bg-card p-6 animate-pulse space-y-4">
-        <div className="h-5 bg-bg-tertiary rounded w-24" />
-        <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-full bg-bg-tertiary" />
-          <div className="space-y-2"><div className="h-4 bg-bg-tertiary rounded w-32" /><div className="h-3 bg-bg-tertiary rounded w-48" /></div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function AccountTab({ user }) {
   const role = user?.role || 'candidate'
   const roleLabels = { admin: 'Administrator', setter: 'Question Setter', candidate: 'Candidate' }
@@ -568,7 +547,7 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="relative flex rounded-full border border-border bg-bg-card p-1 overflow-x-auto scrollbar-none">
-        {allTabs.map((t, i) => {
+        {allTabs.map((t) => {
           const isActive = activeTab === t.id
           return (
             <button

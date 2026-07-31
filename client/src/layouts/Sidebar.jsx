@@ -1,8 +1,8 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, Sparkles, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, ChevronRight, CreditCard, HelpCircle, X } from 'lucide-react'
+import { LayoutDashboard, Brain, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/shared'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { logout } from '@/features/auth/authSlice'
@@ -133,9 +133,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  const lastPathRef = useRef(location.pathname)
+
   useEffect(() => {
-    if (mobileOpen) onMobileClose?.()
-  }, [location.pathname])
+    if (lastPathRef.current !== location.pathname) {
+      lastPathRef.current = location.pathname
+      onMobileClose?.()
+    }
+  }, [location.pathname, onMobileClose])
 
   const sidebarContent = (
     <aside className={cn(

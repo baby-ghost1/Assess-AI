@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { LogOut, Clock, AlertCircle } from 'lucide-react'
+import { LogOut, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 

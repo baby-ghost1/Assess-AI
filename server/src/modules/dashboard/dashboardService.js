@@ -139,7 +139,7 @@ export async function getCandidateDashboard(userId) {
     return d >= weekStart
   }).length }
 
-  const allAssessments = await Assessment.find({ status: 'approved' }).select('title assessmentType difficulty').limit(20)
+  const allAssessments = await Assessment.find({ status: 'published' }).select('title assessmentType difficulty').limit(20)
   const attemptedIds = new Set(attempts.map((a) => a.assessment?._id?.toString()))
   const recommended = allAssessments
     .filter((a) => !attemptedIds.has(a._id.toString()))

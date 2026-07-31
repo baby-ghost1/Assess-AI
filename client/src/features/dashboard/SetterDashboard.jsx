@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useAppSelector } from '@/hooks'
 import { useNavigate } from 'react-router-dom'
-import { Brain, FileEdit, BarChart3, ClipboardCheck, Loader2, Clock, FileText, Plus, Upload, Sparkles, BookOpen } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Brain, FileEdit, BarChart3, ClipboardCheck, Loader2, FileText, BookOpen } from 'lucide-react'
 import { EmptyState } from '@/components/shared'
 
 function StatCard({ icon: Icon, label, value, color, onClick }) {

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Wifi, AlertTriangle, X } from 'lucide-react'
+import { Wifi, X } from 'lucide-react'
 import useSlowConnection from '@/hooks/useSlowConnection'
 
 export default function SlowInternetWarning() {

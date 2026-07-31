@@ -8,7 +8,7 @@ import * as adminController from './adminController.js'
 const router = Router()
 
 router.use(authenticate)
-router.use(authorize('admin', 'super_admin'))
+router.use(authorize('admin'))
 
 // Users
 router.get('/users', adminController.listUsers)
@@ -16,7 +16,7 @@ router.get('/users/:id', adminController.getUserById)
 router.patch('/users/:id', validate(z.object({
   name: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
-  role: z.enum(['candidate', 'setter', 'reviewer', 'admin']).optional(),
+  role: z.enum(['candidate', 'setter', 'admin']).optional(),
   isActive: z.boolean().optional(),
 }).strict()), adminController.updateUser)
 router.delete('/users/:id', adminController.deleteUser)

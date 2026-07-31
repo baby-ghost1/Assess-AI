@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Save, ArrowLeft, Plus, Trash2, X, Check, Tag } from 'lucide-react'
+import { Save, ArrowLeft, Plus, X, Check, Tag } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const questionFormSchema = z.object({

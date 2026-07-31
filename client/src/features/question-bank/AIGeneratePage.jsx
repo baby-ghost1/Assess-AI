@@ -25,7 +25,7 @@ export default function AIGeneratePage() {
 
   const mutation = useMutation({
     mutationFn: (data) => api.post('/ai/generate', data),
-    onSuccess: (res) => {
+    onSuccess: () => {
       setTimeout(() => navigate('/question-bank'), 2000)
     },
   })

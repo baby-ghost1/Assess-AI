@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Shield, ShieldOff, AlertTriangle, Video, VideoOff, Camera, Eye } from 'lucide-react'
+import { Shield, ShieldOff, AlertTriangle, Video, VideoOff, Camera } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProctoringOverlay({ status, lastViolation, videoRef, violations }) {

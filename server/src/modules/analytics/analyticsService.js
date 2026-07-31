@@ -2,6 +2,8 @@ import Attempt from '../assessments/Attempt.js'
 import Submission from '../assessments/Submission.js'
 import Assessment from '../assessments/Assessment.js'
 import Question from '../questions/Question.js'
+import User from '../users/User.js'
+import { NotFoundError } from '../../shared/errors/AppError.js'
 import { generateInsights } from '../ai/aiProviders.js'
 
 // ─── User Analytics ─────────────────────────────────────
@@ -56,7 +58,7 @@ export async function getUserAnalytics(userId) {
 
 export async function getAssessmentAnalytics(assessmentId) {
   const assessment = await Assessment.findById(assessmentId)
-  if (!assessment) throw new Error('Assessment not found')
+  if (!assessment) throw new NotFoundError('Assessment not found')
 
   const attempts = await Attempt.find({ assessment: assessmentId, status: 'completed' })
   const totalAttempts = attempts.length
@@ -345,8 +347,6 @@ export async function getQuestionAnalytics(questionId) {
 }
 
 // ─── Leaderboard ────────────────────────────────────────
-
-import User from '../users/User.js'
 
 export async function getLeaderboard(currentUser) {
   const match = {}

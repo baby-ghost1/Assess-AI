@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { Loader2, Bookmark, BookmarkCheck, BookOpen, ChevronLeft, ChevronRight, Flag, Send, Eraser, AlertTriangle, X, AlertCircle } from 'lucide-react'
@@ -10,7 +10,6 @@ import ProctoringOverlay from '@/features/proctoring/ProctoringOverlay'
 export default function QuizAttemptPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [attempt, setAttempt] = useState(null)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [currentQ, setCurrentQ] = useState(null)

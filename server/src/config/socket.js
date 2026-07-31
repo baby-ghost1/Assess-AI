@@ -32,7 +32,10 @@ export function setupSocket(httpServer) {
   io.on('connection', (socket) => {
     logger.debug(`Proctoring client connected: ${socket.userId}`)
 
-    socket.on('proctoring:join', ({ attemptId }) => {
+    socket.on('proctoring:join', async ({ attemptId }) => {
+      if (!attemptId) return
+      const attempt = await Attempt.findById(attemptId).select('user')
+      if (!attempt || attempt.user.toString() !== socket.userId) return
       socket.join(`attempt:${attemptId}`)
       socket.currentAttemptId = attemptId
       logger.debug(`User ${socket.userId} joined attempt ${attemptId}`)
@@ -51,7 +54,7 @@ export function setupSocket(httpServer) {
         if (!attemptId || !type) return
 
         const attempt = await Attempt.findById(attemptId).populate('assessment')
-        if (!attempt) return
+        if (!attempt || attempt.user.toString() !== socket.userId) return
 
         const result = await proctoringService.logViolation({
           attemptId,
@@ -92,9 +95,5 @@ export function setupSocket(httpServer) {
     })
   })
 
-  return io
-}
-
-export function getIO() {
   return io
 }

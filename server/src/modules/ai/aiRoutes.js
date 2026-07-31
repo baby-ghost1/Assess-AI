@@ -241,7 +241,7 @@ router.get('/quiz/:attemptId/insights', async (req, res, next) => {
     let insights
     try {
       const result = await generateInsights(analyticsData, 'quiz', 'groq')
-      insights = result.insights
+      insights = result
     } catch {
       insights = {
         overallAssessment: `You scored ${attempt.percentage}% on "${attempt.assessment?.title}".`,

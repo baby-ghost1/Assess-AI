@@ -6,14 +6,7 @@ import Otp from './Otp.js'
 import { ConflictError, UnauthorizedError } from '../../shared/errors/AppError.js'
 import { createNotification } from '../notifications/notificationService.js'
 import { sendOTPEmail } from '../../services/emailService.js'
-
-function generateTokens(userId, rememberMe = false) {
-  const accessTokenExpiry = rememberMe ? '30d' : '15m'
-  const refreshTokenExpiry = rememberMe ? '30d' : '7d'
-  const accessToken = jwt.sign({ userId }, config.jwt.accessSecret, { expiresIn: accessTokenExpiry })
-  const refreshToken = jwt.sign({ userId }, config.jwt.refreshSecret, { expiresIn: refreshTokenExpiry })
-  return { accessToken, refreshToken }
-}
+import { generateTokens } from './tokenUtils.js'
 
 export async function register({ name, email, password, role = 'candidate' }) {
   const existing = await User.findOne({ email })

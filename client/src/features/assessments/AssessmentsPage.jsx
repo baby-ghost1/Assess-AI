@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Plus, Brain, Code2, Clock, BarChart3, AlertCircle, CheckCircle, Send, FileEdit, XCircle, Eye, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Brain, Code2, Clock, BarChart3, CheckCircle, Send, FileEdit, XCircle, Eye, Loader2, Trash2 } from 'lucide-react'
 import { useAppSelector } from '@/hooks'
 import { notify } from '@/lib/notify'
 import { EmptyState } from '@/components/shared'
@@ -175,7 +175,7 @@ function SetterAssessmentCard({ a, onAction }) {
     try {
       await api.post(`/assessments/${a._id}/submit-approval`)
       onAction('refresh')
-    } catch (e) {
+    } catch {
       // error handled by UI
     } finally {
       setSubmitting(false)
@@ -286,7 +286,7 @@ export default function AssessmentsPage() {
     { key: 'rejected', label: 'Rejected' },
   ]
 
-  const { data: myData, isLoading: myLoading, refetch: refetchMy } = useQuery({
+  const { data: myData, isLoading: myLoading } = useQuery({
     queryKey: ['setter-assessments', activeTab],
     queryFn: () => {
       const params = new URLSearchParams()

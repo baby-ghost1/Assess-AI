@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { useAppSelector } from '@/hooks'
-import { Loader2, BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight, Brain, FileEdit, Users, AlertCircle } from 'lucide-react'
+import { BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight, Brain, FileEdit, Users } from 'lucide-react'
 import AIInsightsPanel from './AIInsightsPanel'
 import StatCard from './StatCard'
 import DonutChart from './DonutChart'
@@ -144,7 +143,6 @@ const statusColors = {
 }
 
 function SetterAnalyticsView() {
-  const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['setter-analytics'],
     queryFn: () => api.get('/setter/analytics').then((r) => r.data),
@@ -375,7 +373,6 @@ function SetterAnalyticsView() {
 }
 
 function CandidateAnalyticsView() {
-  const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['user-analytics'],
     queryFn: () => api.get('/analytics/me').then((r) => r.data),

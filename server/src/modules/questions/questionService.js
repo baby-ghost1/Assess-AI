@@ -2,7 +2,7 @@ import Question from './Question.js'
 import QuestionVersion from './QuestionVersion.js'
 import Assessment from '../assessments/Assessment.js'
 import Tag from '../tags/Tag.js'
-import { NotFoundError, ForbiddenError } from '../../shared/errors/AppError.js'
+import { NotFoundError, ForbiddenError, ValidationError } from '../../shared/errors/AppError.js'
 
 export async function createQuestion(data, userId) {
   const question = await Question.create({ ...data, createdBy: userId, updatedBy: userId })
@@ -108,7 +108,6 @@ export async function updateQuestion(questionId, data, userId) {
     throw new ForbiddenError('Approved questions cannot be edited directly. Create a new version.')
   }
 
-  const oldData = question.toObject()
   Object.assign(question, data, { updatedBy: userId })
   question.version += 1
   await question.save()
@@ -181,7 +180,7 @@ export async function withdrawFromReview(questionId, userId) {
 
 export async function reviewQuestion(questionId, { status, rejectionReason }, userId) {
   if (!['approved', 'rejected'].includes(status)) {
-    throw new Error('Status must be approved or rejected')
+    throw new ValidationError('Status must be approved or rejected')
   }
 
   const question = await Question.findById(questionId)

@@ -1,15 +1,5 @@
 import * as authService from './authService.js'
-
-function setRefreshCookie(res, refreshToken, rememberMe = false) {
-  const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge,
-    path: '/',
-  })
-}
+import { setRefreshCookie } from './tokenUtils.js'
 
 export async function register(req, res, next) {
   try {

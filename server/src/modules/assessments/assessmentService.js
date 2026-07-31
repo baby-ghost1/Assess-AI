@@ -95,7 +95,7 @@ export async function updateAssessment(assessmentId, data, userId) {
   if (user.role === 'setter' && assessment.status !== 'draft') {
     throw new ValidationError('Only draft assessments can be edited')
   }
-  delete data.status
+  if (user.role !== 'admin') delete data.status
   if (data.sections?.length) {
     data.sections = await processInlineQuestions(data.sections, userId)
   }
@@ -229,8 +229,8 @@ export async function getSetterAssessments(userId, filters = {}) {
   const query = { createdBy: userId }
   if (filters.status) query.status = filters.status
 
-  const page = filters.page || 1
-  const limit = filters.limit || 20
+  const page = Math.max(1, parseInt(filters.page, 10) || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20))
   const skip = (page - 1) * limit
 
   const [assessments, total] = await Promise.all([
@@ -320,6 +320,8 @@ export async function submitAnswer(attemptId, questionId, { answer, timeSpent, i
 
   if (!wasAnswered && submission.isAnswered) {
     attempt.answeredCount += 1
+  } else if (wasAnswered && !submission.isAnswered) {
+    attempt.answeredCount = Math.max(0, attempt.answeredCount - 1)
   }
 
   attempt.bookmarkedQuestions = await getBookmarkedQuestions(attemptId)

@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks'
 import { adminLogin, clearError } from './authSlice'
 import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Shield, Mail, Lock, Eye, EyeOff, Brain, ArrowRight } from 'lucide-react'
+import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const loginSchema = z.object({

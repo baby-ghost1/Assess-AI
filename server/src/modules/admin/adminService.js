@@ -13,6 +13,7 @@ import CodingProgress from '../coding/CodingProgress.js'
 import CodingComment from '../coding/CodingComment.js'
 import CodingBookmark from '../coding/CodingBookmark.js'
 import { createNotification } from '../notifications/notificationService.js'
+import { NotFoundError, ValidationError } from '../../shared/errors/AppError.js'
 
 // ─── User Management ────────────────────────────────────
 
@@ -45,13 +46,13 @@ export async function listUsers(filters) {
 
 export async function getUserById(userId) {
   const user = await User.findById(userId).select('-password -refreshToken')
-  if (!user) throw new Error('User not found')
+  if (!user) throw new NotFoundError('User not found')
   return user
 }
 
 export async function updateUser(userId, data) {
   const existingUser = await User.findById(userId)
-  if (!existingUser) throw new Error('User not found')
+  if (!existingUser) throw new NotFoundError('User not found')
 
   const updates = {}
   if (data.name) updates.name = data.name
@@ -62,7 +63,7 @@ export async function updateUser(userId, data) {
   if (data.avatar) updates.avatar = data.avatar
 
   const user = await User.findByIdAndUpdate(userId, { $set: updates }, { new: true, runValidators: true }).select('-password -refreshToken')
-  if (!user) throw new Error('User not found')
+  if (!user) throw new NotFoundError('User not found')
 
   if (data.role && data.role !== existingUser.role) {
     await createNotification(userId, {
@@ -91,7 +92,7 @@ export async function updateUser(userId, data) {
 
 export async function deleteUser(userId) {
   const user = await User.findByIdAndDelete(userId)
-  if (!user) throw new Error('User not found')
+  if (!user) throw new NotFoundError('User not found')
   return user
 }
 
@@ -203,17 +204,17 @@ export async function getSystemHealth() {
 
 export async function deleteAllData(adminId, confirmation, password) {
   if (confirmation !== 'DELETE ALL DATA') {
-    throw new Error('Invalid confirmation text')
+    throw new ValidationError('Invalid confirmation text')
   }
 
   const admin = await User.findById(adminId).select('+password')
   if (!admin || admin.role !== 'admin') {
-    throw new Error('Only admin can perform this action')
+    throw new NotFoundError('Only admin can perform this action')
   }
 
   const isPasswordValid = await admin.comparePassword(password)
   if (!isPasswordValid) {
-    throw new Error('Incorrect password')
+    throw new ValidationError('Incorrect password')
   }
 
   await Promise.all([

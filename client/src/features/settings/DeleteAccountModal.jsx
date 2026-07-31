@@ -37,7 +37,7 @@ const stepVariants = {
 
 const springTransition = { type: 'spring', stiffness: 300, damping: 30 }
 
-function PulseRing({ className }) {
+function PulseRing() {
   return (
     <span className="absolute inset-0 rounded-full border border-danger/40">
       {[0, 1, 2].map((i) => (

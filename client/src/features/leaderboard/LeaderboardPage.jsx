@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trophy, Medal, Award, Users, Code2, Crown, Star } from 'lucide-react'
+import { Trophy, Medal, Award, Users, Code2, Crown } from 'lucide-react'
 import { ErrorState, EmptyState } from '@/components/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useAppSelector } from '@/hooks'

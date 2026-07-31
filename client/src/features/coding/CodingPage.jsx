@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useAppSelector } from '@/hooks'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
@@ -196,11 +196,17 @@ export default function CodingPage() {
     }
   }, [])
 
+  const lastLoadedConvRef = useRef(null)
+
   useEffect(() => {
-    if (!activeConvId || conversations.length === 0) return
+    if (!activeConvId) return
+    if (lastLoadedConvRef.current === activeConvId) return
     const conv = conversations.find(c => c.id === activeConvId)
-    if (conv) setChatMessages(conv.messages)
-  }, [activeConvId])
+    if (conv) {
+      lastLoadedConvRef.current = activeConvId
+      setChatMessages(conv.messages)
+    }
+  }, [activeConvId, conversations])
 
   useEffect(() => {
     const handler = (e) => {
@@ -212,7 +218,7 @@ export default function CodingPage() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [code, language, activeProblem])
+  }, [code, language, activeProblem, handleRun, handleSubmit])
 
   const onVerticalDrag = useCallback((_e) => {
     isDraggingV.current = true
@@ -251,7 +257,6 @@ export default function CodingPage() {
     document.addEventListener('touchend', onUp)
   }, [bottomHeight])
 
-  const queryClient = useQueryClient()
   const activeConvIdRef = useRef(activeConvId)
   activeConvIdRef.current = activeConvId
 
@@ -381,13 +386,13 @@ export default function CodingPage() {
     if (!activeProblem) return
     setRunning(true); setResults(null); setConsoleOutput('')
     runMutation.mutate({ code, language, questionId: activeProblem._id })
-  }, [code, language, activeProblem])
+  }, [code, language, activeProblem, runMutation])
 
   const handleSubmit = useCallback(() => {
     if (!activeProblem) return
     setSubmitting(true); setResults(null); setConsoleOutput('')
     submitMutation.mutate({ code, language, questionId: activeProblem._id })
-  }, [code, language, activeProblem])
+  }, [code, language, activeProblem, submitMutation])
 
   const handleReset = useCallback(() => {
     if (!activeProblem) return

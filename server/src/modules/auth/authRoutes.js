@@ -24,9 +24,9 @@ router.patch('/preferences', authenticate, validate(z.object({
   language: z.string().min(1).max(20).optional(),
 }).strict()), authController.updatePreferences)
 router.post('/send-delete-otp', authenticate, validate(sendDeleteOtpSchema), authController.sendDeleteOtp)
-router.post('/verify-delete-otp', authenticate, validate(verifyDeleteOtpSchema), authController.verifyDeleteOtp)
+router.post('/verify-delete-otp', authenticate, authLimiter, validate(verifyDeleteOtpSchema), authController.verifyDeleteOtp)
 router.post('/send-password-otp', authenticate, validate(sendPasswordOtpSchema), authController.sendPasswordOtp)
-router.post('/verify-password-otp', authenticate, validate(verifyPasswordOtpSchema), authController.verifyPasswordOtp)
+router.post('/verify-password-otp', authenticate, authLimiter, validate(verifyPasswordOtpSchema), authController.verifyPasswordOtp)
 router.delete('/account', authenticate, validate(deleteAccountSchema), authController.deleteAccount)
 
 router.get('/google', oauthController.googleAuth)

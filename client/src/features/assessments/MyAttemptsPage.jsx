@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, Trophy, RotateCw, BarChart3, Clock, XCircle, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Trophy, RotateCw, BarChart3, Clock, XCircle, Loader2 } from 'lucide-react'
 import { EmptyState, ErrorState } from '@/components/shared'
 
 export default function MyAttemptsPage() {

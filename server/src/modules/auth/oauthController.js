@@ -1,18 +1,9 @@
 import * as oauthService from './oauthService.js'
 import { config } from '../../config/index.js'
-
-function setRefreshCookie(res, refreshToken) {
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    path: '/',
-  })
-}
+import { setRefreshCookie } from './tokenUtils.js'
 
 function redirectWithTokens(res, result, provider) {
-  setRefreshCookie(res, result.refreshToken)
+  setRefreshCookie(res, result.refreshToken, true)
   const params = new URLSearchParams({
     accessToken: result.accessToken,
     provider,

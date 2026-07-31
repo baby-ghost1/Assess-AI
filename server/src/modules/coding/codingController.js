@@ -4,6 +4,7 @@ import CodingSubmission from './CodingSubmission.js'
 import CodingBookmark from './CodingBookmark.js'
 import CodingProgress from './CodingProgress.js'
 import CodingComment from './CodingComment.js'
+import { NotFoundError } from '../../shared/errors/AppError.js'
 
 const HELLO_WORLD = {
   title: 'Hello World',
@@ -63,7 +64,7 @@ export async function runCode(req, res, next) {
     const { testCases, harness } = getTestData(questionId, question, language)
     const results = await codingService.runSampleTests(code, language, testCases, harness)
     const totalTime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0)
-    const maxMemory = Math.max(...results.map(r => r.memoryUsed || 0))
+    const maxMemory = results.length ? Math.max(...results.map(r => r.memoryUsed || 0)) : 0
     res.json({ success: true, data: { results, executionTime: totalTime, memoryUsed: maxMemory }, message: 'Tests executed', errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -72,13 +73,14 @@ export async function submitCode(req, res, next) {
   try {
     const { code, language, questionId } = req.validatedBody
     const question = await resolveQuestion(questionId)
+    if (!question) throw new NotFoundError('Question not found')
     const { testCases, harness } = getTestData(questionId, question, language)
     const results = await codingService.runAllTests(code, language, testCases, harness)
     const passed = results.filter((r) => r.passed).length
     const total = results.length
     const allPassed = passed === total
     const totalTime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0)
-    const maxMemory = Math.max(...results.map(r => r.memoryUsed || 0))
+    const maxMemory = results.length ? Math.max(...results.map(r => r.memoryUsed || 0)) : 0
 
     const submission = await CodingSubmission.create({
       user: req.user._id,
@@ -95,11 +97,17 @@ export async function submitCode(req, res, next) {
     })
 
     if (allPassed) {
+      const progress = await CodingProgress.findOne({ user: req.user._id })
+      const isNewlySolved = !progress?.solvedProblems?.includes(questionId)
       await CodingProgress.findOneAndUpdate(
         { user: req.user._id },
         {
           $addToSet: { solvedProblems: questionId },
-          $inc: { totalSolved: 1, totalSubmissions: 1, [`${question?.difficulty || 'easy'}Solved`]: 1 },
+          $inc: {
+            totalSolved: isNewlySolved ? 1 : 0,
+            totalSubmissions: 1,
+            [`${question?.difficulty || 'easy'}Solved`]: isNewlySolved ? 1 : 0,
+          },
           $set: { lastSolvedDate: new Date() },
         },
         { upsert: true }

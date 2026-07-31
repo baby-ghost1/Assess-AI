@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { useAppSelector } from '@/hooks'
 import { Button } from '@/components/ui'
-import { Brain, Code2, BarChart3, CheckCircle, Loader2, Clock, Trophy, Zap, Flame, Target, Star, ArrowUpRight, ArrowDownRight, TrendingUp, BookOpen, ChevronRight, Sparkles, Award, Quote, Calendar } from 'lucide-react'
+import { Brain, BarChart3, CheckCircle, Loader2, Clock, Trophy, Zap, Flame, Target, ArrowUpRight, ArrowDownRight, BookOpen, ChevronRight, Sparkles, Award, Quote, Calendar } from 'lucide-react'
 import { ErrorState } from '@/components/shared'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import AnimatedNumber from '@/lib/animatedNumber'
 
 function ProgressRing({ progress, size = 60, stroke = 5, color = '#4F46E5' }) {

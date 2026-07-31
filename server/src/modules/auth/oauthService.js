@@ -1,15 +1,7 @@
-import jwt from 'jsonwebtoken'
 import { config } from '../../config/index.js'
 import User from '../users/User.js'
 import { UnauthorizedError } from '../../shared/errors/AppError.js'
-
-function generateTokens(userId, rememberMe = false) {
-  const accessTokenExpiry = rememberMe ? '30d' : '15m'
-  const refreshTokenExpiry = rememberMe ? '30d' : '7d'
-  const accessToken = jwt.sign({ userId }, config.jwt.accessSecret, { expiresIn: accessTokenExpiry })
-  const refreshToken = jwt.sign({ userId }, config.jwt.refreshSecret, { expiresIn: refreshTokenExpiry })
-  return { accessToken, refreshToken }
-}
+import { generateTokens } from './tokenUtils.js'
 
 async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar }) {
   let user = await User.findOne({ provider, providerId })
@@ -112,8 +104,10 @@ export async function handleGithubCallback(code) {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     })
     const emails = await emailsRes.json()
-    const primary = emails.find((e) => e.primary && e.verified)
-    if (primary) githubUser.email = primary.email
+    if (Array.isArray(emails)) {
+      const primary = emails.find((e) => e.primary && e.verified)
+      if (primary) githubUser.email = primary.email
+    }
   }
 
   if (!githubUser.email) throw new UnauthorizedError('GitHub authentication failed — no verified email found')

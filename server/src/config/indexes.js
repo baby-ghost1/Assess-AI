@@ -102,6 +102,7 @@ export async function ensureIndexes() {
         const options = {}
         if (idx.unique) options.unique = true
         if (idx.name) options.name = idx.name
+        if (idx.weights) options.weights = idx.weights
 
         await col.createIndex(idx.key, options)
         logger.debug(`Index created on ${config.collection}: ${JSON.stringify(idx.key)}`)

@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks'
 import { register as registerUser, clearError } from './authSlice'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, UserCheck, FileEdit, Sparkles, Star, Zap, ChevronRight } from 'lucide-react'
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, UserCheck, FileEdit, Sparkles, Star, Zap } from 'lucide-react'
 import gsap from 'gsap'
 
 const registerSchema = z.object({

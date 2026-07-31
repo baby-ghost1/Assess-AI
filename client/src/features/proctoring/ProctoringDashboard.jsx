@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Shield, AlertTriangle, Eye, Search } from 'lucide-react'
+import { Shield, AlertTriangle, Search } from 'lucide-react'
 import { TableSkeleton } from '@/components/shared'
 
 const severityColors = {

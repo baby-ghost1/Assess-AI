@@ -25,7 +25,7 @@ function formatBytes(bytes) {
   return `${(bytes / 1024).toFixed(1)} KB`
 }
 
-export default function ProblemLeft({ problem, submissions, onToggleBookmark, isBookmarked, hintsUsed, onUseHint, comments, onAddComment, onDeleteComment, onLikeComment, currentUser, activeTab, onTabChange }) {
+export default function ProblemLeft({ problem, submissions, onToggleBookmark, isBookmarked, comments, onAddComment, onDeleteComment, onLikeComment, currentUser, activeTab, onTabChange }) {
   const [commentText, setCommentText] = useState('')
   const [seenInInterview, setSeenInInterview] = useState(null)
   const [showTopics, setShowTopics] = useState(false)

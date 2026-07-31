@@ -53,12 +53,12 @@ app.use(helmet({
 app.use(compression())
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = (config.clientUrl || '').split(',').map(s => s.trim())
-    if (!origin || allowed.includes(origin) || allowed.includes('*')) {
-      callback(null, true)
-    } else {
-      callback(null, true)
-    }
+    const allowed = (config.clientUrl || 'http://localhost:5173').split(',').map(s => s.trim()).filter(Boolean)
+    const ok = !origin
+      || allowed.includes(origin)
+      || origin.endsWith('.vercel.app')
+      || /^https?:\/\/localhost(:\d+)?$/.test(origin)
+    callback(null, ok)
   },
   credentials: true,
 }))

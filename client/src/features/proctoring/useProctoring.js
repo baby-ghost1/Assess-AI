@@ -1,21 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { io } from 'socket.io-client'
 
-const VIOLATION_SEVERITY = {
-  tab_switch: 'medium',
-  multiple_faces: 'high',
-  no_face: 'high',
-  phone_detected: 'high',
-  looking_away: 'low',
-  background_noise: 'medium',
-  clipboard_usage: 'high',
-  keyboard_shortcut: 'high',
-  network_disconnect: 'medium',
-  fullscreen_exit: 'high',
-  copy_paste: 'high',
-  right_click: 'medium',
-}
-
 export default function useProctoring({ attemptId, enabled, onAutoSubmit, onViolation }) {
   const socketRef = useRef(null)
   const videoRef = useRef(null)
@@ -260,10 +245,9 @@ function detectFaceSimple(imageData) {
     const g = data[i + 1]
     const b = data[i + 2]
 
-    if (r > 95 && g > 40 && b > 20 &&
+    if (r > 220 && g > 180 && b > 140 &&
         r > g && r > b &&
-        Math.abs(r - g) > 15 &&
-        r > 220 && g > 180 && b > 140) {
+        Math.abs(r - g) > 15) {
       skinPixels++
     }
   }
