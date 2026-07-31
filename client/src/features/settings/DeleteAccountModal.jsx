@@ -12,7 +12,7 @@ import {
 const CONFIRM_PHRASE = 'DELETE MY ACCOUNT'
 const OTP_LENGTH = 6
 const RESEND_COOLDOWN = 30
-const SUCCESS_AUTO_REDIRECT_MS = 5000
+const SUCCESS_AUTO_REDIRECT_MS = 8000
 
 const RETENTION_REASONS = [
   { icon: Brain, text: 'AI-powered assessments are helping you learn smarter', color: 'text-primary bg-primary/10' },
