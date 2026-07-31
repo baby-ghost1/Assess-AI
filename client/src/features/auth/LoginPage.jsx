@@ -301,9 +301,8 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-2xl shadow-violet-500/30 mb-5 animate-[float_4s_ease-in-out_infinite]">
             <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h1 className="relative inline-block text-3xl font-logo font-normal text-text-primary">
-            <span aria-hidden className="absolute -inset-x-6 inset-y-[-10px] rounded-full bg-primary/40 blur-xl" />
-            <span className="relative">AssessAI</span>
+          <h1 className="text-3xl font-logo font-normal text-text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] drop-shadow-[0_0_20px_rgba(139,92,246,0.35)] drop-shadow-[0_0_45px_rgba(139,92,246,0.25)]">
+            AssessAI
           </h1>
           <p className="mt-2 text-sm text-white/40 font-medium tracking-wide">
             Welcome back to the future of assessments

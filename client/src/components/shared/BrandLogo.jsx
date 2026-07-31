@@ -1,8 +1,9 @@
 export default function BrandLogo({ className = '' }) {
   return (
-    <span className={`relative inline-block font-logo text-text-primary ${className}`}>
-      <span aria-hidden className="absolute -inset-x-3 inset-y-[-8px] rounded-full bg-primary/30 blur-lg" />
-      <span className="relative">AssessAI</span>
+    <span
+      className={`relative inline-block font-logo text-text-primary drop-shadow-[0_0_5px_rgba(99,102,241,0.45)] drop-shadow-[0_0_14px_rgba(99,102,241,0.3)] drop-shadow-[0_0_30px_rgba(99,102,241,0.2)] ${className}`}
+    >
+      AssessAI
     </span>
   )
 }
