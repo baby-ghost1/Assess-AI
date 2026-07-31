@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { toggleTheme } from '@/store/themeSlice'
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2 } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2, KeyRound, Check } from 'lucide-react'
 import { changePassword } from '@/features/auth/authSlice'
 import { logout } from '@/features/auth/authSlice'
 import { notify } from '@/lib/notify'
@@ -207,7 +208,7 @@ function ChangePasswordModal({ open, onClose }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(false)
 
   const strength = getPasswordStrength(newPassword)
   const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword
@@ -220,12 +221,17 @@ function ChangePasswordModal({ open, onClose }) {
     return () => window.removeEventListener('keydown', handler)
   }, [open, isEmpty, loading])
 
+  useEffect(() => {
+    if (!success) return
+    const timer = setTimeout(() => onClose(), 4000)
+    return () => clearTimeout(timer)
+  }, [success, onClose])
+
   if (!open) return null
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setSuccess('')
     if (isEmpty) { setError('Please fill in all fields'); return }
     if (newPassword.length < 6) { setError('New password must be at least 6 characters'); return }
     if (newPassword !== confirmPassword) { setError('Passwords do not match'); return }
@@ -234,11 +240,10 @@ function ChangePasswordModal({ open, onClose }) {
     setLoading(true)
     try {
       await dispatch(changePassword({ oldPassword, newPassword })).unwrap()
-      notify.success('Password changed successfully')
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      setTimeout(() => onClose(), 1000)
+      setSuccess(true)
     } catch (err) {
       setError(err || 'Failed to change password')
     } finally {
@@ -247,77 +252,161 @@ function ChangePasswordModal({ open, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-bg-card border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
-          <X className="h-5 w-5" />
-        </button>
-        <h3 className="text-lg font-heading font-semibold text-text-primary mb-1">Change Password</h3>
-        <p className="text-sm text-text-secondary mb-5">Update your password to keep your account secure.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={onClose} />
+      <motion.div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full bg-primary/10 blur-[140px]" />
+      </motion.div>
 
-        {error && (
-          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-4">
-            <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
-        )}
+      <motion.div
+        initial={{ opacity: 0, y: 32, scale: 0.94 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="relative w-full max-w-md max-h-[90vh] overflow-hidden rounded-3xl p-[1.5px] bg-gradient-to-br from-primary/50 via-primary/20 to-fuchsia-600/50"
+      >
+        <div className="relative flex flex-col max-h-[90vh] overflow-hidden rounded-3xl bg-[#0E0E16]">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">Current Password</label>
-            <div className="relative">
-              <input type={showOld ? 'text' : 'password'} value={oldPassword} onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2.5 pr-10 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors" placeholder="Enter current password" />
-              <button type="button" onClick={() => setShowOld(!showOld)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">
-                {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">New Password</label>
-            <div className="relative">
-              <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2.5 pr-10 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors" placeholder="Enter new password" />
-              <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">
-                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {newPassword && (
-              <div className="mt-2">
-                <div className="flex gap-1 mb-1">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-1 flex-1 rounded-full transition-all duration-300" style={{ backgroundColor: i <= strength.segments ? strength.color : '#27272A' }} />
-                  ))}
-                </div>
-                <p className="text-xs font-medium" style={{ color: strength.color }}>Password strength: {strength.label}</p>
+          <div className="flex items-center justify-between px-6 py-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <motion.div
+                initial={{ scale: 0, rotate: -30 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.08 }}
+                className="relative rounded-xl bg-primary/10 p-2.5"
+              >
+                <KeyRound className="h-5 w-5 text-primary" />
+              </motion.div>
+              <div>
+                <h3 className="text-lg font-heading font-bold text-white/90">Change Password</h3>
+                <p className="text-xs text-white/40">{success ? 'Password updated' : 'Keep your account secure'}</p>
               </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">Confirm New Password</label>
-            <div className="relative">
-              <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`w-full rounded-lg border bg-bg-secondary px-3 py-2.5 pr-10 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors ${confirmPassword && !passwordsMatch ? 'border-red-500' : confirmPassword && passwordsMatch ? 'border-emerald-500' : 'border-border'}`} placeholder="Confirm new password" />
-              <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">
-                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
             </div>
-            {confirmPassword && !passwordsMatch && <p className="text-xs text-red-500 mt-1">Passwords do not match</p>}
-            {confirmPassword && passwordsMatch && <p className="text-xs text-emerald-500 mt-1">Passwords match</p>}
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">Cancel</button>
-            <button id="change-pw-btn" type="submit" disabled={loading || isEmpty}
-              className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Changing...</> : 'Change Password'}
+            <button onClick={onClose} className="p-1.5 rounded-lg text-white/40 hover:text-white/90 hover:bg-white/5 transition-colors">
+              <X className="h-5 w-5" />
             </button>
           </div>
-        </form>
-      </div>
+
+          {success ? (
+            <div className="flex flex-col items-center justify-center min-h-[280px] text-center space-y-5 py-6 px-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.1 }}
+                className="relative"
+              >
+                <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-2xl" />
+                <motion.div
+                  animate={{ boxShadow: ['0 0 40px rgba(16,185,129,0.35)', '0 0 80px rgba(16,185,129,0.55)', '0 0 40px rgba(16,185,129,0.35)'] }}
+                  transition={{ duration: 2.2, repeat: Infinity }}
+                  className="relative flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600"
+                >
+                  <svg viewBox="0 0 52 52" className="w-12 h-12">
+                    <motion.path
+                      d="M14 27l8 8 16-16"
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth="4.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.6, delay: 0.35, ease: 'easeOut' }}
+                    />
+                  </svg>
+                </motion.div>
+              </motion.div>
+
+              <div className="space-y-2">
+                <h4 className="text-2xl font-heading font-bold text-white/90">Password Changed!</h4>
+                <p className="text-sm text-white/40 max-w-xs mx-auto">
+                  Your password was updated successfully. Use your new password the next time you log in.
+                </p>
+              </div>
+
+              <motion.button
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onClose}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-fuchsia-600 px-8 py-3 text-sm font-semibold text-white hover:opacity-90 transition-all"
+              >
+                <Check className="h-4 w-4" /> Done
+              </motion.button>
+              <p className="text-xs text-white/25">Closing automatically...</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4 p-6 pt-2">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5 overflow-hidden"
+                >
+                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                  <p className="text-sm text-red-500">{error}</p>
+                </motion.div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">Current Password</label>
+                <div className="relative">
+                  <input type={showOld ? 'text' : 'password'} value={oldPassword} onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 pr-10 text-sm text-white/90 placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-colors" placeholder="Enter current password" />
+                  <button type="button" onClick={() => setShowOld(!showOld)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors">
+                    {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">New Password</label>
+                <div className="relative">
+                  <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 pr-10 text-sm text-white/90 placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-colors" placeholder="Enter new password" />
+                  <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors">
+                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {newPassword && (
+                  <div className="mt-2">
+                    <div className="flex gap-1 mb-1">
+                      {[1, 2, 3, 4].map((i) => (
+                        <motion.div key={i} className="h-1 flex-1 rounded-full"
+                          animate={{ backgroundColor: i <= strength.segments ? strength.color : '#FFFFFF14' }}
+                          transition={{ duration: 0.2 }} />
+                      ))}
+                    </div>
+                    <p className="text-xs font-medium" style={{ color: strength.color }}>Password strength: {strength.label}</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">Confirm New Password</label>
+                <div className="relative">
+                  <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full rounded-xl border bg-white/[0.03] px-4 py-3 pr-10 text-sm text-white/90 placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors ${confirmPassword && !passwordsMatch ? 'border-red-500/50' : confirmPassword && passwordsMatch ? 'border-emerald-500/50' : 'border-white/10'}`} placeholder="Confirm new password" />
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors">
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {confirmPassword && !passwordsMatch && <p className="text-xs text-red-500 mt-1">Passwords do not match</p>}
+                {confirmPassword && passwordsMatch && <p className="text-xs text-emerald-500 mt-1">Passwords match</p>}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm font-medium text-white/50 hover:bg-white/5 hover:text-white transition-all">Cancel</button>
+                <button id="change-pw-btn" type="submit" disabled={loading || isEmpty}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-primary to-fuchsia-600 px-4 py-3 text-sm font-medium text-white hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Changing...</> : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </motion.div>
     </div>
   )
 }
