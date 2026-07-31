@@ -441,15 +441,43 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                     )}
                     {isOAuth && (
                       <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="rounded-xl border border-primary/20 bg-primary/5 p-4"
+                        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ delay: 0.1, type: 'spring', stiffness: 260, damping: 22 }}
+                        className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-transparent to-fuchsia-600/10 p-4"
                       >
-                        <p className="text-sm text-white/50 flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-primary shrink-0" />
-                          You&apos;ll receive a one-time code at <strong className="text-white/90">{user?.email}</strong> to verify your identity.
-                        </p>
+                        <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+                        <div className="relative flex items-start gap-3.5">
+                          <motion.div
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                            className="relative shrink-0"
+                          >
+                            <div className="rounded-xl bg-gradient-to-br from-primary to-fuchsia-600 p-2.5 shadow-lg shadow-primary/30">
+                              <Mail className="h-5 w-5 text-white" />
+                            </div>
+                            <motion.span
+                              animate={{ scale: [1, 1.7], opacity: [0.5, 0] }}
+                              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
+                              className="absolute inset-0 rounded-xl border-2 border-primary/50 pointer-events-none"
+                            />
+                          </motion.div>
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div>
+                              <p className="text-sm font-semibold text-white/90">Email verification required</p>
+                              <p className="text-xs text-white/40 mt-0.5 leading-relaxed">
+                                We&apos;ll send a one-time code to verify it&apos;s really you.
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 rounded-lg bg-white/[0.04] border border-white/10 px-3 py-2 min-w-0">
+                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                              <span className="truncate text-xs font-mono text-primary">{user?.email}</span>
+                              <span className="ml-auto shrink-0 rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                                OAuth
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </motion.div>
                     )}
 
