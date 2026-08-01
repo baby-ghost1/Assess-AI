@@ -153,7 +153,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
 
   const sidebarContent = (
     <aside className={cn(
-      'relative flex flex-col border-r border-border transition-all duration-300 ease-in-out overflow-hidden h-full',
+      'relative flex flex-col transition-all duration-300 ease-in-out overflow-hidden h-full',
       collapsed ? 'w-[72px]' : 'w-[220px]'
     )}
       style={{

@@ -19,7 +19,7 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg-primary">
+    <div className="flex h-screen overflow-hidden bg-bg-secondary">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <Topbar onMenuToggle={() => setMobileMenuOpen((p) => !p)} />

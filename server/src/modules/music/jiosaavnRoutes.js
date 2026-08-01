@@ -143,4 +143,24 @@ router.get('/trending', async (req, res) => {
   }
 })
 
+router.get('/songs/:id', async (req, res) => {
+  try {
+    const songId = req.params.id
+    if (!songId) return res.status(400).json({ success: false, message: 'Song ID required' })
+
+    const url = `${JIO_API}?__call=songs.getDetails&${COMMON}&pids=${songId}`
+    const r = await fetch(url, { headers: HEADERS })
+    const data = await r.json()
+    const songs = Array.isArray(data) ? data : [data]
+    const song = songs[0]
+    if (!song || !song.id) return res.status(404).json({ success: false, message: 'Song not found' })
+
+    const parsed = parseSong(song)
+    res.json({ success: true, song: parsed })
+  } catch (err) {
+    console.error('JioSaavn song detail error:', err.message)
+    res.status(500).json({ success: false, message: 'Failed to fetch song' })
+  }
+})
+
 export default router
