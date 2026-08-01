@@ -22,6 +22,7 @@ import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
 import LandingPage from '@/features/landing/LandingPage'
 import PrivacyPolicyPage from '@/features/landing/PrivacyPolicyPage'
 import TermsOfServicePage from '@/features/landing/TermsOfServicePage'
+import { MusicPlayerProvider } from '@/features/vibes/musicPlayerContext'
 
 const DashboardPage = lazy(() => import('@/features/auth/DashboardPage'))
 const QuestionBankPage = lazy(() => import('@/features/question-bank/QuestionBankPage'))
@@ -49,6 +50,7 @@ const LeaderboardPage = lazy(() => import('@/features/leaderboard/LeaderboardPag
 const UsersPage = lazy(() => import('@/features/users/UsersPage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'))
+const MusicPlayerPage = lazy(() => import('@/features/vibes/MusicPlayerPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +136,7 @@ function AppRoutes() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/vibes" element={<MusicPlayerPage />} />
         </Route>
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -152,7 +155,9 @@ export default function App() {
           <ThemeInitializer>
             <AuthInitializer>
               <ErrorBoundary>
-                <AppRoutes />
+                <MusicPlayerProvider>
+                  <AppRoutes />
+                </MusicPlayerProvider>
                 <Toaster
                   position="top-right"
                   richColors

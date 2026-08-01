@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, X } from 'lucide-react'
+import { LayoutDashboard, Brain, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, X, Music } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/shared'
 import { useState, useEffect, useRef } from 'react'
@@ -28,6 +28,9 @@ const sidebarConfig = {
     { section: 'System', items: [
       { to: '/settings', icon: Settings, label: 'Settings' },
     ]},
+    { section: 'Chill Zone', items: [
+      { to: '/vibes', icon: Music, label: 'Vibes', badge: 'New' },
+    ]},
   ],
   setter: [
     { section: 'Main', items: [
@@ -45,6 +48,9 @@ const sidebarConfig = {
     { section: 'System', items: [
       { to: '/settings', icon: Settings, label: 'Settings' },
     ]},
+    { section: 'Chill Zone', items: [
+      { to: '/vibes', icon: Music, label: 'Vibes', badge: 'New' },
+    ]},
   ],
   candidate: [
     { section: 'Main', items: [
@@ -61,6 +67,9 @@ const sidebarConfig = {
     ]},
     { section: 'System', items: [
       { to: '/settings', icon: Settings, label: 'Settings' },
+    ]},
+    { section: 'Chill Zone', items: [
+      { to: '/vibes', icon: Music, label: 'Vibes', badge: 'New' },
     ]},
   ],
 }

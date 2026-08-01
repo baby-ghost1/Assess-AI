@@ -29,6 +29,7 @@ import notificationRoutes from './modules/notifications/notificationRoutes.js'
 import privacyRouter from './modules/legal/privacyRouter.js'
 import termsRouter from './modules/legal/termsRouter.js'
 import homeRouter from './modules/legal/homeRouter.js'
+import jiosaavnRoutes from './modules/music/jiosaavnRoutes.js'
 import { detectLanguages } from './modules/coding/codingService.js'
 
 const app = express()
@@ -44,7 +45,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
       fontSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'", 'ws:', 'wss:', 'https://assessai-beta.vercel.app'],
+      connectSrc: ["'self'", 'ws:', 'wss:', 'https://assessai-beta.vercel.app', 'https://*.saavncdn.com'],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
     },
@@ -95,6 +96,7 @@ app.use('/api/v1/candidate/dashboard', candidateDashboardRoutes)
 app.use('/api/v1/setter/dashboard', setterDashboardRoutes)
 app.use('/api/v1/coding', codingRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
+app.use('/api/v1/music', jiosaavnRoutes)
 
 // Legal pages (Google OAuth branding verification)
 app.use(homeRouter)

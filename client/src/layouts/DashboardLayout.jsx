@@ -4,6 +4,7 @@ import Topbar from './Topbar'
 import { useAppSelector } from '@/hooks'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
+import MiniPlayer from '@/features/vibes/MiniPlayer'
 
 export default function DashboardLayout() {
   const { isAuthenticated, isLoading } = useAppSelector((s) => s.auth)
@@ -24,6 +25,7 @@ export default function DashboardLayout() {
         <Topbar onMenuToggle={() => setMobileMenuOpen((p) => !p)} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6"><Outlet /></main>
       </div>
+      <MiniPlayer />
     </div>
   )
 }
