@@ -1,7 +1,7 @@
 import { useMusicPlayer } from './musicPlayerContext'
 import {
   Play, Pause, SkipBack, SkipForward, Music, Shuffle, Repeat, Repeat1,
-  Volume2, VolumeX, Heart, ListMusic
+  Volume2, VolumeX, Heart, ListMusic, Zap, AlertCircle
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,9 +19,10 @@ export default function MiniPlayer() {
   const {
     currentTrack, isPlaying, progress, duration, volume,
     shuffle, repeat, hasTrack, queue, queueIndex, queuePanelOpen,
+    error, crossfade,
     togglePlayPause, playNext, playPrev, seek,
     toggleShuffle, toggleRepeat, toggleMute, changeVolume,
-    toggleLike, isLiked, toggleQueuePanel,
+    toggleLike, isLiked, toggleQueuePanel, setCrossfade,
   } = useMusicPlayer()
   const location = useLocation()
 
@@ -165,6 +166,29 @@ export default function MiniPlayer() {
 
           {/* ─── Right: Volume + Queue ─── */}
           <div className="hidden md:flex items-center gap-3 w-[30%] justify-end">
+            {/* Error toast */}
+            <AnimatePresence>
+              {error && (
+                <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-medium max-w-[200px]">
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Crossfade toggle */}
+            <button
+              onClick={() => setCrossfade(!crossfade)}
+              className={cn(
+                'transition-colors',
+                crossfade ? 'text-[#1db954]' : 'text-[#b3b3b3] hover:text-white'
+              )}
+              title={crossfade ? 'Crossfade: ON' : 'Crossfade: OFF'}
+            >
+              <Zap className="h-4 w-4" />
+            </button>
+
             {/* Queue toggle */}
             <button
               onClick={toggleQueuePanel}

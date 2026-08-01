@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useRef, useCallback, useEffect } f
 const MusicPlayerContext = createContext(null)
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
+const CROSSFADE_MS = 5000 // 5s crossfade
 
 function getStreamUrl(track) {
   if (track.streamUrl) return `${API_BASE}/api/v1/music/stream?url=${encodeURIComponent(track.streamUrl)}`
@@ -30,10 +31,12 @@ export function MusicPlayerProvider({ children }) {
   const [volume, setVolume] = useState(() => loadFromStorage('vibes_volume', 0.7))
   const [shuffle, setShuffle] = useState(false)
   const [repeat, setRepeat] = useState('off')
+  const [error, setError] = useState(null)
   const [shuffledIndices, setShuffledIndices] = useState([])
   const [likedSongs, setLikedSongs] = useState(() => loadFromStorage('vibes_liked', []))
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => loadFromStorage('vibes_recent', []))
   const [queuePanelOpen, setQueuePanelOpen] = useState(false)
+  const [crossfade, setCrossfade] = useState(() => loadFromStorage('vibes_crossfade', true))
 
   const audioRef = useRef(null)
   const repeatRef = useRef(repeat)
@@ -42,6 +45,7 @@ export function MusicPlayerProvider({ children }) {
   const queueIndexRef = useRef(queueIndex)
   const shuffleRef = useRef(shuffle)
   const shuffledIndicesRef = useRef(shuffledIndices)
+  const crossfadeRef = useRef(crossfade)
 
   useEffect(() => { repeatRef.current = repeat }, [repeat])
   useEffect(() => { volumeRef.current = volume }, [volume])
@@ -49,9 +53,90 @@ export function MusicPlayerProvider({ children }) {
   useEffect(() => { queueIndexRef.current = queueIndex }, [queueIndex])
   useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
   useEffect(() => { shuffledIndicesRef.current = shuffledIndices }, [shuffledIndices])
+  useEffect(() => { crossfadeRef.current = crossfade }, [crossfade])
   useEffect(() => { saveToStorage('vibes_volume', volume) }, [volume])
   useEffect(() => { saveToStorage('vibes_liked', likedSongs) }, [likedSongs])
   useEffect(() => { saveToStorage('vibes_recent', recentlyPlayed) }, [recentlyPlayed])
+  useEffect(() => { saveToStorage('vibes_crossfade', crossfade) }, [crossfade])
+
+  // MediaSession API - OS-level controls
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    if (!currentTrack) return
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title || 'Unknown',
+      artist: currentTrack.artist || 'Unknown',
+      album: currentTrack.album || 'AssessAI Vibes',
+      artwork: currentTrack.image ? [
+        { src: currentTrack.image, sizes: '512x512', type: 'image/jpeg' },
+      ] : [],
+    })
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (audioRef.current) { audioRef.current.play().catch(() => {}); setIsPlaying(true) }
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false) }
+    })
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      const q = queueRef.current
+      const idx = queueIndexRef.current
+      if (q.length === 0 || idx < 0) return
+      const prevIdx = (idx - 1 + q.length) % q.length
+      const track = q[prevIdx]
+      const url = getStreamUrl(track)
+      if (!url) return
+      if (audioRef.current) audioRef.current.pause()
+      const audio = new Audio(url)
+      audio.volume = volumeRef.current
+      audio.crossOrigin = 'anonymous'
+      audioRef.current = audio
+      audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
+      audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
+      audio.addEventListener('ended', () => setIsPlaying(false))
+      audio.play().catch(() => {})
+      setQueueIndex(prevIdx)
+      setCurrentTrack(track)
+      setIsPlaying(true)
+      setProgress(0)
+    })
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      const q = queueRef.current
+      const idx = queueIndexRef.current
+      if (q.length === 0 || idx < 0) return
+      const nextIdx = (idx + 1) % q.length
+      const track = q[nextIdx]
+      const url = getStreamUrl(track)
+      if (!url) return
+      if (audioRef.current) audioRef.current.pause()
+      const audio = new Audio(url)
+      audio.volume = volumeRef.current
+      audio.crossOrigin = 'anonymous'
+      audioRef.current = audio
+      audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
+      audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
+      audio.addEventListener('ended', () => setIsPlaying(false))
+      audio.play().catch(() => {})
+      setQueueIndex(nextIdx)
+      setCurrentTrack(track)
+      setIsPlaying(true)
+      setProgress(0)
+    })
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (audioRef.current && details.seekTime != null) {
+        audioRef.current.currentTime = details.seekTime
+      }
+    })
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null)
+      navigator.mediaSession.setActionHandler('pause', null)
+      navigator.mediaSession.setActionHandler('previoustrack', null)
+      navigator.mediaSession.setActionHandler('nexttrack', null)
+      navigator.mediaSession.setActionHandler('seekto', null)
+    }
+  }, [currentTrack])
 
   const generateShuffle = useCallback((listLength) => {
     const indices = Array.from({ length: listLength }, (_, i) => i)
@@ -75,6 +160,7 @@ export function MusicPlayerProvider({ children }) {
     const rep = repeatRef.current
     const shuf = shuffleRef.current
     const shufIdx = shuffledIndicesRef.current
+    const useCrossfade = crossfadeRef.current
 
     if (q.length === 0 || idx < 0) {
       setIsPlaying(false)
@@ -99,21 +185,56 @@ export function MusicPlayerProvider({ children }) {
 
     const track = q[nextIdx]
     const url = getStreamUrl(track)
-    if (!url) { setIsPlaying(false); return }
+    if (!url) { setIsPlaying(false); setError('No stream URL available'); return }
 
-    if (audioRef.current) audioRef.current.pause()
+    setError(null)
+
+    if (useCrossfade && audioRef.current) {
+      const oldAudio = audioRef.current
+      const fadeSteps = 20
+      const stepMs = CROSSFADE_MS / fadeSteps
+      let step = 0
+      const fadeOut = setInterval(() => {
+        step++
+        if (step <= fadeSteps && oldAudio) {
+          oldAudio.volume = Math.max(0, volumeRef.current * (1 - step / fadeSteps))
+        } else {
+          clearInterval(fadeOut)
+          if (oldAudio) { oldAudio.pause(); oldAudio.src = '' }
+        }
+      }, stepMs)
+    } else if (audioRef.current) {
+      audioRef.current.pause()
+    }
 
     const audio = new Audio(url)
-    audio.volume = volumeRef.current
+    audio.volume = useCrossfade ? 0 : volumeRef.current
     audio.crossOrigin = 'anonymous'
     audioRef.current = audio
 
     audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
     audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
     audio.addEventListener('ended', playNextAuto)
-    audio.addEventListener('error', () => setIsPlaying(false))
+    audio.addEventListener('error', () => { setIsPlaying(false); setError('Stream failed to load') })
 
-    audio.play().catch(() => setIsPlaying(false))
+    if (useCrossfade) {
+      audio.play().then(() => {
+        const fadeInSteps = 20
+        const fadeStepMs = CROSSFADE_MS / fadeInSteps
+        let fStep = 0
+        const fadeIn = setInterval(() => {
+          fStep++
+          if (fStep <= fadeInSteps && audioRef.current === audio) {
+            audio.volume = Math.min(volumeRef.current, volumeRef.current * (fStep / fadeInSteps))
+          } else {
+            clearInterval(fadeIn)
+          }
+        }, fadeStepMs)
+      }).catch(() => { setIsPlaying(false); setError('Playback failed') })
+    } else {
+      audio.play().catch(() => { setIsPlaying(false); setError('Playback failed') })
+    }
+
     setQueueIndex(nextIdx)
     setCurrentTrack(track)
     setIsPlaying(true)
@@ -127,23 +248,57 @@ export function MusicPlayerProvider({ children }) {
 
   const playTrack = useCallback((track, trackList) => {
     const url = getStreamUrl(track)
-    if (!url) return
+    if (!url) { setError('No stream URL available'); return }
 
-    if (audioRef.current) audioRef.current.pause()
+    const useCrossfade = crossfadeRef.current
+    setError(null)
+
+    if (useCrossfade && audioRef.current) {
+      const oldAudio = audioRef.current
+      const fadeSteps = 20
+      const stepMs = CROSSFADE_MS / fadeSteps
+      let step = 0
+      const fadeOut = setInterval(() => {
+        step++
+        if (step <= fadeSteps && oldAudio) {
+          oldAudio.volume = Math.max(0, volumeRef.current * (1 - step / fadeSteps))
+        } else {
+          clearInterval(fadeOut)
+          if (oldAudio) { oldAudio.pause(); oldAudio.src = '' }
+        }
+      }, stepMs)
+    } else if (audioRef.current) {
+      audioRef.current.pause()
+    }
 
     const audio = new Audio(url)
-    audio.volume = volumeRef.current
+    audio.volume = useCrossfade ? 0 : volumeRef.current
     audio.crossOrigin = 'anonymous'
     audioRef.current = audio
 
     audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
     audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
     attachEndedHandler(audio)
-    audio.addEventListener('error', (e) => {
-      console.error('Audio error:', e)
-    })
+    audio.addEventListener('error', () => { setError('Stream failed to load'); setIsPlaying(false) })
 
-    audio.play().catch((e) => console.error('Play error:', e))
+    if (useCrossfade) {
+      audio.play().then(() => {
+        const fadeInSteps = 20
+        const fadeStepMs = CROSSFADE_MS / fadeInSteps
+        let fStep = 0
+        const fadeIn = setInterval(() => {
+          fStep++
+          if (fStep <= fadeInSteps && audioRef.current === audio) {
+            audio.volume = Math.min(volumeRef.current, volumeRef.current * (fStep / fadeInSteps))
+          } else {
+            clearInterval(fadeIn)
+          }
+        }, fadeStepMs)
+      }).catch(() => { setError('Playback failed'); setIsPlaying(false) })
+    } else {
+      audio.play().catch(() => { setError('Playback failed'); setIsPlaying(false) })
+    }
+
     setCurrentTrack(track)
     setIsPlaying(true)
     setProgress(0)
@@ -159,23 +314,57 @@ export function MusicPlayerProvider({ children }) {
 
   const playTrackNow = useCallback((track) => {
     const url = getStreamUrl(track)
-    if (!url) return
+    if (!url) { setError('No stream URL available'); return }
 
-    if (audioRef.current) audioRef.current.pause()
+    const useCrossfade = crossfadeRef.current
+    setError(null)
+
+    if (useCrossfade && audioRef.current) {
+      const oldAudio = audioRef.current
+      const fadeSteps = 20
+      const stepMs = CROSSFADE_MS / fadeSteps
+      let step = 0
+      const fadeOut = setInterval(() => {
+        step++
+        if (step <= fadeSteps && oldAudio) {
+          oldAudio.volume = Math.max(0, volumeRef.current * (1 - step / fadeSteps))
+        } else {
+          clearInterval(fadeOut)
+          if (oldAudio) { oldAudio.pause(); oldAudio.src = '' }
+        }
+      }, stepMs)
+    } else if (audioRef.current) {
+      audioRef.current.pause()
+    }
 
     const audio = new Audio(url)
-    audio.volume = volumeRef.current
+    audio.volume = useCrossfade ? 0 : volumeRef.current
     audio.crossOrigin = 'anonymous'
     audioRef.current = audio
 
     audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
     audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
     attachEndedHandler(audio)
-    audio.addEventListener('error', (e) => {
-      console.error('Audio error:', e)
-    })
+    audio.addEventListener('error', () => { setError('Stream failed to load'); setIsPlaying(false) })
 
-    audio.play().catch((e) => console.error('Play error:', e))
+    if (useCrossfade) {
+      audio.play().then(() => {
+        const fadeInSteps = 20
+        const fadeStepMs = CROSSFADE_MS / fadeInSteps
+        let fStep = 0
+        const fadeIn = setInterval(() => {
+          fStep++
+          if (fStep <= fadeInSteps && audioRef.current === audio) {
+            audio.volume = Math.min(volumeRef.current, volumeRef.current * (fStep / fadeInSteps))
+          } else {
+            clearInterval(fadeIn)
+          }
+        }, fadeStepMs)
+      }).catch(() => { setError('Playback failed'); setIsPlaying(false) })
+    } else {
+      audio.play().catch(() => { setError('Playback failed'); setIsPlaying(false) })
+    }
+
     setCurrentTrack(track)
     setIsPlaying(true)
     setProgress(0)
@@ -403,11 +592,11 @@ export function MusicPlayerProvider({ children }) {
     <MusicPlayerContext.Provider value={{
       currentTrack, isPlaying, progress, duration, volume,
       shuffle, repeat, queue, queueIndex, hasTrack: !!currentTrack,
-      likedSongs, recentlyPlayed, queuePanelOpen,
+      likedSongs, recentlyPlayed, queuePanelOpen, error, crossfade,
       playTrack, playTrackNow, addToQueue, removeFromQueue, clearQueue,
       togglePlayPause, playNext, playPrev,
       toggleShuffle, toggleRepeat, seek, changeVolume, toggleMute,
-      toggleLike, isLiked, toggleQueuePanel, stop,
+      toggleLike, isLiked, toggleQueuePanel, stop, setCrossfade,
     }}>
       {children}
     </MusicPlayerContext.Provider>

@@ -129,17 +129,43 @@ router.get('/stream', async (req, res) => {
 
 router.get('/trending', async (req, res) => {
   try {
-    const queries = ['arijit singh', 'pritam', 'shreya ghoshal', 'badshah', 'armaan malik', 'kishore kumar', 'lata mangeshkar']
-    const q = queries[Math.floor(Math.random() * queries.length)]
+    const playlists = [
+      { id: '34623129', name: 'Top 50 Bollywood' },
+      { id: '52497285', name: 'Hindi Top Songs' },
+      { id: '1103456', name: 'Bollywood Butter' },
+    ]
+    const pick = playlists[Math.floor(Math.random() * playlists.length)]
 
-    const url = `${JIO_API}?__call=search.getResults&${COMMON}&q=${encodeURIComponent(q)}&n=20&p=1`
+    const url = `${JIO_API}?__call=playlist.getDetails&${COMMON}&listid=${pick.id}`
     const r = await fetch(url, { headers: HEADERS })
     const data = await r.json()
-    const results = (data.results || []).filter((s) => s.type === 'song').map(parseSong)
-    res.json({ success: true, results })
+    const songs = (data.songs || []).map(parseSong).filter((s) => s.streamUrl)
+    res.json({ success: true, results: songs.slice(0, 20), playlist: pick.name })
   } catch (err) {
     console.error('JioSaavn trending error:', err.message)
-    res.json({ success: true, results: [] })
+    res.json({ success: true, results: [], playlist: '' })
+  }
+})
+
+router.get('/charts', async (req, res) => {
+  try {
+    const playlistIds = ['34623129', '52497285', '1103456']
+    const results = []
+
+    for (const pid of playlistIds) {
+      try {
+        const url = `${JIO_API}?__call=playlist.getDetails&${COMMON}&listid=${pid}`
+        const r = await fetch(url, { headers: HEADERS })
+        const data = await r.json()
+        const songs = (data.songs || []).map(parseSong).filter((s) => s.streamUrl).slice(0, 10)
+        results.push({ id: pid, name: data.name || data.title || 'Playlist', songs })
+      } catch {}
+    }
+
+    res.json({ success: true, charts: results })
+  } catch (err) {
+    console.error('JioSaavn charts error:', err.message)
+    res.json({ success: true, charts: [] })
   }
 })
 
@@ -151,11 +177,21 @@ router.get('/songs/:id', async (req, res) => {
     const url = `${JIO_API}?__call=songs.getDetails&${COMMON}&pids=${songId}`
     const r = await fetch(url, { headers: HEADERS })
     const data = await r.json()
-    const songs = Array.isArray(data) ? data : [data]
-    const song = songs[0]
+
+    let song = null
+    if (Array.isArray(data)) {
+      song = data[0]
+    } else if (data.songs && Array.isArray(data.songs)) {
+      song = data.songs[0]
+    } else if (data.id) {
+      song = data
+    }
+
     if (!song || !song.id) return res.status(404).json({ success: false, message: 'Song not found' })
 
     const parsed = parseSong(song)
+    if (!parsed.streamUrl) return res.status(404).json({ success: false, message: 'Stream not available' })
+
     res.json({ success: true, song: parsed })
   } catch (err) {
     console.error('JioSaavn song detail error:', err.message)

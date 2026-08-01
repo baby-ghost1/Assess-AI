@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Play, Pause, Music, Heart, Loader2, X,
-  TrendingUp, Clock, ListMusic, Sparkles, Mic2,
+  TrendingUp, Clock, ListMusic, Sparkles, Mic2, Shuffle,
   History, Globe, Zap, Coffee, Dumbbell, Heart as HeartIcon,
   Moon, Sun, PartyPopper, BookOpen
 } from 'lucide-react'
@@ -83,7 +83,7 @@ function SuggestionDropdown({ suggestions, onSelect, loading, playingId }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="absolute left-0 top-full mt-2 z-50 w-80 rounded-xl bg-[#282828] border border-[#333] overflow-hidden max-h-80 overflow-y-auto shadow-2xl shadow-black/60"
+      className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl bg-[#282828] border border-[#333] overflow-hidden max-h-80 overflow-y-auto shadow-2xl shadow-black/60"
     >
       {loading ? (
         <div className="flex items-center justify-center py-6">
@@ -301,7 +301,7 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
 export default function MusicPlayerPage() {
   const {
     currentTrack, isPlaying, progress, duration, playTrack, seek, hasTrack,
-    recentlyPlayed, addToQueue, toggleLike, isLiked,
+    recentlyPlayed, addToQueue, toggleLike, isLiked, likedSongs,
   } = useMusicPlayer()
   const [query, setQuery] = useState('')
   const [tracks, setTracks] = useState([])
@@ -314,6 +314,7 @@ export default function MusicPlayerPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [playingSuggestion, setPlayingSuggestion] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
+  const [activeTab, setActiveTab] = useState('discover')
   const inputRef = useRef(null)
   const debounceRef = useRef(null)
   const wrapperRef = useRef(null)
@@ -372,12 +373,19 @@ export default function MusicPlayerPage() {
       if (song && song.streamUrl) {
         playTrack(song, [song])
         setQuery(song.title)
-      } else {
-        setQuery(suggestion.title); handleSearch(suggestion.title)
+        setPlayingSuggestion(null)
+        return
       }
-    } catch {
-      setQuery(suggestion.title); handleSearch(suggestion.title)
-    }
+    } catch {}
+
+    // Fallback: search for the song title and play first result
+    try {
+      setQuery(suggestion.title)
+      const results = await searchSaavn(suggestion.title)
+      if (results.length > 0 && results[0].streamUrl) {
+        playTrack(results[0], results)
+      }
+    } catch {}
     setPlayingSuggestion(null)
   }, [handleSearch, playTrack])
 
@@ -390,6 +398,19 @@ export default function MusicPlayerPage() {
     const list = searchDone ? tracks : trending
     playTrack(track, list)
   }, [searchDone, tracks, trending, playTrack])
+
+  const handlePlayAll = useCallback(() => {
+    const list = activeTab === 'liked' ? likedSongs : (searchDone ? tracks : trending)
+    if (list.length > 0) playTrack(list[0], list)
+  }, [activeTab, likedSongs, searchDone, tracks, trending, playTrack])
+
+  const handleShuffleAll = useCallback(() => {
+    const list = activeTab === 'liked' ? likedSongs : (searchDone ? tracks : trending)
+    if (list.length > 0) {
+      const shuffled = [...list].sort(() => Math.random() - 0.5)
+      playTrack(shuffled[0], shuffled)
+    }
+  }, [activeTab, likedSongs, searchDone, tracks, trending, playTrack])
 
   const handleClearSearch = () => {
     setQuery(''); setTracks([]); setSearchDone(false); setSuggestions([]); setShowSuggestions(false)
@@ -423,7 +444,7 @@ export default function MusicPlayerPage() {
         <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-8">
 
           {/* ─── Search Bar ─── */}
-          <div className="max-w-2xl mx-auto mb-6" ref={wrapperRef}>
+          <div className="max-w-2xl mx-auto mb-6 relative" ref={wrapperRef}>
             <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#b3b3b3]" />
@@ -478,6 +499,96 @@ export default function MusicPlayerPage() {
                 })}
               </div>
             </motion.div>
+          )}
+
+          {/* ─── Tabs ─── */}
+          {!searchDone && !showSuggestions && (
+            <div className="max-w-4xl mx-auto mb-6">
+              <div className="flex items-center gap-1 bg-[#1a1a1a] rounded-full p-1 w-fit">
+                <button
+                  onClick={() => setActiveTab('discover')}
+                  className={cn(
+                    'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200',
+                    activeTab === 'discover' ? 'bg-white text-black' : 'text-[#b3b3b3] hover:text-white'
+                  )}
+                >
+                  Discover
+                </button>
+                <button
+                  onClick={() => setActiveTab('liked')}
+                  className={cn(
+                    'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2',
+                    activeTab === 'liked' ? 'bg-white text-black' : 'text-[#b3b3b3] hover:text-white'
+                  )}
+                >
+                  <Heart className="h-3.5 w-3.5" />
+                  Liked Songs
+                  {likedSongs.length > 0 && (
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
+                      activeTab === 'liked' ? 'bg-black/10 text-black/60' : 'bg-[#333] text-[#b3b3b3]'
+                    )}>
+                      {likedSongs.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Liked Songs View ─── */}
+          {activeTab === 'liked' && !searchDone && !showSuggestions && (
+            <div className="max-w-4xl mx-auto mb-8">
+              {likedSongs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="h-20 w-20 rounded-full bg-[#282828] flex items-center justify-center mb-4">
+                    <Heart className="h-10 w-10 text-[#7f7f7f]" />
+                  </div>
+                  <p className="text-white font-bold mb-1 text-lg">No liked songs yet</p>
+                  <p className="text-sm text-[#b3b3b3]">Tap the heart icon on any song to save it here</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-[#450af5] to-[#c4efd9] flex items-center justify-center">
+                        <Heart className="h-7 w-7 text-white fill-current" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-black text-white">Liked Songs</h2>
+                        <p className="text-sm text-[#b3b3b3]">{likedSongs.length} songs</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleShuffleAll}
+                        className="h-10 w-10 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all shadow-lg"
+                      >
+                        <Shuffle className="h-5 w-5 text-black" />
+                      </button>
+                      <button
+                        onClick={handlePlayAll}
+                        className="h-10 px-6 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all shadow-lg text-black font-bold text-sm"
+                      >
+                        Play All
+                      </button>
+                    </div>
+                  </div>
+                  <div className="bg-[#121212] rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-4 items-center px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
+                      <span className="text-center">#</span><span>Title</span><span></span>
+                      <span className="text-right hidden sm:block">Plays</span>
+                      <span className="text-right"><Clock className="h-3.5 w-3.5 inline" /></span>
+                    </div>
+                    {likedSongs.map((track, i) => (
+                      <TrackListItem key={track.id} track={track} index={i}
+                        isActive={currentTrack?.id === track.id} isPlaying={isPlaying} onPlay={(t) => playTrack(t, likedSongs)}
+                        onAddToQueue={addToQueue} isLiked={true} onToggleLike={toggleLike} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           {/* ─── Now Playing Hero ─── */}
@@ -606,6 +717,19 @@ export default function MusicPlayerPage() {
                   <span className="text-xs text-[#7f7f7f]">({displayTracks.length} songs)</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  {displayTracks.length > 0 && (
+                    <>
+                      <button onClick={handleShuffleAll}
+                        className="h-8 w-8 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all"
+                        title="Shuffle play">
+                        <Shuffle className="h-4 w-4 text-black" />
+                      </button>
+                      <button onClick={handlePlayAll}
+                        className="h-8 px-4 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all text-black font-bold text-xs">
+                        Play All
+                      </button>
+                    </>
+                  )}
                   <button onClick={() => setViewMode('grid')}
                     className={cn('px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
                       viewMode === 'grid' ? 'bg-white text-black' : 'bg-[#232323] text-[#d9d9d9] hover:bg-[#2a2a2a]')}>
@@ -643,9 +767,24 @@ export default function MusicPlayerPage() {
             </div>
           ) : (
             <div className="max-w-4xl mx-auto">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-4 w-4 text-[#1db954]" />
-                <span className="text-sm font-bold text-white">Trending Now</span>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-[#1db954]" />
+                  <span className="text-sm font-bold text-white">Trending Now</span>
+                </div>
+                {displayTracks.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleShuffleAll}
+                      className="h-8 w-8 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all"
+                      title="Shuffle play">
+                      <Shuffle className="h-4 w-4 text-black" />
+                    </button>
+                    <button onClick={handlePlayAll}
+                      className="h-8 px-4 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all text-black font-bold text-xs">
+                      Play All
+                    </button>
+                  </div>
+                )}
               </div>
               {displayTracks.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
