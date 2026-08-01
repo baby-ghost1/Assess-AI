@@ -208,18 +208,6 @@ export default function CodingPage() {
     }
   }, [activeConvId, conversations])
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault()
-        if (e.shiftKey) handleSubmit(); else handleRun()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [code, language, activeProblem, handleRun, handleSubmit])
-
   const onVerticalDrag = useCallback((_e) => {
     isDraggingV.current = true
     document.body.style.cursor = 'col-resize'
@@ -393,6 +381,18 @@ export default function CodingPage() {
     setSubmitting(true); setResults(null); setConsoleOutput('')
     submitMutation.mutate({ code, language, questionId: activeProblem._id })
   }, [code, language, activeProblem, submitMutation])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        if (e.shiftKey) handleSubmit(); else handleRun()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [code, language, activeProblem, handleRun, handleSubmit])
 
   const handleReset = useCallback(() => {
     if (!activeProblem) return
