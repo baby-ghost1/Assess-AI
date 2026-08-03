@@ -46,7 +46,6 @@ export function MusicPlayerProvider({ children }) {
   const shuffleRef = useRef(shuffle)
   const shuffledIndicesRef = useRef(shuffledIndices)
   const crossfadeRef = useRef(crossfade)
-  const restoredRef = useRef(false)
 
   useEffect(() => { repeatRef.current = repeat }, [repeat])
   useEffect(() => { volumeRef.current = volume }, [volume])
@@ -249,26 +248,6 @@ export function MusicPlayerProvider({ children }) {
   const attachEndedHandler = useCallback((audio) => {
     audio.addEventListener('ended', playNextAuto)
   }, [playNextAuto])
-
-  // Restore audio on mount — sets up audio element so progress/duration show
-  useEffect(() => {
-    if (restoredRef.current) return
-    restoredRef.current = true
-    const track = loadFromStorage('vibes_currentTrack', null)
-    if (!track) return
-    const url = getStreamUrl(track)
-    if (!url) return
-    const audio = new Audio(url)
-    audio.volume = volumeRef.current
-    audio.crossOrigin = 'anonymous'
-    audio.preload = 'metadata'
-    audioRef.current = audio
-    audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
-    audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
-    attachEndedHandler(audio)
-    audio.addEventListener('error', () => setError('Stream failed to load'))
-    // Do NOT auto-play — browser policy blocks it. User taps play to resume.
-  }, [attachEndedHandler])
 
   const playTrack = useCallback((track, trackList) => {
     const url = getStreamUrl(track)
