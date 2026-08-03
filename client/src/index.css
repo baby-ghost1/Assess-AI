@@ -274,3 +274,88 @@ body {
 .track-enter {
   animation: track-enter 0.3s ease-out forwards;
 }
+
+/* ═══ Loader shimmer text ═══ */
+@keyframes loader-text-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.loader-shimmer-text {
+  background: linear-gradient(90deg, #b3b3b3 0%, #ffffff 50%, #b3b3b3 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: loader-text-shimmer 2s linear infinite;
+}
+
+/* ═══ SPINNER 1: Gradient Ring ═══ */
+@keyframes gradient-ring-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ═══ SPINNER 2: DNA Helix ═══ */
+@keyframes dna-left {
+  0%, 100% { transform: translateX(-10px) scale(0.6); opacity: 0.5; }
+  50% { transform: translateX(10px) scale(1); opacity: 1; }
+}
+
+@keyframes dna-right {
+  0%, 100% { transform: translateX(10px) scale(1); opacity: 1; }
+  50% { transform: translateX(-10px) scale(0.6); opacity: 0.5; }
+}
+
+/* ═══ SPINNER 3: Pulse Dots ═══ */
+@keyframes pulse-dot-breathe {
+  0%, 100% { transform: scale(0.3); opacity: 0.2; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ═══ SPINNER 4: Cube Grid ═══ */
+@keyframes cube-grid-scale {
+  0%, 100% { transform: scale(0.4); opacity: 0.3; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ═══ SPINNER 5: Wave Bars ═══ */
+@keyframes wave-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* ═══ SPINNER 6: Elastic Line ═══ */
+@keyframes elastic-line-stretch {
+  0%, 100% { transform: scaleX(0.3); }
+  50% { transform: scaleX(1); }
+}
+
+/* ═══ SPINNER 8: Bouncing Ball ═══ */
+@keyframes bouncing-ball-move {
+  0% { top: 10%; left: 10%; }
+  25% { top: 10%; left: 65%; }
+  50% { top: 65%; left: 65%; }
+  75% { top: 65%; left: 10%; }
+  100% { top: 10%; left: 10%; }
+}
+
+/* ═══ SPINNER 9: Morphing Square ═══ */
+@keyframes morphing-shape {
+  0%, 100% { border-radius: 12%; transform: rotate(0deg) scale(1); }
+  25% { border-radius: 50%; transform: rotate(90deg) scale(0.85); }
+  50% { border-radius: 12%; transform: rotate(180deg) scale(1); }
+  75% { border-radius: 50%; transform: rotate(270deg) scale(0.85); }
+}
+
+/* ═══ SPINNER 10: Ripple ═══ */
+@keyframes ripple-expand {
+  0% { transform: scale(0.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* ═══ SPINNER 11: Typing Dots ═══ */
+@keyframes typing-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-40%); }
+}

@@ -234,7 +234,7 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
       transition={{ delay: index * 0.025, duration: 0.3 }}
       onDoubleClick={() => onPlay(track)}
       className={cn(
-        'group grid grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-4 items-center px-4 py-2 rounded-md cursor-pointer transition-colors duration-150',
+        'group grid grid-cols-[32px_1fr_48px] sm:grid-cols-[32px_40px_1fr_48px] md:grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-3 sm:gap-4 items-center px-3 sm:px-4 py-2 rounded-md cursor-pointer transition-colors duration-150',
         isActive ? 'bg-[#282828]' : 'hover:bg-[#ffffff0a]'
       )}
     >
@@ -250,7 +250,7 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
           </>
         )}
       </div>
-      <div className="h-10 w-10 rounded overflow-hidden bg-[#282828] shrink-0">
+      <div className="hidden sm:block h-10 w-10 rounded overflow-hidden bg-[#282828] shrink-0">
         {track.image ? (
           <img src={track.image} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -575,9 +575,9 @@ export default function MusicPlayerPage() {
                     </div>
                   </div>
                   <div className="bg-[#121212] rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-4 items-center px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
-                      <span className="text-center">#</span><span>Title</span><span></span>
-                      <span className="text-right hidden sm:block">Plays</span>
+                    <div className="grid grid-cols-[32px_1fr_48px] sm:grid-cols-[32px_40px_1fr_48px] md:grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-3 sm:gap-4 items-center px-3 sm:px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
+                      <span className="text-center">#</span><span className="hidden sm:block"></span><span>Title</span>
+                      <span className="text-right hidden md:block">Plays</span>
                       <span className="text-right"><Clock className="h-3.5 w-3.5 inline" /></span>
                     </div>
                     {likedSongs.map((track, i) => (
@@ -832,9 +832,9 @@ export default function MusicPlayerPage() {
                     <span className="text-sm font-bold text-white">All Tracks</span>
                   </div>
                   <div className="bg-[#121212] rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-4 items-center px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
-                      <span className="text-center">#</span><span>Title</span><span></span>
-                      <span className="text-right hidden sm:block">Plays</span>
+                    <div className="grid grid-cols-[32px_1fr_48px] sm:grid-cols-[32px_40px_1fr_48px] md:grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-3 sm:gap-4 items-center px-3 sm:px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
+                      <span className="text-center">#</span><span className="hidden sm:block"></span><span>Title</span>
+                      <span className="text-right hidden md:block">Plays</span>
                       <span className="text-right"><Clock className="h-3.5 w-3.5 inline" /></span>
                     </div>
                     {displayTracks.map((track, i) => (

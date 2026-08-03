@@ -2,16 +2,16 @@ import { Outlet, Navigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAppSelector } from '@/hooks'
-import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import MiniPlayer from '@/features/vibes/MiniPlayer'
+import AppLoader from '@/components/shared/AppLoader'
 
 export default function DashboardLayout() {
-  const { isAuthenticated, isLoading } = useAppSelector((s) => s.auth)
+  const { isAuthenticated, isLoading, user } = useAppSelector((s) => s.auth)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return <AppLoader text="Preparing dashboard..." userId={user?._id} />
   }
 
   if (!isAuthenticated) {
