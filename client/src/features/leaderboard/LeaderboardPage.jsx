@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Trophy, Medal, Award, Users, Code2, Crown } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Trophy, Medal, Award, Users, Code2, Crown, User } from 'lucide-react'
 import { ErrorState, EmptyState } from '@/components/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useAppSelector } from '@/hooks'
@@ -117,6 +118,10 @@ export default function LeaderboardPage() {
   const rest = entries.slice(3)
 
   const currentUserId = user?._id
+  const currentUserRankIndex = entries.findIndex((e) => e.id === currentUserId)
+  const currentUserEntry = currentUserRankIndex !== -1 ? entries[currentUserRankIndex] : null
+  const currentUserRank = currentUserRankIndex !== -1 ? currentUserRankIndex + 1 : null
+  const isInTop3 = currentUserRank !== null && currentUserRank <= 3
 
   const isCount = tab === 'coding'
 
@@ -171,6 +176,41 @@ export default function LeaderboardPage() {
         />
       ) : (
         <>
+          {/* Your Rank Summary */}
+          {!isInTop3 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {currentUserEntry ? (
+                <div className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4 ring-1 ring-primary/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-text-primary">Your Rank</p>
+                    <p className="text-xs text-text-secondary">{currentUserEntry.detail}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-2xl font-heading font-bold text-primary">#{currentUserRank}</p>
+                    <p className="text-xs text-text-secondary">{currentUserEntry.score}{isCount ? '' : '%'}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 rounded-xl border border-border bg-bg-card p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-bg-tertiary">
+                    <User className="h-5 w-5 text-text-secondary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-text-primary">Your Rank</p>
+                    <p className="text-xs text-text-secondary">Complete more {tab === 'assessments' ? 'assessments' : 'coding challenges'} to appear on the leaderboard</p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Top 3 Podium */}
           {podium.length > 0 && (
             <div className={`grid gap-4 ${podium.length >= 3 ? 'grid-cols-3' : podium.length === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-xs mx-auto'}`}>

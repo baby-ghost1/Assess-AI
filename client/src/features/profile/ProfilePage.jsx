@@ -1,7 +1,11 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import { useAppSelector, useAppDispatch } from '@/hooks'
 import { updateProfile } from '@/features/auth/authSlice'
-import { User, Mail, Shield, Calendar, Clock, Award, CheckCircle, Pencil, Loader2, AlertCircle } from 'lucide-react'
+import api from '@/lib/api'
+import AnimatedNumber from '@/lib/animatedNumber'
+import { User, Mail, Shield, Calendar, Clock, Award, CheckCircle, Pencil, Loader2, AlertCircle, BarChart3, Target, Trophy, BookOpen } from 'lucide-react'
 
 function InfoRow({ icon: Icon, label, value }) {
   return (
@@ -10,6 +14,99 @@ function InfoRow({ icon: Icon, label, value }) {
       <div>
         <p className="text-xs text-text-secondary">{label}</p>
         <p className="text-sm font-medium text-text-primary">{value || '—'}</p>
+      </div>
+    </div>
+  )
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: 'easeOut' } }),
+}
+
+function StatsSection() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user-analytics'],
+    queryFn: () => api.get('/analytics/me').then((r) => r.data),
+  })
+
+  const d = data?.data || {}
+
+  // TODO: Replace with real endpoint if/when backend provides rank & study time
+  const placeholderRank = '—'
+  const placeholderStudyTime = '—'
+
+  const stats = [
+    { icon: BarChart3, label: 'Total Assessments', value: d.totalAttempts ?? 0, color: 'text-primary bg-primary/10' },
+    { icon: Target, label: 'Average Score', value: d.avgScore ?? 0, suffix: '%', color: 'text-accent bg-accent/10' },
+    { icon: Trophy, label: 'Current Rank', value: placeholderRank, color: 'text-warning bg-warning/10', raw: true },
+    { icon: BookOpen, label: 'Study Time', value: placeholderStudyTime, color: 'text-green-500 bg-green-500/10', raw: true },
+  ]
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-bg-card p-6">
+      <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2 mb-4">
+        <BarChart3 className="h-4 w-4 text-primary" /> Stats
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {stats.map((s, i) => (
+          <motion.div key={s.label} custom={i} variants={cardVariants} initial="hidden" animate="visible"
+            className="rounded-xl border border-border bg-bg-secondary p-4 hover:shadow-lg transition-shadow duration-200">
+            <div className={`mb-2 flex h-9 w-9 items-center justify-center rounded-lg ${s.color}`}><s.icon className="h-4 w-4" /></div>
+            <p className="text-2xl font-bold text-text-primary">
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin text-text-secondary" /> : s.raw ? s.value : <><AnimatedNumber value={s.value} />{s.suffix || ''}</>}
+            </p>
+            <p className="text-xs text-text-secondary mt-0.5">{s.label}</p>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RecentActivitySection() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user-analytics'],
+    queryFn: () => api.get('/analytics/me').then((r) => r.data),
+  })
+
+  const activities = (data?.data?.recentActivity || []).slice(0, 5)
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-bg-card">
+      <div className="border-b border-border px-5 py-3">
+        <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+          <Clock className="h-4 w-4 text-primary" /> Recent Activity
+        </h3>
+      </div>
+      <div className="divide-y divide-border">
+        {isLoading ? (
+          <div className="px-5 py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : activities.length > 0 ? activities.map((a, i) => (
+          <motion.div key={a.id} custom={i} variants={cardVariants} initial="hidden" animate="visible"
+            className="flex items-center justify-between px-5 py-3 hover:bg-bg-tertiary/30 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className={`h-2 w-2 rounded-full shrink-0 ${a.status === 'completed' ? (a.passed ? 'bg-success' : 'bg-danger') : 'bg-warning'}`} />
+              <div>
+                <p className="text-sm font-medium text-text-primary">{a.title}</p>
+                <p className="text-xs text-text-secondary">{new Date(a.date).toLocaleDateString()} · {a.type}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {a.status === 'completed' && (
+                <span className="text-sm font-semibold text-text-primary">{a.score}%</span>
+              )}
+              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${a.passed ? 'bg-success/10 text-success' : a.status === 'completed' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+                {a.status === 'completed' ? (a.passed ? 'Passed' : 'Failed') : 'In Progress'}
+              </span>
+            </div>
+          </motion.div>
+        )) : (
+          <div className="px-5 py-10 text-center text-sm text-text-secondary">
+            <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            No activity yet. Start an assessment to see your progress!
+          </div>
+        )}
       </div>
     </div>
   )
@@ -120,6 +217,12 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* ── STATS SECTION ───────────────────────────── */}
+      <StatsSection />
+
+      {/* ── RECENT ACTIVITY SECTION ──────────────────── */}
+      <RecentActivitySection />
     </div>
   )
 }

@@ -2,68 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, BarChart3 } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Eye, BarChart3 } from 'lucide-react'
 import { TableSkeleton, EmptyState } from '@/components/shared'
+import ConfirmDialog, { RejectDialog } from '@/components/shared/ConfirmDialog'
 import { notify } from '@/lib/notify'
 import { useState } from 'react'
-
-function ConfirmModal({ open, title, message, onConfirm, onCancel, isPending, variant = 'primary' }) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="rounded-xl border border-border bg-bg-card p-6 w-full max-w-sm shadow-2xl space-y-4">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-danger/10' : 'bg-success/10'}`}>
-            <AlertTriangle className={`h-5 w-5 ${variant === 'danger' ? 'text-danger' : 'text-success'}`} />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
-            <p className="text-sm text-text-secondary">{message}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button variant={variant} onClick={onConfirm} disabled={isPending}>
-            {isPending ? 'Processing...' : 'Confirm'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function RejectModal({ open, onConfirm, onCancel, isPending }) {
-  const [reason, setReason] = useState('')
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="rounded-xl border border-border bg-bg-card p-6 w-full max-w-md shadow-2xl space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-danger/10">
-            <AlertTriangle className="h-5 w-5 text-danger" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary">Reject Assessment</h3>
-            <p className="text-sm text-text-secondary">Provide a reason for rejection</p>
-          </div>
-        </div>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={3}
-          className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-          placeholder="Why is this assessment being rejected?"
-        />
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button variant="danger" onClick={() => onConfirm(reason)} disabled={!reason.trim() || isPending}>
-            {isPending ? 'Rejecting...' : 'Reject'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function AssessmentReviewPage() {
   const navigate = useNavigate()
@@ -176,7 +119,7 @@ export default function AssessmentReviewPage() {
         </div>
       )}
 
-      <ConfirmModal
+      <ConfirmDialog
         open={!!confirmApprove}
         title="Approve Assessment"
         message="This will approve all questions and publish the assessment. Candidates will be able to take it."
@@ -186,7 +129,7 @@ export default function AssessmentReviewPage() {
         variant="success"
       />
 
-      <RejectModal
+      <RejectDialog
         open={!!rejectTarget}
         onConfirm={(reason) => rejectMutation.mutate({ id: rejectTarget, reason })}
         onCancel={() => setRejectTarget(null)}

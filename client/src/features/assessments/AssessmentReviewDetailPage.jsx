@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, CheckCircle, XCircle, Clock, Brain, Code2, AlertTriangle, BarChart3 } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Clock, Brain, Code2, BarChart3 } from 'lucide-react'
 import { useState } from 'react'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 const typeColors = {
   single_correct: 'bg-blue-500/10 text-blue-400',
@@ -12,31 +13,6 @@ const typeColors = {
   fill_blanks: 'bg-orange-500/10 text-orange-400',
   coding: 'bg-pink-500/10 text-pink-400',
   subjective: 'bg-yellow-500/10 text-yellow-400',
-}
-
-function ConfirmModal({ open, title, message, onConfirm, onCancel, isPending, variant = 'primary' }) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="rounded-xl border border-border bg-bg-card p-6 w-full max-w-sm shadow-2xl space-y-4">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-danger/10' : 'bg-success/10'}`}>
-            <AlertTriangle className={`h-5 w-5 ${variant === 'danger' ? 'text-danger' : 'text-success'}`} />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
-            <p className="text-sm text-text-secondary">{message}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button variant={variant} onClick={onConfirm} disabled={isPending}>
-            {isPending ? 'Processing...' : 'Confirm'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function QuestionCard({ question, status, onApprove, onReject, isPending }) {
@@ -216,7 +192,7 @@ export default function AssessmentReviewDetailPage() {
         ))}
       </div>
 
-      <ConfirmModal
+      <ConfirmDialog
         open={confirmApproveAll}
         title="Approve All Questions"
         message={`This will approve all ${allQuestionIds.length} questions and publish the assessment. Candidates will be able to take it.`}

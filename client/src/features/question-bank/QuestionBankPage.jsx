@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Plus, Search, Upload, Sparkles, BookOpen, CheckCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { TableSkeleton, EmptyState } from '@/components/shared'
+import { TableSkeleton, EmptyState, ConfirmDialog } from '@/components/shared'
 import { useAppSelector } from '@/hooks'
 import { notify } from '@/lib/notify'
 
@@ -279,20 +279,16 @@ export default function QuestionBankPage() {
         </div>
       )}
 
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-xl border border-border bg-bg-card p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-text-primary mb-2">Delete Question</h3>
-            <p className="text-sm text-text-secondary mb-6">Are you sure you want to delete this question? This action cannot be undone.</p>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteId(null)} disabled={deleteMutation.isPending}>Cancel</Button>
-              <Button variant="danger" onClick={() => deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete Question"
+        message="Are you sure you want to delete this question? This action cannot be undone."
+        variant="danger"
+        confirmLabel={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+        onConfirm={() => deleteMutation.mutate(deleteId)}
+        onCancel={() => setDeleteId(null)}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   )
 }

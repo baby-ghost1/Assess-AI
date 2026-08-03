@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { Loader2, Bookmark, BookmarkCheck, BookOpen, ChevronLeft, ChevronRight, Flag, Send, Eraser, AlertTriangle, X, AlertCircle } from 'lucide-react'
@@ -22,6 +23,7 @@ export default function QuizAttemptPage() {
   const [perQuestionTime, setPerQuestionTime] = useState(null)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [attemptError, setAttemptError] = useState(null)
+  const [showPalette, setShowPalette] = useState(false)
 
   const { data: attemptData, isLoading, error: queryError } = useQuery({
     queryKey: ['attempt', id],
@@ -284,6 +286,57 @@ export default function QuizAttemptPage() {
         </div>
       )}
 
+      <AnimatePresence>
+        {showPalette && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPalette(false)}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed top-0 right-0 bottom-0 z-50 w-[320px] max-w-[85vw] bg-bg-secondary border-l border-border shadow-2xl flex flex-col lg:hidden"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h4 className="text-sm font-semibold text-text-primary">Question Palette</h4>
+                <button onClick={() => setShowPalette(false)} className="text-text-secondary hover:text-text-primary p-1 rounded-lg hover:bg-bg-tertiary">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-5 gap-1.5 mb-3">
+                  {subs.map((s, i) => (
+                    <button key={i} onClick={() => { handleNavigate(i); setShowPalette(false) }}
+                      className={`h-8 w-8 rounded-lg text-xs font-medium transition-colors relative ${
+                        i === currentIdx ? 'ring-2 ring-primary ring-offset-2 ring-offset-bg-secondary z-10' : ''
+                      } ${
+                        s.isAnswered ? 'bg-success text-white'
+                        : s.isBookmarked ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated'
+                      }`}
+                      title={`Question ${i + 1}${s.isAnswered ? ' - Answered' : s.isBookmarked ? ' - Bookmarked' : ' - Unanswered'}`}>
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1.5 text-xs text-text-secondary">
+                  <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-success"></span> Answered</div>
+                  <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-bg-tertiary"></span> Unanswered</div>
+                  <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-amber-500/40 border border-amber-500/50"></span> Bookmarked</div>
+                  <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm ring-2 ring-primary"></span> Current</div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between border-b border-border bg-bg-card px-6 py-3">
           <div className="flex items-center gap-4">
@@ -291,7 +344,13 @@ export default function QuizAttemptPage() {
             <span className="text-sm font-medium text-text-primary">Question {currentIdx + 1} of {subs.length}</span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-text-secondary">{answeredCount}/{subs.length} answered</span>
+            <span className="text-sm text-text-secondary hidden lg:inline">{answeredCount}/{subs.length} answered</span>
+            <button
+              onClick={() => setShowPalette(true)}
+              className="lg:hidden flex items-center gap-1.5 rounded-full border border-border bg-bg-tertiary px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-bg-elevated transition-colors"
+            >
+              {answeredCount}/{subs.length} answered
+            </button>
             <span className={`text-lg font-mono font-bold ${timeLeft < (timerType === 'per_question' ? 10 : 60) ? 'text-danger' : 'text-text-primary'}`}>{formatTime(timeLeft)}</span>
             <Button variant="danger" size="sm" onClick={() => setShowSubmitDialog(true)}>
               <Send className="h-4 w-4" /> Submit

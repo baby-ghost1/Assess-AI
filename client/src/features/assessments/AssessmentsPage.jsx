@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Plus, Brain, Code2, Clock, BarChart3, CheckCircle, Send, FileEdit, XCircle, Eye, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Brain, Code2, Clock, BarChart3, CheckCircle, Send, FileEdit, XCircle, Eye, Loader2, Trash2, Search } from 'lucide-react'
 import { useAppSelector } from '@/hooks'
 import { notify } from '@/lib/notify'
 import { EmptyState } from '@/components/shared'
+import ConfirmDialog, { RejectDialog } from '@/components/shared/ConfirmDialog'
 
 function CardSkeleton() {
   return (
@@ -58,7 +59,6 @@ function AdminStatusBadge({ status }) {
 function AdminAssessmentCard({ a, onAction }) {
   const qCount = getQuestionCount(a)
   const [showReject, setShowReject] = useState(false)
-  const [reason, setReason] = useState('')
 
   return (
     <div className="rounded-xl border border-border bg-bg-card p-5 hover:shadow-lg transition-all duration-200 group">
@@ -143,22 +143,12 @@ function AdminAssessmentCard({ a, onAction }) {
         )}
       </div>
 
-      {showReject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-xl border border-border bg-bg-card p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-text-primary mb-2">Reject Assessment</h3>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary mb-4 h-24 resize-none"
-              placeholder="Reason for rejection (optional)" />
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => { setShowReject(false); setReason('') }}>Cancel</Button>
-              <Button variant="danger" onClick={() => { onAction('reject', a._id, reason); setShowReject(false); setReason('') }}>
-                Reject
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RejectDialog
+        open={showReject}
+        onConfirm={(reason) => { onAction('reject', a._id, reason); setShowReject(false) }}
+        onCancel={() => setShowReject(false)}
+        isPending={false}
+      />
     </div>
   )
 }
@@ -271,6 +261,8 @@ export default function AssessmentsPage() {
   const isAdmin = user?.role === 'admin'
   const [activeTab, setActiveTab] = useState('all')
   const [deleteId, setDeleteId] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('newest')
 
   const setterTabs = [
     { key: 'all', label: 'All' },
@@ -365,6 +357,18 @@ export default function AssessmentsPage() {
     assessments = isSetter ? (myData?.data?.assessments || myData?.data || []) : (publishedData?.data || [])
   }
 
+  const displayedAssessments = (!isSetter && !isAdmin)
+    ? [...assessments]
+        .filter((a) => a.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => {
+          if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt)
+          if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt)
+          if (sortBy === 'easiest') return (a.passingPercentage || 0) - (b.passingPercentage || 0)
+          if (sortBy === 'hardest') return (b.passingPercentage || 0) - (a.passingPercentage || 0)
+          return 0
+        })
+    : assessments
+
   const handleAction = (action, id, extra) => {
     if (action === 'edit') navigate(`/assessments/${id}/edit`)
     else if (action === 'view') navigate(`/assessments/${id}/preview`)
@@ -417,15 +421,40 @@ export default function AssessmentsPage() {
         </div>
       )}
 
+      {!isSetter && !isAdmin && (
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+            <input
+              type="text"
+              placeholder="Search assessments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-lg bg-bg-tertiary border border-border text-text-primary text-sm placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            />
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 rounded-lg bg-bg-tertiary border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary cursor-pointer"
+          >
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="easiest">Easiest</option>
+            <option value="hardest">Hardest</option>
+          </select>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
-      ) : assessments.length === 0 ? (
+      ) : assessments.length === 0 || (!isSetter && !isAdmin && displayedAssessments.length === 0) ? (
         <EmptyState
           icon={Brain}
-          title={isAdmin ? 'No Assessments Found' : isSetter ? 'No Assessments Yet' : 'No Assessments Available'}
-          description={isAdmin ? 'No assessments found for this filter' : isSetter ? 'Create your first assessment to get started' : 'No published assessments available yet'}
+          title={isAdmin ? 'No Assessments Found' : isSetter ? 'No Assessments Yet' : (searchQuery ? 'No Matching Assessments' : 'No Assessments Available')}
+          description={isAdmin ? 'No assessments found for this filter' : isSetter ? 'Create your first assessment to get started' : (searchQuery ? 'Try adjusting your search query' : 'No published assessments available yet')}
           action={isSetter && !isAdmin ? (
             <Button onClick={() => navigate('/assessments/create')}>
               <Plus className="h-4 w-4" /> Create Assessment
@@ -434,7 +463,7 @@ export default function AssessmentsPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {assessments.map((a) => (
+          {(isSetter || isAdmin ? assessments : displayedAssessments).map((a) => (
             isAdmin ? (
               <AdminAssessmentCard key={a._id} a={a} onAction={handleAction} />
             ) : isSetter ? (
@@ -446,20 +475,16 @@ export default function AssessmentsPage() {
         </div>
       )}
 
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-xl border border-border bg-bg-card p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-text-primary mb-2">Delete Assessment</h3>
-            <p className="text-sm text-text-secondary mb-6">Are you sure you want to delete this assessment? All attempts and submissions will also be deleted. This action cannot be undone.</p>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteId(null)} disabled={deleteMutation.isPending}>Cancel</Button>
-              <Button variant="danger" onClick={() => deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete Assessment"
+        message="Are you sure you want to delete this assessment? All attempts and submissions will also be deleted. This action cannot be undone."
+        variant="danger"
+        confirmLabel={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+        onConfirm={() => deleteMutation.mutate(deleteId)}
+        onCancel={() => setDeleteId(null)}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   )
 }
