@@ -25,12 +25,15 @@ export default function AdminPage() {
         <p className="text-sm text-text-secondary mt-1">Manage users, roles, and system settings</p>
       </div>
 
-      <div className="flex gap-1 border-b border-border pb-1 overflow-x-auto">
+      <div className="flex gap-1 border-b border-border pb-1 overflow-x-auto" role="tablist" aria-label="Admin sections">
         {TABS.map((tab) => {
           const Icon = tab.icon
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`panel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
@@ -44,7 +47,7 @@ export default function AdminPage() {
         })}
       </div>
 
-      {ActiveComponent && <ActiveComponent />}
+      {ActiveComponent && <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={activeTab}><ActiveComponent /></div>}
     </div>
   )
 }

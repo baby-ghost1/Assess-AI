@@ -57,11 +57,14 @@ export default function SetterDashboard() {
     { icon: Eye, label: 'View Submissions', desc: 'Review candidate submissions', color: 'text-warning bg-warning/10', onClick: () => navigate('/submissions') },
   ]
 
+  const stagger = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
+  const fadeUp = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } } }
+
   return (
-    <div className="space-y-6">
+    <motion.div className="space-y-6" variants={stagger} initial="hidden" animate="visible">
 
       {/* ── GREETING SECTION ─────────────────────────── */}
-      <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
+      <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -81,10 +84,10 @@ export default function SetterDashboard() {
             </Button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── STATS GRID ─────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map((s) => (
           <motion.div
             key={s.label}
@@ -100,10 +103,10 @@ export default function SetterDashboard() {
             <p className="text-xs text-text-secondary mt-0.5">{s.label}</p>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* ── QUICK ACTIONS ────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-bg-card p-5">
+      <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card p-5">
         <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2 mb-3">
           <Zap className="h-4 w-4 text-primary" /> Quick Actions
         </h3>
@@ -121,10 +124,10 @@ export default function SetterDashboard() {
             </button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* ── RECENT DATA ─────────────────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <motion.div variants={fadeUp} className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-bg-card">
           <div className="border-b border-border px-5 py-3">
             <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
@@ -173,7 +176,7 @@ export default function SetterDashboard() {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { useAppSelector } from '@/hooks'
 import { Button } from '@/components/ui'
+import { motion } from 'framer-motion'
 import { Brain, BarChart3, CheckCircle, Loader2, Clock, Trophy, Zap, Flame, Target, ArrowUpRight, ArrowDownRight, BookOpen, ChevronRight, Sparkles, Award, Quote, Calendar } from 'lucide-react'
 import { ErrorState } from '@/components/shared'
 import { useState } from 'react'
@@ -166,11 +167,14 @@ export default function CandidateDashboard() {
 
   const d = data?.data
 
+  const stagger = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
+  const fadeUp = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } } }
+
   return (
-    <div className="space-y-6">
+    <motion.div className="space-y-6" variants={stagger} initial="hidden" animate="visible">
 
       {/* ── GREETING SECTION ─────────────────────────── */}
-      <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
+      <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -190,13 +194,13 @@ export default function CandidateDashboard() {
             </Button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── MOTIVATIONAL QUOTE ───────────────────────── */}
-      <MotivationalQuote />
+      <motion.div variants={fadeUp}><MotivationalQuote /></motion.div>
 
       {/* ── STATS + LEVEL ROW ────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Stats Grid */}
         <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
@@ -232,10 +236,10 @@ export default function CandidateDashboard() {
             <p className="text-[10px] text-text-tertiary mt-1">{d?.level?.nextMin - d?.xp || 0} XP to next level</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── WEEKLY GOAL ──────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-bg-card p-5">
+      <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" /> Weekly Goal
@@ -249,11 +253,11 @@ export default function CandidateDashboard() {
         {((d?.weeklyGoal?.completed || 0) >= (d?.weeklyGoal?.target || 5)) && (
           <p className="text-xs text-emerald-500 mt-2 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Weekly goal achieved! Great work!</p>
         )}
-      </div>
+      </motion.div>
 
       {/* ── IN PROGRESS ASSESSMENTS ──────────────────── */}
       {d?.pendingAssessments?.length > 0 && (
-        <div className="rounded-xl border border-border bg-bg-card">
+        <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card">
           <div className="border-b border-border px-5 py-3 flex items-center justify-between">
             <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
               <Clock className="h-4 w-4 text-warning" /> In Progress
@@ -281,12 +285,12 @@ export default function CandidateDashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* ── RECOMMENDATIONS ──────────────────────────── */}
       {d?.recommended?.length > 0 && (
-        <div className="rounded-xl border border-border bg-bg-card p-5">
+        <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card p-5">
           <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-primary" /> Recommended for You
           </h3>
@@ -306,12 +310,12 @@ export default function CandidateDashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* ── ACHIEVEMENTS ─────────────────────────────── */}
       {d?.achievements?.length > 0 && (
-        <div className="rounded-xl border border-border bg-bg-card p-5">
+        <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card p-5">
           <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2 mb-3">
             <Award className="h-4 w-4 text-amber-500" /> Achievements ({d.achievements.length})
           </h3>
@@ -326,14 +330,14 @@ export default function CandidateDashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* ── ACTIVITY HEATMAP ─────────────────────────── */}
-      <ActivityHeatmap recentActivity={d?.recentActivity} />
+      <motion.div variants={fadeUp}><ActivityHeatmap recentActivity={d?.recentActivity} /></motion.div>
 
       {/* ── RECENT ACTIVITY ──────────────────────────── */}
-      <div className="rounded-xl border border-border bg-bg-card">
+      <motion.div variants={fadeUp} className="rounded-xl border border-border bg-bg-card">
         <div className="border-b border-border px-5 py-3">
           <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
             <Trophy className="h-4 w-4 text-primary" /> Recent Activity
@@ -370,7 +374,7 @@ export default function CandidateDashboard() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

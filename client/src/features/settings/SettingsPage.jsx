@@ -577,12 +577,14 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="relative flex rounded-full border border-border bg-bg-card p-1 overflow-x-auto scrollbar-none">
+      <div className="relative flex rounded-full border border-border bg-bg-card p-1 overflow-x-auto scrollbar-none" role="tablist" aria-label="Settings">
         {allTabs.map((t) => {
           const isActive = activeTab === t.id
           return (
             <button
               key={t.id}
+              role="tab"
+              aria-selected={isActive}
               onClick={() => setActiveTab(t.id)}
               className={`relative flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors duration-200 z-10 shrink-0 whitespace-nowrap ${
                 isActive ? 'text-white' : 'text-text-secondary hover:text-text-primary'

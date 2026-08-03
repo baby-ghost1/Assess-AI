@@ -213,10 +213,12 @@ export default function ApprovalQueuePage() {
         <p className="mt-1 text-sm text-text-secondary">Track the status of your question submissions</p>
       </div>
 
-      <div className="flex items-center gap-1 p-1 bg-bg-secondary rounded-lg">
+      <div className="flex items-center gap-1 p-1 bg-bg-secondary rounded-lg" role="tablist" aria-label="Question status">
         {tabs.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === tab.key

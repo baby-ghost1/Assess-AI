@@ -30,17 +30,21 @@ function StatsSection() {
     queryFn: () => api.get('/analytics/me').then((r) => r.data),
   })
 
-  const d = data?.data || {}
+  const { data: leaderboardData } = useQuery({
+    queryKey: ['leaderboard'],
+    queryFn: () => api.get('/analytics/leaderboard').then((r) => r.data),
+  })
 
-  // TODO: Replace with real endpoint if/when backend provides rank & study time
-  const placeholderRank = '—'
-  const placeholderStudyTime = '—'
+  const d = data?.data || {}
+  const lb = leaderboardData?.data || []
+  const currentUserRank = lb.findIndex((e) => e._id === useAppSelector((s) => s.auth.user?._id)) + 1
+  const rankDisplay = currentUserRank > 0 ? `#${currentUserRank}` : '—'
 
   const stats = [
     { icon: BarChart3, label: 'Total Assessments', value: d.totalAttempts ?? 0, color: 'text-primary bg-primary/10' },
     { icon: Target, label: 'Average Score', value: d.avgScore ?? 0, suffix: '%', color: 'text-accent bg-accent/10' },
-    { icon: Trophy, label: 'Current Rank', value: placeholderRank, color: 'text-warning bg-warning/10', raw: true },
-    { icon: BookOpen, label: 'Study Time', value: placeholderStudyTime, color: 'text-green-500 bg-green-500/10', raw: true },
+    { icon: Trophy, label: 'Current Rank', value: rankDisplay, color: 'text-warning bg-warning/10', raw: true },
+    { icon: BookOpen, label: 'Pass Rate', value: d.passRate ?? 0, suffix: '%', color: 'text-green-500 bg-green-500/10' },
   ]
 
   return (

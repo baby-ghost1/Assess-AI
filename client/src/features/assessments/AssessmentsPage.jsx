@@ -164,9 +164,10 @@ function SetterAssessmentCard({ a, onAction }) {
     setSubmitting(true)
     try {
       await api.post(`/assessments/${a._id}/submit-approval`)
+      notify.success('Submitted for approval')
       onAction('refresh')
-    } catch {
-      // error handled by UI
+    } catch (err) {
+      notify.error(err?.response?.data?.message || 'Failed to submit assessment')
     } finally {
       setSubmitting(false)
     }
@@ -400,9 +401,9 @@ export default function AssessmentsPage() {
       </div>
 
       {isAdmin && (
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1" role="tablist" aria-label="Assessment status">
           {adminTabs.map((t) => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
+            <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === t.key ? 'bg-primary text-white' : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated'}`}>
               {t.label}
             </button>
@@ -411,9 +412,9 @@ export default function AssessmentsPage() {
       )}
 
       {isSetter && !isAdmin && (
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1" role="tablist" aria-label="Assessment status">
           {setterTabs.map((t) => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
+            <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === t.key ? 'bg-primary text-white' : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated'}`}>
               {t.label}
             </button>

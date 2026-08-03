@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { applyPlugin } from 'jspdf-autotable'
+import { notify } from '@/lib/notify'
 applyPlugin(jsPDF)
 
 export function exportAnalyticsPDF(type, data, extra = {}) {
@@ -139,8 +140,9 @@ export function exportAnalyticsPDF(type, data, extra = {}) {
     }
 
     doc.save(`${type}-report-${Date.now()}.pdf`)
+    notify.success('PDF exported successfully')
   } catch (err) {
     console.error('PDF export failed:', err)
-    alert('Failed to generate PDF. Check console for details.')
+    notify.error('Failed to generate PDF. Please try again.')
   }
 }

@@ -1097,9 +1097,9 @@ export default function AssessmentCreatePage() {
       )}
 
       {!isEdit && (
-        <div className="flex gap-3 p-1 bg-bg-secondary rounded-2xl">
+        <div className="flex gap-3 p-1 bg-bg-secondary rounded-2xl" role="tablist" aria-label="Assessment creation mode">
           {tabs.map((t) => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
+            <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)}
               className={cn(
                 'flex-1 flex items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-left transition-all duration-200',
                 activeTab === t.key

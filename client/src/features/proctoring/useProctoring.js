@@ -123,6 +123,7 @@ export default function useProctoring({ attemptId, enabled, onAutoSubmit, onViol
       } catch (err) {
         console.warn('Camera access denied:', err.message)
         setStatus('no-camera')
+        onViolation?.({ type: 'camera_denied', details: err.message || 'Camera access was denied', timestamp: new Date().toISOString() })
       }
     }
 

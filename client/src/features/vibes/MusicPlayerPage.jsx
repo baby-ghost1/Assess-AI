@@ -504,8 +504,10 @@ export default function MusicPlayerPage() {
           {/* ─── Tabs ─── */}
           {!searchDone && !showSuggestions && (
             <div className="max-w-4xl mx-auto mb-6">
-              <div className="flex items-center gap-1 bg-[#1a1a1a] rounded-full p-1 w-fit">
+              <div className="flex items-center gap-1 bg-[#1a1a1a] rounded-full p-1 w-fit" role="tablist" aria-label="Music view">
                 <button
+                  role="tab"
+                  aria-selected={activeTab === 'discover'}
                   onClick={() => setActiveTab('discover')}
                   className={cn(
                     'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200',
@@ -515,6 +517,8 @@ export default function MusicPlayerPage() {
                   Discover
                 </button>
                 <button
+                  role="tab"
+                  aria-selected={activeTab === 'liked'}
                   onClick={() => setActiveTab('liked')}
                   className={cn(
                     'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2',
