@@ -809,14 +809,6 @@ export function ImportForm({ onSuccess, endpoint = '/ai/import-assessment' }) {
             )}
             <div ref={chatEndRef} />
           </div>
-          <form onSubmit={handleChatSubmit} className="p-3 border-t border-border flex gap-2">
-            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-              className="flex-1 rounded-xl border border-border bg-bg-secondary py-2.5 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-              placeholder="Ask AI to modify questions... (coming soon)" />
-            <Button type="submit" size="sm" disabled={!chatInput.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
         </div>
       )}
 

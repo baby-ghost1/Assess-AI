@@ -1,6 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Shield, Check } from 'lucide-react'
+import { Shield, Check } from 'lucide-react'
+
+function RoleCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-bg-secondary p-5 animate-pulse space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="h-9 w-9 rounded-lg bg-bg-tertiary" />
+        <div className="space-y-1.5">
+          <div className="h-4 bg-bg-tertiary rounded w-24" />
+          <div className="h-3 bg-bg-tertiary rounded w-16" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-6 w-20 rounded-full bg-bg-tertiary" />)}
+      </div>
+    </div>
+  )
+}
 
 export default function RoleManagement() {
   const { data, isLoading } = useQuery({
@@ -9,7 +26,11 @@ export default function RoleManagement() {
   })
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => <RoleCardSkeleton key={i} />)}
+      </div>
+    )
   }
 
   const roles = data?.data || []

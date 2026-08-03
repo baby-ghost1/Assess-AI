@@ -1,14 +1,22 @@
-import { Outlet, Navigate } from 'react-router-dom'
+import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAppSelector } from '@/hooks'
 import { useState } from 'react'
 import MiniPlayer from '@/features/vibes/MiniPlayer'
 import AppLoader from '@/components/shared/AppLoader'
+import { AnimatePresence, motion } from 'framer-motion'
+
+const pageVariants = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+}
 
 export default function DashboardLayout() {
   const { isAuthenticated, isLoading, user } = useAppSelector((s) => s.auth)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const location = useLocation()
 
   if (isLoading) {
     return <AppLoader text="Preparing dashboard..." userId={user?._id} />
@@ -23,7 +31,21 @@ export default function DashboardLayout() {
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <Topbar onMenuToggle={() => setMobileMenuOpen((p) => !p)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6"><Outlet /></main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="h-full"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
       <MiniPlayer />
     </div>

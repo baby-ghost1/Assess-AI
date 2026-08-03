@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, Lightbulb, Target, Sparkles, TrendingUp, Loader2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, Lightbulb, Target, Sparkles, TrendingUp, AlertCircle } from 'lucide-react'
 import { ErrorState, EmptyState } from '@/components/shared'
 
 export default function ResultsPage() {
@@ -22,7 +22,34 @@ export default function ResultsPage() {
   })
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 py-8">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 rounded-lg bg-bg-tertiary animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-6 bg-bg-tertiary rounded w-48 animate-pulse" />
+            <div className="h-4 bg-bg-tertiary rounded w-32 animate-pulse" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-bg-card p-8 animate-pulse">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-20 w-20 rounded-full bg-bg-tertiary" />
+            <div className="h-8 bg-bg-tertiary rounded w-24" />
+            <div className="h-12 bg-bg-tertiary rounded w-20" />
+            <div className="h-4 bg-bg-tertiary rounded w-32" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-bg-card p-4 text-center animate-pulse space-y-2">
+              <div className="h-10 w-10 rounded-lg bg-bg-tertiary mx-auto" />
+              <div className="h-6 bg-bg-tertiary rounded w-12 mx-auto" />
+              <div className="h-3 bg-bg-tertiary rounded w-16 mx-auto" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   if (error) {

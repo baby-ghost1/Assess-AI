@@ -92,7 +92,7 @@ export default function QueuePanel() {
           animate={{ width: 320, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="h-full bg-[#121212] border-l border-[#282828] overflow-hidden shrink-0 hidden lg:block"
+          className="h-full bg-[#121212] border-l border-[#282828] overflow-hidden shrink-0 hidden md:block"
         >
           <div className="h-full flex flex-col w-[320px]">
             {/* Header */}

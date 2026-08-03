@@ -2,8 +2,39 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, Trophy, RotateCw, BarChart3, Clock, XCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Trophy, RotateCw, BarChart3, Clock, XCircle } from 'lucide-react'
 import { EmptyState, ErrorState } from '@/components/shared'
+
+function AttemptCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5 animate-pulse">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="h-10 w-10 rounded-lg bg-bg-tertiary shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-bg-tertiary rounded w-2/3" />
+            <div className="flex gap-3">
+              <div className="h-3 bg-bg-tertiary rounded w-16" />
+              <div className="h-3 bg-bg-tertiary rounded w-12" />
+              <div className="h-3 bg-bg-tertiary rounded w-20" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-1.5 text-right">
+          <div className="h-6 bg-bg-tertiary rounded w-12 ml-auto" />
+          <div className="h-3 bg-bg-tertiary rounded w-16 ml-auto" />
+        </div>
+      </div>
+      <div className="mt-4 pt-3 border-t border-border flex justify-between">
+        <div className="h-3 bg-bg-tertiary rounded w-32" />
+        <div className="flex gap-2">
+          <div className="h-7 bg-bg-tertiary rounded w-24" />
+          <div className="h-7 bg-bg-tertiary rounded w-16" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function MyAttemptsPage() {
   const navigate = useNavigate()
@@ -37,8 +68,8 @@ export default function MyAttemptsPage() {
       {error && <ErrorState error={error} title="Failed to Load Attempts" />}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => <AttemptCardSkeleton key={i} />)}
         </div>
       ) : attempts.length === 0 ? (
         <EmptyState

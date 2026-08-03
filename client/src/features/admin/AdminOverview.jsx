@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Users, FileText, Brain, BarChart3, CheckCircle, Activity, Server, HardDrive, Clock } from 'lucide-react'
+import { Users, FileText, Brain, BarChart3, CheckCircle, Activity, Server, HardDrive, Clock } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -10,6 +10,20 @@ function StatCard({ icon: Icon, label, value, color }) {
         <div>
           <p className="text-sm text-text-secondary">{label}</p>
           <p className="text-2xl font-heading font-bold text-text-primary">{value}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StatCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-bg-secondary p-5 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-lg bg-bg-tertiary" />
+        <div className="space-y-2">
+          <div className="h-3 bg-bg-tertiary rounded w-20" />
+          <div className="h-6 bg-bg-tertiary rounded w-12" />
         </div>
       </div>
     </div>
@@ -28,7 +42,27 @@ export default function AdminOverview() {
   })
 
   if (statsLoading) {
-    return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)}
+        </div>
+        <div className="rounded-xl border border-border bg-bg-secondary p-5 animate-pulse">
+          <div className="h-5 bg-bg-tertiary rounded w-40 mb-4" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded bg-bg-tertiary" />
+                <div className="space-y-1.5">
+                  <div className="h-3 bg-bg-tertiary rounded w-16" />
+                  <div className="h-4 bg-bg-tertiary rounded w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const s = statsData?.data

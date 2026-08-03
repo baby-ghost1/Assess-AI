@@ -60,6 +60,29 @@ function SettingRow({ setting, onUpdate }) {
   )
 }
 
+function SettingsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-9 w-24 rounded-lg bg-bg-tertiary animate-pulse" />)}
+      </div>
+      <div className="rounded-xl border border-border bg-bg-card p-5 animate-pulse space-y-4">
+        <div className="h-5 bg-bg-tertiary rounded w-32" />
+        <div className="h-3 bg-bg-tertiary rounded w-24" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between py-3 border-b border-border">
+            <div className="space-y-1.5">
+              <div className="h-4 bg-bg-tertiary rounded w-40" />
+              <div className="h-3 bg-bg-tertiary rounded w-56" />
+            </div>
+            <div className="h-6 w-11 rounded-full bg-bg-tertiary" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function SystemSettings() {
   const queryClient = useQueryClient()
   const [activeCategory, setActiveCategory] = useState('general')
@@ -82,7 +105,7 @@ export default function SystemSettings() {
   const filteredSettings = settings.filter((s) => s.category === activeCategory)
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return <SettingsSkeleton />
   }
 
   return (
