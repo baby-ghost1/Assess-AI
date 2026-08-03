@@ -22,9 +22,9 @@ function saveToStorage(key, value) {
 }
 
 export function MusicPlayerProvider({ children }) {
-  const [currentTrack, setCurrentTrack] = useState(null)
-  const [queue, setQueue] = useState([])
-  const [queueIndex, setQueueIndex] = useState(-1)
+  const [currentTrack, setCurrentTrack] = useState(() => loadFromStorage('vibes_currentTrack', null))
+  const [queue, setQueue] = useState(() => loadFromStorage('vibes_queue', []))
+  const [queueIndex, setQueueIndex] = useState(() => loadFromStorage('vibes_queueIndex', -1))
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -46,6 +46,7 @@ export function MusicPlayerProvider({ children }) {
   const shuffleRef = useRef(shuffle)
   const shuffledIndicesRef = useRef(shuffledIndices)
   const crossfadeRef = useRef(crossfade)
+  const restoredRef = useRef(false)
 
   useEffect(() => { repeatRef.current = repeat }, [repeat])
   useEffect(() => { volumeRef.current = volume }, [volume])
@@ -58,6 +59,9 @@ export function MusicPlayerProvider({ children }) {
   useEffect(() => { saveToStorage('vibes_liked', likedSongs) }, [likedSongs])
   useEffect(() => { saveToStorage('vibes_recent', recentlyPlayed) }, [recentlyPlayed])
   useEffect(() => { saveToStorage('vibes_crossfade', crossfade) }, [crossfade])
+  useEffect(() => { saveToStorage('vibes_currentTrack', currentTrack) }, [currentTrack])
+  useEffect(() => { saveToStorage('vibes_queue', queue) }, [queue])
+  useEffect(() => { saveToStorage('vibes_queueIndex', queueIndex) }, [queueIndex])
 
   // MediaSession API - OS-level controls
   useEffect(() => {
@@ -245,6 +249,26 @@ export function MusicPlayerProvider({ children }) {
   const attachEndedHandler = useCallback((audio) => {
     audio.addEventListener('ended', playNextAuto)
   }, [playNextAuto])
+
+  // Restore audio on mount — sets up audio element so progress/duration show
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    const track = loadFromStorage('vibes_currentTrack', null)
+    if (!track) return
+    const url = getStreamUrl(track)
+    if (!url) return
+    const audio = new Audio(url)
+    audio.volume = volumeRef.current
+    audio.crossOrigin = 'anonymous'
+    audio.preload = 'metadata'
+    audioRef.current = audio
+    audio.addEventListener('loadedmetadata', () => setDuration(audio.duration))
+    audio.addEventListener('timeupdate', () => setProgress(audio.currentTime))
+    attachEndedHandler(audio)
+    audio.addEventListener('error', () => setError('Stream failed to load'))
+    // Do NOT auto-play — browser policy blocks it. User taps play to resume.
+  }, [attachEndedHandler])
 
   const playTrack = useCallback((track, trackList) => {
     const url = getStreamUrl(track)
