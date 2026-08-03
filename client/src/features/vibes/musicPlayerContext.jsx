@@ -22,9 +22,9 @@ function saveToStorage(key, value) {
 }
 
 export function MusicPlayerProvider({ children }) {
-  const [currentTrack, setCurrentTrack] = useState(() => loadFromStorage('vibes_currentTrack', null))
-  const [queue, setQueue] = useState(() => loadFromStorage('vibes_queue', []))
-  const [queueIndex, setQueueIndex] = useState(() => loadFromStorage('vibes_queueIndex', -1))
+  const [currentTrack, setCurrentTrack] = useState(null)
+  const [queue, setQueue] = useState([])
+  const [queueIndex, setQueueIndex] = useState(-1)
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -58,9 +58,6 @@ export function MusicPlayerProvider({ children }) {
   useEffect(() => { saveToStorage('vibes_liked', likedSongs) }, [likedSongs])
   useEffect(() => { saveToStorage('vibes_recent', recentlyPlayed) }, [recentlyPlayed])
   useEffect(() => { saveToStorage('vibes_crossfade', crossfade) }, [crossfade])
-  useEffect(() => { saveToStorage('vibes_currentTrack', currentTrack) }, [currentTrack])
-  useEffect(() => { saveToStorage('vibes_queue', queue) }, [queue])
-  useEffect(() => { saveToStorage('vibes_queueIndex', queueIndex) }, [queueIndex])
 
   // MediaSession API - OS-level controls
   useEffect(() => {

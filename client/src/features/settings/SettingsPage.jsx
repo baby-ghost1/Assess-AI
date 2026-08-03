@@ -4,13 +4,12 @@ import api from '@/lib/api'
 import { toggleTheme } from '@/store/themeSlice'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2, KeyRound, Check, Sparkles } from 'lucide-react'
+import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2, KeyRound, Check } from 'lucide-react'
 import { changePassword } from '@/features/auth/authSlice'
 import { logout } from '@/features/auth/authSlice'
 import { notify } from '@/lib/notify'
 import DeleteAccountModal from './DeleteAccountModal'
 import OAuthChangePasswordModal from './OAuthChangePasswordModal'
-import { useSpinnerSelection, getAllSpinners } from '@/components/shared/spinnerRegistry'
 
 const TABS = [
   { id: 'account', label: 'Account', icon: User },
@@ -67,9 +66,6 @@ function AccountTab({ user }) {
 function AppearanceTab() {
   const dispatch = useAppDispatch()
   const { mode } = useAppSelector((s) => s.theme)
-  const { user } = useAppSelector((s) => s.auth)
-  const [selectedSpinner, selectSpinner] = useSpinnerSelection(user?._id)
-  const allSpinners = getAllSpinners()
 
   const themes = [
     { id: 'dark', label: 'Dark', icon: Moon, desc: 'Easy on the eyes' },
@@ -105,34 +101,6 @@ function AppearanceTab() {
                   <CheckCircle className="h-3.5 w-3.5 text-white" />
                 </div>
               )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Loader Style */}
-      <div className="rounded-xl border border-border bg-bg-card p-5">
-        <h3 className="text-sm font-heading font-semibold text-text-primary mb-1 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" /> Loader Style
-        </h3>
-        <p className="text-xs text-text-secondary mb-4">Choose the loading animation you see across the app</p>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-          {allSpinners.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => selectSpinner(s.id)}
-              className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
-                selectedSpinner === s.id
-                  ? 'border-primary bg-primary/10 shadow-sm'
-                  : 'border-border hover:border-primary/30 hover:bg-bg-tertiary/50'
-              }`}
-            >
-              <div className="h-10 flex items-center justify-center">
-                {s.render(32)}
-              </div>
-              <span className={`text-[10px] font-medium leading-tight text-center ${selectedSpinner === s.id ? 'text-primary' : 'text-text-secondary'}`}>
-                {s.name}
-              </span>
             </button>
           ))}
         </div>

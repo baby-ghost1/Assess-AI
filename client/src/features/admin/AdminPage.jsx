@@ -1,16 +1,14 @@
 import { useState } from 'react'
-import { LayoutDashboard, Users, Shield, Settings2, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Users, Shield, Settings2 } from 'lucide-react'
 import AdminOverview from './AdminOverview'
 import UserManagement from './UserManagement'
 import RoleManagement from './RoleManagement'
 import SystemSettings from './SystemSettings'
-import SpinnerSelector from './SpinnerSelector'
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, component: AdminOverview },
   { id: 'users', label: 'Users', icon: Users, component: UserManagement },
   { id: 'roles', label: 'Roles', icon: Shield, component: RoleManagement },
-  { id: 'spinners', label: 'Loaders', icon: Sparkles, component: SpinnerSelector },
   { id: 'settings', label: 'Settings', icon: Settings2, component: SystemSettings },
 ]
 

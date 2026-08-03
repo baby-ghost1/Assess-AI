@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppDispatch } from '@/hooks'
 import { oauthCallback } from '@/features/auth/authSlice'
-import AppLoader from '@/components/shared/AppLoader'
+import { Loader2 } from 'lucide-react'
 
 export default function AuthCallbackPage() {
   const dispatch = useAppDispatch()
@@ -29,5 +29,12 @@ export default function AuthCallbackPage() {
     }
   }, [dispatch, navigate, searchParams])
 
-  return <AppLoader text="Verifying credentials..." />
+  return (
+    <div className="flex min-h-screen bg-bg-primary items-center justify-center">
+      <div className="text-center space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+        <p className="text-sm text-text-secondary">Completing authentication...</p>
+      </div>
+    </div>
+  )
 }

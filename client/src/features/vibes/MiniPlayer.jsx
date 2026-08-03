@@ -64,10 +64,10 @@ export default function MiniPlayer() {
           />
         </div>
 
-        <div className="flex items-center h-full px-3 sm:px-4 pt-2 gap-2 sm:gap-4">
+        <div className="flex items-center h-full px-4 pt-2 gap-4">
           {/* ─── Left: Track Info ─── */}
-          <div className="flex items-center gap-2 sm:gap-3 w-[45%] sm:w-[30%] min-w-0">
-            <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-lg">
+          <div className="flex items-center gap-3 w-[30%] min-w-0">
+            <div className="h-14 w-14 rounded-md overflow-hidden bg-[#282828] shrink-0 shadow-lg">
               {currentTrack?.image ? (
                 <img
                   src={currentTrack.image}
@@ -76,25 +76,25 @@ export default function MiniPlayer() {
                 />
               ) : (
                 <div className="h-full w-full flex items-center justify-center">
-                  <Music className="h-4 w-4 sm:h-6 sm:w-6 text-[#7f7f7f]" />
+                  <Music className="h-6 w-6 text-[#7f7f7f]" />
                 </div>
               )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-xs sm:text-sm font-semibold text-white truncate leading-tight max-w-[120px] sm:max-w-[180px] hover:underline cursor-pointer">
+                <p className="text-sm font-semibold text-white truncate leading-tight max-w-[180px] hover:underline cursor-pointer">
                   {currentTrack?.title}
                 </p>
                 {isPlaying && <Equalizer isPlaying className="h-2.5" barCount={3} />}
               </div>
-              <p className="text-[10px] sm:text-[11px] text-[#b3b3b3] truncate leading-tight max-w-[120px] sm:max-w-[180px] hover:underline cursor-pointer hover:text-white transition-colors">
+              <p className="text-[11px] text-[#b3b3b3] truncate leading-tight max-w-[180px] hover:underline cursor-pointer hover:text-white transition-colors">
                 {currentTrack?.artist}
               </p>
             </div>
             <button
               onClick={() => currentTrack && toggleLike(currentTrack)}
               className={cn(
-                'shrink-0 ml-1 transition-all',
+                'shrink-0 ml-1 hidden sm:block transition-all',
                 liked ? 'text-[#1db954]' : 'text-[#b3b3b3] hover:text-white'
               )}
             >
@@ -103,8 +103,8 @@ export default function MiniPlayer() {
           </div>
 
           {/* ─── Center: Controls ─── */}
-          <div className="flex flex-col items-center flex-1 max-w-[45%] sm:max-w-[40%]">
-            <div className="flex items-center gap-3 sm:gap-5">
+          <div className="flex flex-col items-center flex-1 max-w-[40%]">
+            <div className="flex items-center gap-4 sm:gap-5">
               {/* Shuffle */}
               <button
                 onClick={toggleShuffle}
@@ -127,12 +127,12 @@ export default function MiniPlayer() {
               {/* Play/Pause */}
               <button
                 onClick={togglePlayPause}
-                className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center rounded-full bg-white hover:scale-105 active:scale-95 transition-transform"
+                className="h-9 w-9 flex items-center justify-center rounded-full bg-white hover:scale-105 active:scale-95 transition-transform"
               >
                 {isPlaying ? (
-                  <Pause className="h-4 w-4 sm:h-5 sm:w-5 text-black fill-current" />
+                  <Pause className="h-5 w-5 text-black fill-current" />
                 ) : (
-                  <Play className="h-4 w-4 sm:h-5 sm:w-5 text-black fill-current ml-0.5" />
+                  <Play className="h-5 w-5 text-black fill-current ml-0.5" />
                 )}
               </button>
 

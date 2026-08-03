@@ -8,7 +8,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { setTheme } from '@/store/themeSlice'
 import { getCurrentUser } from '@/features/auth/authSlice'
 import { useAppDispatch, useAppSelector } from '@/hooks'
-import AppLoader from '@/components/shared/AppLoader'
+import { Loader2 } from 'lucide-react'
 
 import AuthLayout from '@/layouts/AuthLayout'
 import DashboardLayout from '@/layouts/DashboardLayout'
@@ -19,7 +19,6 @@ import SetterRegisterPage from '@/features/auth/SetterRegisterPage'
 import AuthCallbackPage from '@/features/auth/AuthCallbackPage'
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
-import SpinnerDemo from './SpinnerDemo'
 import LandingPage from '@/features/landing/LandingPage'
 import PrivacyPolicyPage from '@/features/landing/PrivacyPolicyPage'
 import TermsOfServicePage from '@/features/landing/TermsOfServicePage'
@@ -68,7 +67,7 @@ function ThemeInitializer({ children }) {
 
 function AuthInitializer({ children }) {
   const dispatch = useAppDispatch()
-  const { isAuthenticated, user } = useAppSelector((s) => s.auth)
+  const { isAuthenticated } = useAppSelector((s) => s.auth)
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
@@ -81,7 +80,14 @@ function AuthInitializer({ children }) {
   }, [dispatch, isAuthenticated])
 
   if (!initialized) {
-    return <AppLoader text="Loading your session..." userId={user?._id} />
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-bg-primary">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-text-secondary">Restoring session...</p>
+        </div>
+      </div>
+    )
   }
 
   return children
@@ -90,7 +96,7 @@ function AuthInitializer({ children }) {
 function AppRoutes() {
   const { isAuthenticated } = useAppSelector((s) => s.auth)
   return (
-    <Suspense fallback={<AppLoader fullScreen={false} size={36} />}>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
@@ -135,7 +141,6 @@ function AppRoutes() {
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
-        <Route path="/spinner-demo" element={<SpinnerDemo />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
