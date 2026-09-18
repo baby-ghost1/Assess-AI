@@ -10,6 +10,7 @@ export const PROVIDER_CONFIGS = {
   perplexity: { apiKey: process.env.PERPLEXITY_API_KEY, model: 'llama-3.1-sonar-large-128k-online', baseUrl: 'https://api.perplexity.ai' },
   groq: { apiKey: process.env.GROQ_API_KEY, model: 'llama-3.3-70b-versatile', baseUrl: 'https://api.groq.com/openai/v1' },
   nvidia: { apiKey: process.env.NVIDIA_API_KEY, model: 'deepseek-ai/deepseek-v4-pro', baseUrl: 'https://integrate.api.nvidia.com/v1' },
+  bazaarlink: { apiKey: process.env.BAZAARLINK_API_KEY, model: 'auto:free', baseUrl: 'https://api.bazaarlink.ai/v1' },
 }
 
 function buildPrompt(topic, config) {
@@ -174,6 +175,7 @@ const providers = {
   perplexity: (t, c) => openAICompatibleGenerate(t, c, 'perplexity'),
   groq: (t, c) => openAICompatibleGenerate(t, c, 'groq'),
   nvidia: (t, c) => openAICompatibleGenerate(t, c, 'nvidia'),
+  bazaarlink: (t, c) => openAICompatibleGenerate(t, c, 'bazaarlink'),
 }
 
 export async function generateQuestions(topic, config = {}) {
