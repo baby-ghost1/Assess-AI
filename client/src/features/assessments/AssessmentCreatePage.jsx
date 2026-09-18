@@ -495,124 +495,125 @@ function AIGenerateForm({ onSuccess }) {
     mutation.mutate(data)
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-2xl border border-border bg-bg-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Wand2 className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary">AI Assessment Generator</h3>
-              <p className="text-[11px] text-text-tertiary">Configure and generate a complete assessment with AI</p>
-            </div>
-          </div>
-        </div>
+  const configuredProviders = providers.filter((p) => p.configured)
 
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="sm:col-span-2">
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Topic *</label>
-              <input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })}
-                className="w-full rounded-xl border border-border bg-bg-secondary py-3 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
-                placeholder="e.g. JavaScript Closures, React Hooks, System Design" required />
-            </div>
+  return (
+    <div className="relative min-h-[calc(100vh-180px)]">
+      <form onSubmit={handleSubmit} className="space-y-5 pb-24">
+
+        <div className="rounded-xl border border-border bg-bg-card p-5 space-y-5">
+          <div>
+            <label className="text-xs font-medium text-text-secondary mb-1.5 block">Topic *</label>
+            <input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })}
+              className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 px-3.5 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors"
+              placeholder="e.g. JavaScript Closures, React Hooks, System Design" required />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Title <span className="normal-case text-text-tertiary/70">(optional)</span></label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">Title</label>
               <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="w-full rounded-xl border border-border bg-bg-secondary py-3 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 px-3.5 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors"
                 placeholder="Auto-generated if empty" />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Questions</label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">Questions</label>
               <input type="number" min="1" max="50" value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
-                className="w-full rounded-xl border border-border bg-bg-secondary py-3 px-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all" />
+                className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 px-3.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Difficulty</label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">Difficulty</label>
               <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
-                className="w-full rounded-xl border border-border bg-bg-secondary px-3 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
+                className="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors">
                 {Object.entries(difficultyConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Type</label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">Type</label>
               <select value={form.questionType} onChange={(e) => setForm({ ...form, questionType: e.target.value })}
-                className="w-full rounded-xl border border-border bg-bg-secondary px-3 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
+                className="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors">
                 {questionTypeOptions.slice(0, 4).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Time (min)</label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">Time (min)</label>
               <input type="number" value={form.timeLimit} onChange={(e) => setForm({ ...form, timeLimit: e.target.value })}
-                className="w-full rounded-xl border border-border bg-bg-secondary py-3 px-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" placeholder="No limit" />
+                className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 px-3.5 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors" placeholder="No limit" />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2 block">Pass %</label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">Pass %</label>
               <input type="number" min="0" max="100" value={form.passingPercentage} onChange={(e) => setForm({ ...form, passingPercentage: Number(e.target.value) })}
-                className="w-full rounded-xl border border-border bg-bg-secondary py-3 px-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-3 block">AI Provider</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia'].map((p) => {
-                const prov = providers.find((x) => x.name === p)
-                const configured = prov?.configured
-                return (
-                  <button type="button" key={p} onClick={() => setForm({ ...form, provider: p })}
-                    className={cn(
-                      'flex items-center gap-2 rounded-xl border px-3 py-3 text-sm transition-all duration-200',
-                      form.provider === p
-                        ? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/10'
-                        : 'border-border bg-bg-secondary text-text-secondary hover:border-border-light hover:bg-bg-tertiary',
-                      !configured && 'opacity-40'
-                    )}
-                    title={!configured ? `${p} API key not configured` : p}
-                  >
-                    <Brain className="h-4 w-4 shrink-0" />
-                    <span className="capitalize text-xs font-medium">{p}</span>
-                    {configured && <CheckCircle className="h-3 w-3 text-emerald-500 ml-auto shrink-0" />}
-                  </button>
-                )
-              })}
+                className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 px-3.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors" />
             </div>
           </div>
         </div>
-      </div>
 
-      {mutation.isError && (
-        <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-danger shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-danger">AI Generation Failed</p>
-            {mutation.error?.response?.data?.errors?.length > 0 ? (
-              <ul className="mt-1 text-sm text-text-secondary list-disc list-inside">
-                {mutation.error.response.data.errors.map((e, i) => (
-                  <li key={i}><span className="font-medium">{e.field}:</span> {e.message}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-text-secondary mt-1">
-                {mutation.error?.response?.data?.message || 'Could not generate assessment. Check your topic and try again.'}
-              </p>
-            )}
+        <div className="rounded-xl border border-border bg-bg-card p-5">
+          <label className="text-xs font-medium text-text-secondary mb-3 block">AI Provider</label>
+          <div className="flex flex-wrap gap-2">
+            {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia', 'bazaarlink'].map((p) => {
+              const prov = providers.find((x) => x.name === p)
+              const configured = prov?.configured
+              return (
+                <button type="button" key={p} onClick={() => setForm({ ...form, provider: p })}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all duration-150',
+                    form.provider === p
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border bg-bg-secondary text-text-secondary hover:border-border-light hover:text-text-primary',
+                    !configured && 'opacity-30'
+                  )}
+                  title={!configured ? `${p} API key not configured` : p}
+                >
+                  <span className="capitalize">{p}</span>
+                  {configured && <CheckCircle className="h-3 w-3 text-emerald-500" />}
+                </button>
+              )
+            })}
+          </div>
+          {!configuredProviders.length && (
+            <p className="text-[11px] text-text-tertiary mt-2.5">No AI providers configured yet. Add API keys in Settings.</p>
+          )}
+        </div>
+
+        {mutation.isError && (
+          <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-danger shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-danger">AI Generation Failed</p>
+              {mutation.error?.response?.data?.errors?.length > 0 ? (
+                <ul className="mt-1 text-sm text-text-secondary list-disc list-inside">
+                  {mutation.error.response.data.errors.map((e, i) => (
+                    <li key={i}><span className="font-medium">{e.field}:</span> {e.message}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-text-secondary mt-1">
+                  {mutation.error?.response?.data?.message || 'Could not generate assessment. Check your topic and try again.'}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </form>
+
+      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-[70]">
+        <div className="bg-bg-card/80 backdrop-blur-xl border-t border-border px-4 sm:px-6 py-3">
+          <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => navigate('/assessments')} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleSubmit} disabled={!form.topic || mutation.isPending} className="min-w-[180px] rounded-xl">
+              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {mutation.isPending ? 'Generating...' : 'Generate with AI'}
+            </Button>
           </div>
         </div>
-      )}
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={!form.topic || mutation.isPending} className="min-w-[180px]">
-          {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {mutation.isPending ? 'Generating...' : 'Generate with AI'}
-        </Button>
       </div>
-    </form>
+    </div>
   )
 }
 
@@ -756,7 +757,7 @@ export function ImportForm({ onSuccess, endpoint = '/ai/import-assessment' }) {
             <div>
               <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-3 block">AI Provider</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia'].map((p) => {
+                {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia', 'bazaarlink'].map((p) => {
                   const prov = providers.find((x) => x.name === p)
                   const configured = prov?.configured
                   return (

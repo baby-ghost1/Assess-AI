@@ -294,7 +294,7 @@ export default function AIQuizPage() {
                 <Brain className="h-4 w-4 text-primary" /> AI Model
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia'].map((p) => {
+                {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia', 'bazaarlink'].map((p) => {
                   const prov = providers.find((x) => x.name === p)
                   const configured = prov?.configured
                   const isSelected = form.provider === p

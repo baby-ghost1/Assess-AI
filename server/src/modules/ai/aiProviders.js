@@ -2,13 +2,13 @@
 // Each provider implements: generateQuestions(topic, config) => [{ title, description, questionType, difficulty, options, ... }]
 
 export const PROVIDER_CONFIGS = {
-  gemini: { apiKey: process.env.GEMINI_API_KEY, model: 'gemini-2.0-flash', baseUrl: 'https://generativelanguage.googleapis.com/v1beta' },
+  gemini: { apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.6-flash', baseUrl: 'https://generativelanguage.googleapis.com/v1beta' },
   gpt: { apiKey: process.env.OPENAI_API_KEY, model: 'gpt-4o', baseUrl: 'https://api.openai.com/v1' },
   claude: { apiKey: process.env.ANTHROPIC_API_KEY, model: 'claude-3-opus-20240229', baseUrl: 'https://api.anthropic.com/v1' },
   deepseek: { apiKey: process.env.DEEPSEEK_API_KEY, model: 'deepseek-chat', baseUrl: 'https://api.deepseek.com/v1' },
   openrouter: { apiKey: process.env.OPENROUTER_API_KEY, model: 'openai/gpt-4o', baseUrl: 'https://openrouter.ai/api/v1' },
   perplexity: { apiKey: process.env.PERPLEXITY_API_KEY, model: 'llama-3.1-sonar-large-128k-online', baseUrl: 'https://api.perplexity.ai' },
-  groq: { apiKey: process.env.GROQ_API_KEY, model: 'llama-3.3-70b-versatile', baseUrl: 'https://api.groq.com/openai/v1' },
+  groq: { apiKey: process.env.GROQ_API_KEY, model: 'llama-3.1-8b-instant', baseUrl: 'https://api.groq.com/openai/v1' },
   nvidia: { apiKey: process.env.NVIDIA_API_KEY, model: 'deepseek-ai/deepseek-v4-pro', baseUrl: 'https://integrate.api.nvidia.com/v1' },
   bazaarlink: { apiKey: process.env.BAZAARLINK_API_KEY, model: 'auto:free', baseUrl: 'https://api.bazaarlink.ai/v1' },
 }

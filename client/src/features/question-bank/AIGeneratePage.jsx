@@ -95,7 +95,7 @@ export default function AIGeneratePage() {
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1.5">AI Model</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia'].map((p) => {
+              {['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia', 'bazaarlink'].map((p) => {
                 const prov = providers.find((x) => x.name === p)
                 const configured = prov?.configured
                 return (
