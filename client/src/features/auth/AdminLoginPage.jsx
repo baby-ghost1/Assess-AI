@@ -28,15 +28,15 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
 
   return (
     <div>
-      <div className="group relative rounded-xl border border-border bg-bg-secondary transition-all duration-300 focus-within:border-danger/50 focus-within:shadow-[0_0_0_1px_rgba(239,68,68,0.3)]">
+      <div className="group relative rounded-xl border border-border bg-bg-secondary transition-all duration-300 focus-within:border-primary/50 focus-within:shadow-[0_0_0_1px_rgba(99,102,241,0.3)]">
         <div className="absolute left-3 top-1/2 -translate-y-1/2 z-20 pointer-events-none transition-all duration-300 group-focus-within:scale-110"
-          style={{ color: focused || hasValue ? '#EF4444' : '#71717A' }}>
+          style={{ color: focused || hasValue ? '#6366F1' : '#71717A' }}>
           <Icon className="h-4 w-4" />
         </div>
 
         <label className={`absolute z-10 pointer-events-none transition-all duration-200 ease-out ${
           isActive
-            ? 'text-[11px] left-3 -top-2.5 text-danger font-medium bg-bg-card px-1'
+            ? 'text-[11px] left-3 -top-2.5 text-primary-light font-medium bg-bg-card px-1'
             : 'text-sm left-10 top-1/2 -translate-y-1/2 text-text-tertiary'
         }`}>
           {label}
@@ -110,7 +110,7 @@ export default function AdminLoginPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 12 }}
-              className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-danger to-red-700 shadow-lg shadow-danger/20"
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-dark shadow-lg shadow-primary/25"
             >
               <Shield className="h-7 w-7 text-white" />
             </motion.div>
@@ -167,7 +167,7 @@ export default function AdminLoginPage() {
               <label className="flex items-center gap-2 cursor-pointer group/check">
                 <div className="relative">
                   <input type="checkbox" {...register('rememberMe')} className="peer sr-only" />
-                  <div className="h-4 w-4 rounded border border-border bg-bg-secondary peer-checked:bg-danger peer-checked:border-danger transition-all duration-200 flex items-center justify-center">
+                  <div className="h-4 w-4 rounded border border-border bg-bg-secondary peer-checked:bg-primary peer-checked:border-primary transition-all duration-200 flex items-center justify-center">
                     <svg className="h-3 w-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -182,7 +182,7 @@ export default function AdminLoginPage() {
               disabled={isLoading}
               whileTap={{ scale: 0.98 }}
               whileHover={{ scale: 1.01 }}
-              className="w-full rounded-xl bg-gradient-to-r from-danger to-red-700 px-4 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-danger/25 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-2 focus:ring-offset-bg-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+              className="w-full rounded-xl bg-gradient-to-r from-primary to-primary-dark px-4 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary/25 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-bg-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2">

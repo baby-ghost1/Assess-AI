@@ -41,7 +41,7 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
     <div className={`floating-input group relative ${touched && error ? 'shake' : ''}`}>
       <div
         className={`relative rounded-2xl border-2 bg-white/[0.03] backdrop-blur-sm transition-all duration-300 ${
-          error ? 'border-emerald-500/50' : focused ? 'border-emerald-500/60' : 'border-white/10'
+          error ? 'border-red-500/50' : focused ? 'border-emerald-500/60' : 'border-white/10'
         } ${focused ? 'shadow-lg shadow-emerald-500/10' : ''}`}
       >
         <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none transition-all duration-300" style={{ color: focused ? '#10B981' : 'rgba(255,255,255,0.3)' }}>
@@ -53,14 +53,14 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
             isActive
               ? 'text-[10px] left-4 -top-2.5 font-semibold tracking-wide uppercase px-2'
               : 'text-sm left-11 top-1/2 -translate-y-1/2'
-          } ${focused ? 'text-emerald-400' : error ? 'text-emerald-400' : 'text-white/40'}`}
+          } ${focused ? 'text-emerald-400' : error ? 'text-red-400' : 'text-white/40'}`}
         >
           {label}
         </label>
 
         <div className="relative overflow-hidden rounded-[14px]">
           <div
-            className={`absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 transition-all duration-500 ${focused ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 transition-all duration-500 ${focused ? 'opacity-100' : 'opacity-0'}`}
           />
           <input
             type={showToggle ? (showState ? 'text' : 'password') : type || 'text'}
@@ -85,8 +85,8 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
       </div>
       <div className="h-5 overflow-hidden pt-1">
         {error && (
-          <p className="text-xs text-emerald-400 flex items-center gap-1.5 animate-slideDown font-medium">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400/80 shrink-0 animate-pulse" />
+          <p className="text-xs text-red-400 flex items-center gap-1.5 animate-slideDown font-medium">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400/80 shrink-0 animate-pulse" />
             {error}
           </p>
         )}
@@ -96,45 +96,22 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
 }
 
 function PasswordStrength({ value }) {
-  const passed = value ? PASSWORD_RULES.filter((r) => r.test(value)).length : 0
+  if (!value) return null
+
+  const metRules = PASSWORD_RULES.filter((r) => r.test(value))
+
+  if (metRules.length === 0) return null
 
   return (
-    <div className="space-y-2.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-white/30 font-semibold uppercase tracking-[0.15em]">Strength</span>
-        <span className={`text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${
-          passed === 0 ? 'text-white/20' : passed === 1 ? 'text-red-400' : passed === 2 ? 'text-amber-400' : 'text-emerald-400'
-        }`}>
-          {passed === 0 ? 'None' : passed === 1 ? 'Weak' : passed === 2 ? 'Fair' : 'Strong'}
-        </span>
-      </div>
-      <div className="flex gap-1.5">
-        {PASSWORD_RULES.map((_, i) => (
-          <div key={i} className="h-1.5 flex-1 rounded-full bg-white/5 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
-                value && i < passed
-                  ? passed === 1 ? 'bg-red-500' : passed === 2 ? 'bg-amber-500' : 'bg-emerald-500'
-                  : ''
-              }`}
-              style={{ width: value && i < passed ? '100%' : '0%' }}
-            />
+    <div className="grid grid-cols-1 gap-1.5 pt-1">
+      {metRules.map((rule) => (
+        <div key={rule.label} className="flex items-center gap-2 animate-slideDown">
+          <div className="h-3.5 w-3.5 rounded-full flex items-center justify-center bg-emerald-500/20">
+            <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
           </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-1.5">
-        {PASSWORD_RULES.map((rule) => {
-          const checked = value && rule.test(value)
-          return (
-            <div key={rule.label} className="flex items-center gap-2">
-              <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center transition-all duration-300 ${checked ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
-                <CheckCircle className={`h-2.5 w-2.5 transition-all duration-300 ${checked ? 'text-emerald-400 scale-100' : 'text-white/20 scale-75'}`} />
-              </div>
-              <span className={`text-[10px] transition-colors duration-200 font-medium ${checked ? 'text-emerald-400' : 'text-white/25'}`}>{rule.label}</span>
-            </div>
-          )
-        })}
-      </div>
+          <span className="text-[10px] text-emerald-400 font-medium">{rule.label}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -146,8 +123,8 @@ function SubmitButton({ children, className = '', disabled, isLoading, ...props 
       className={`group relative overflow-hidden rounded-2xl font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${className}`}
       {...props}
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 rounded-2xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
+      <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400 opacity-95 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/60 via-emerald-400/60 to-emerald-500/60 rounded-2xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
       <div className="relative z-10 flex items-center justify-center gap-2 px-6 py-3.5">
         {isLoading ? (
           <div className="flex items-center gap-2.5">
@@ -186,8 +163,8 @@ function ParticleField() {
         y: Math.random() * canvas.height,
         vx: (Math.random() - 0.5) * 0.4,
         vy: (Math.random() - 0.5) * 0.4,
-        r: Math.random() * 1.8 + 0.5,
-        a: Math.random() * 0.25 + 0.05,
+        r: Math.random() * 2 + 0.7,
+        a: Math.random() * 0.4 + 0.15,
       })
     }
 
@@ -215,7 +192,7 @@ function ParticleField() {
             ctx.beginPath()
             ctx.moveTo(particles[i].x, particles[i].y)
             ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = `rgba(16, 185, 129, ${0.06 * (1 - dist / maxDist)})`
+            ctx.strokeStyle = `rgba(16, 185, 129, ${0.14 * (1 - dist / maxDist)})`
             ctx.stroke()
           }
         }
@@ -328,7 +305,7 @@ export default function RegisterPage() {
     return (
       <div className="relative min-h-screen bg-[#0A0A0F] flex items-center justify-center select-none px-4">
         <div className="w-full max-w-md text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 ring-1 ring-inset ring-white/10 mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-400/20 ring-1 ring-inset ring-white/10 mb-6">
             <CheckCircle className="h-8 w-8 text-emerald-400" />
           </div>
           <h2 className="text-2xl font-heading font-bold text-white/90 mb-2">Registration successful!</h2>
@@ -336,7 +313,7 @@ export default function RegisterPage() {
             An admin will review and approve your setter account before you can sign in.
           </p>
           <Link to="/login"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300">
+            className="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-emerald-400 hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300">
             Go to login
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -350,24 +327,24 @@ export default function RegisterPage() {
       <ParticleField />
 
       <div className="fixed inset-0 z-[1]">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/30 via-transparent to-teal-950/30" />
-        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-600/10 blur-[120px] animate-[float_8s_ease-in-out_infinite]" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-teal-600/10 blur-[120px] animate-[float_8s_ease-in-out_infinite_2s]" />
-        <div ref={glowRef} className="absolute w-[300px] h-[300px] rounded-full bg-emerald-500/8 blur-[100px] pointer-events-none" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-transparent to-emerald-950/50" />
+        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-500/20 blur-[120px] animate-[float_8s_ease-in-out_infinite]" />
+        <div className="absolute bottom-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-500/20 blur-[120px] animate-[float_8s_ease-in-out_infinite_2s]" />
+        <div ref={glowRef} className="absolute w-[300px] h-[300px] rounded-full bg-emerald-500/15 blur-[100px] pointer-events-none" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
       </div>
 
-      <div className="fixed inset-0 z-[1] opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(16,185,129,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.3) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+      <div className="fixed inset-0 z-[1] opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(rgba(16,185,129,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.4) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
 
-      <div className="fixed top-1/3 left-1/3 w-80 h-80 border border-emerald-500/10 rounded-full animate-[spin_25s_linear_infinite] pointer-events-none z-[1]" />
-      <div className="fixed bottom-1/3 right-1/3 w-56 h-56 border border-teal-500/10 rounded-full animate-[spin_15s_linear_infinite_reverse] pointer-events-none z-[1]" />
+      <div className="fixed top-1/3 left-1/3 w-80 h-80 border border-emerald-500/20 rounded-full animate-[spin_25s_linear_infinite] pointer-events-none z-[1]" />
+      <div className="fixed bottom-1/3 right-1/3 w-56 h-56 border border-emerald-500/20 rounded-full animate-[spin_15s_linear_infinite_reverse] pointer-events-none z-[1]" />
 
       <div ref={cardRef} className="relative z-10 w-full max-w-[420px] mx-4 my-8">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 shadow-2xl shadow-emerald-500/30 mb-5 animate-[float_4s_ease-in-out_infinite]">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-400 shadow-2xl shadow-emerald-500/25 mb-5 animate-[float_4s_ease-in-out_infinite]">
             <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-heading font-extrabold bg-gradient-to-r from-white via-emerald-200 to-teal-200 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-heading font-extrabold bg-gradient-to-r from-white via-emerald-200 to-emerald-400 bg-clip-text text-transparent">
             Get Started
           </h1>
           <p className="mt-2 text-sm text-white/40 font-medium tracking-wide">
@@ -377,9 +354,9 @@ export default function RegisterPage() {
 
         {/* Card */}
         <div className="relative rounded-3xl p-[1.5px] overflow-hidden">
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-500/40 via-teal-500/20 to-emerald-500/40 animate-[spin_4s_linear_infinite]" style={{ filter: 'blur(1px)' }} />
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-500/40 via-emerald-500/15 to-emerald-500/40 animate-[spin_4s_linear_infinite]" style={{ filter: 'blur(1px)' }} />
           <div className="absolute inset-[1.5px] rounded-3xl bg-[#0E0E16] overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
           </div>
           <div className="relative rounded-3xl bg-gradient-to-b from-[#12121D] to-[#0A0A0F] backdrop-blur-2xl p-8">
             <div className="mb-6">
@@ -465,7 +442,7 @@ export default function RegisterPage() {
             <div ref={socialRef} className="grid grid-cols-2 gap-3">
               <a href={`${API_BASE}/auth/google`}
                 className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-white/60 hover:text-white transition-all duration-300 hover:border-emerald-500/30 hover:bg-emerald-500/5 hover:shadow-lg hover:shadow-emerald-500/10">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/0 via-emerald-600/5 to-teal-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <span className="relative z-10 flex items-center justify-center gap-2.5">
                   <svg className="h-4 w-4" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -478,7 +455,7 @@ export default function RegisterPage() {
               </a>
               <a href={`${API_BASE}/auth/github`}
                 className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-white/60 hover:text-white transition-all duration-300 hover:border-emerald-500/30 hover:bg-emerald-500/5 hover:shadow-lg hover:shadow-emerald-500/10">
-                <div className="absolute inset-0 bg-gradient-to-r from-teal-600/0 via-teal-600/5 to-emerald-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <span className="relative z-10 flex items-center justify-center gap-2.5">
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -493,7 +470,7 @@ export default function RegisterPage() {
                 Already have an account?{' '}
                 <Link to="/login" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors relative group/link">
                   Sign in
-                  <span className="absolute -bottom-px left-0 right-0 h-px bg-gradient-to-r from-emerald-400 to-teal-400 scale-x-0 group-hover/link:scale-x-100 transition-transform duration-300 origin-left" />
+                  <span className="absolute -bottom-px left-0 right-0 h-px bg-gradient-to-r from-emerald-400 to-emerald-500 scale-x-0 group-hover/link:scale-x-100 transition-transform duration-300 origin-left" />
                 </Link>
               </p>
             </div>
