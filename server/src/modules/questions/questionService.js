@@ -2,6 +2,7 @@ import Question from './Question.js'
 import QuestionVersion from './QuestionVersion.js'
 import Assessment from '../assessments/Assessment.js'
 import Tag from '../tags/Tag.js'
+import User from '../users/User.js'
 import { NotFoundError, ForbiddenError, ValidationError } from '../../shared/errors/AppError.js'
 
 export async function createQuestion(data, userId) {
@@ -22,12 +23,13 @@ export async function createQuestion(data, userId) {
   return question.populate('tags createdBy', 'name email')
 }
 
-export async function getQuestionById(questionId) {
+export async function getQuestionById(questionId, requestingUser) {
   let question
   try {
     question = await Question.findById(questionId)
       .populate('tags', 'name color')
       .populate('createdBy updatedBy', 'name email')
+      .lean()
   } catch (err) {
     if (err.name === 'CastError') {
       throw new NotFoundError('Question')
@@ -35,10 +37,15 @@ export async function getQuestionById(questionId) {
     throw err
   }
   if (!question) throw new NotFoundError('Question')
+  if (requestingUser && requestingUser.role !== 'admin' &&
+      question.createdBy?._id?.toString() !== requestingUser._id.toString() &&
+      question.status !== 'approved') {
+    throw new NotFoundError('Question')
+  }
   return question
 }
 
-export async function listQuestions(filters) {
+export async function listQuestions(filters, requestingUser) {
   const query = {}
 
   if (filters.search) {
@@ -51,27 +58,50 @@ export async function listQuestions(filters) {
   if (filters.tags) query.tags = { $in: filters.tags.split(',') }
   if (filters.createdBy) query.createdBy = filters.createdBy
 
+  // Non-privileged users may never filter to unapproved questions (answer-key leak)
+  const isPrivileged = requestingUser && (requestingUser.role === 'admin' || requestingUser.role === 'setter')
+  if (!isPrivileged) {
+    query.status = 'approved'
+    delete filters.status
+  }
+
   if (filters.source) {
     query.source = filters.source
   } else {
     query.source = { $ne: 'ai_generated' }
   }
 
-  const nonPublishedAssessments = await Assessment.find({
-    status: { $nin: ['published'] },
-  }).select('sections.questions').lean()
+  const [hidden, publishedRecently, visible] = await Promise.all([
+    Assessment.distinct('sections.questions', { status: { $nin: ['published'] } }),
+    // Post-publish delay: hide questions from recently-published hiring assessments
+    Assessment.distinct('sections.questions', {
+      status: 'published',
+      publishedAt: { $exists: true, $ne: null },
+      accessMode: 'restricted',
+    }),
+    Assessment.distinct('sections.questions', {
+      status: 'published',
+      $or: [
+        { accessMode: { $ne: 'restricted' } },
+        { accessMode: 'restricted', publishedAt: { $lte: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) } },
+      ],
+    }),
+  ])
 
-  const hiddenQuestionIds = new Set()
-  for (const a of nonPublishedAssessments) {
-    for (const section of a.sections || []) {
-      for (const qId of section.questions || []) {
-        hiddenQuestionIds.add(qId.toString())
-      }
-    }
+  const hiddenQuestionIds = hidden
+  if (hiddenQuestionIds.length > 0) {
+    query._id = { $nin: hiddenQuestionIds }
   }
 
-  if (hiddenQuestionIds.size > 0) {
-    query._id = { $nin: [...hiddenQuestionIds] }
+  if (publishedRecently.length > 0) {
+    const visibleSet = new Set(visible.map((id) => String(id)))
+    const allHidden = new Set([
+      ...hiddenQuestionIds.map((id) => String(id)),
+      ...publishedRecently.filter((id) => !visibleSet.has(String(id))).map((id) => String(id)),
+    ])
+    if (allHidden.size > 0) {
+      query._id = { $nin: [...allHidden] }
+    }
   }
 
   const page = filters.page || 1
@@ -93,7 +123,8 @@ export async function listQuestions(filters) {
       .populate('createdBy', 'name email')
       .sort(sort)
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     Question.countDocuments(query),
   ])
 
@@ -103,6 +134,11 @@ export async function listQuestions(filters) {
 export async function updateQuestion(questionId, data, userId) {
   const question = await Question.findById(questionId)
   if (!question) throw new NotFoundError('Question')
+
+  const user = await User.findById(userId).lean()
+  if (user.role !== 'admin' && question.createdBy.toString() !== userId.toString()) {
+    throw new ForbiddenError('You can only edit your own questions')
+  }
 
   if (question.status === 'approved') {
     throw new ForbiddenError('Approved questions cannot be edited directly. Create a new version.')
@@ -150,6 +186,32 @@ export async function submitForReview(questionId, userId) {
     changes: 'Submitted for review',
     changedBy: userId,
   })
+
+  try {
+    const { getIO } = await import('../../config/socket.js')
+    getIO()?.to('role:admin').emit('question:pending_review', {
+      questionId: question._id,
+      title: question.title,
+      createdBy: question.createdBy,
+    })
+  } catch {
+    // socket layer unavailable
+  }
+  try {
+    const admins = await User.find({ role: 'admin', isActive: true }).select('_id')
+    const { createNotification } = await import('../notifications/notificationService.js')
+    await Promise.all(
+      admins.map((a) =>
+        createNotification(a._id, {
+          type: 'system',
+          title: 'New Question Pending Review',
+          message: `"${question.title || 'A question'}" was submitted for review.`,
+        })
+      )
+    )
+  } catch {
+    // notification failure should not block submit
+  }
 
   return question
 }
@@ -203,12 +265,48 @@ export async function reviewQuestion(questionId, { status, rejectionReason }, us
     changedBy: userId,
   })
 
+  if (question.createdBy && question.createdBy.toString() !== userId.toString()) {
+    try {
+      const { createNotification } = await import('../notifications/notificationService.js')
+      await createNotification(question.createdBy, {
+        type: status === 'approved' ? 'question_approved' : 'question_rejected',
+        title: status === 'approved' ? 'Question Approved' : 'Question Rejected',
+        message:
+          status === 'approved'
+            ? `Your question "${question.title || 'Untitled'}" has been approved.`
+            : rejectionReason
+              ? `Your question was rejected: ${rejectionReason}`
+              : `Your question "${question.title || 'Untitled'}" was rejected.`,
+      })
+    } catch {
+      // notification failure should not block review
+    }
+    try {
+      const { getIO } = await import('../../config/socket.js')
+      getIO()?.to(`user:${question.createdBy}`).emit('question:reviewed', {
+        questionId: question._id,
+        status,
+        rejectionReason: status === 'rejected' ? rejectionReason || '' : '',
+      })
+    } catch {
+      // socket layer unavailable
+    }
+  }
+
   return question
 }
 
-export async function getQuestionVersions(questionId) {
+export async function getQuestionVersions(questionId, requestingUser) {
+  if (requestingUser && requestingUser.role !== 'admin') {
+    const question = await Question.findById(questionId).select('createdBy').lean()
+    if (!question) throw new NotFoundError('Question')
+    if (question.createdBy.toString() !== requestingUser._id.toString()) {
+      throw new ForbiddenError('You can only view versions of your own questions')
+    }
+  }
   const versions = await QuestionVersion.find({ question: questionId })
     .sort({ version: -1 })
     .populate('changedBy', 'name email')
+    .lean()
   return versions
 }

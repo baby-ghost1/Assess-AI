@@ -1,6 +1,9 @@
 import Assessment from '../assessments/Assessment.js'
 import Attempt from '../assessments/Attempt.js'
 import Question from '../questions/Question.js'
+import { getCache, setCache, delCache } from '../../utils/cacheHelper.js'
+
+const DASHBOARD_TTL = 180
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -76,9 +79,14 @@ function getWeakAreas(typeDistribution, typeScores) {
 }
 
 export async function getCandidateDashboard(userId) {
+  const cacheKey = `dashboard:candidate:${userId}`
+  const cached = await getCache(cacheKey)
+  if (cached) return cached
+
   const attempts = await Attempt.find({ user: userId })
     .populate('assessment', 'title assessmentType difficulty passingPercentage')
     .sort({ createdAt: -1 })
+    .lean()
 
   const totalAttempts = attempts.length
   const completed = attempts.filter((a) => a.status === 'completed')
@@ -139,14 +147,14 @@ export async function getCandidateDashboard(userId) {
     return d >= weekStart
   }).length }
 
-  const allAssessments = await Assessment.find({ status: 'published' }).select('title assessmentType difficulty').limit(20)
+  const allAssessments = await Assessment.find({ status: 'published' }).select('title assessmentType difficulty').limit(20).lean()
   const attemptedIds = new Set(attempts.map((a) => a.assessment?._id?.toString()))
   const recommended = allAssessments
     .filter((a) => !attemptedIds.has(a._id.toString()))
     .slice(0, 3)
     .map((a) => ({ id: a._id, title: a.title, type: a.assessmentType, difficulty: a.difficulty }))
 
-  return {
+  const result = {
     greeting: getGreeting(),
     totalAttempts,
     completed: completed.length,
@@ -165,6 +173,9 @@ export async function getCandidateDashboard(userId) {
     weeklyGoal,
     recommended,
   }
+
+  await setCache(cacheKey, result, DASHBOARD_TTL)
+  return result
 }
 
 export async function getSetterDashboard(userId) {
@@ -186,7 +197,7 @@ export async function getSetterDashboard(userId) {
 
   if (assessmentIds.length > 0) {
     const attemptStats = await Attempt.aggregate([
-      { $match: { assessment: { $in: assessmentIds }, status: 'completed' } },
+      { $match: { assessment: { $in: assessmentIds }, status: { $in: ['completed', 'auto_submitted', 'timed_out'] } } },
       { $group: { _id: null, total: { $sum: 1 }, avgSum: { $sum: '$percentage' }, count: { $sum: 1 } } },
     ])
     if (attemptStats.length > 0) {
@@ -215,4 +226,10 @@ export async function getSetterDashboard(userId) {
     pendingApprovals: pendingQuestions,
     recentAssessments,
   }
+}
+
+// ─── Cache Invalidation ──────────────────────────────────
+
+export async function invalidateDashboardCache(userId) {
+  await delCache(`dashboard:candidate:${userId}`)
 }

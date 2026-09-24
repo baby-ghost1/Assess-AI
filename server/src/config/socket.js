@@ -2,14 +2,35 @@ import { Server } from 'socket.io'
 import { config } from './index.js'
 import { logger } from './logger.js'
 import * as proctoringService from '../modules/proctoring/proctoringService.js'
+import * as assessmentService from '../modules/assessments/assessmentService.js'
 import Attempt from '../modules/assessments/Attempt.js'
+import User from '../modules/users/User.js'
 
 let io = null
+const userSockets = new Map() // userId -> Set<socketId>
+
+export function getIO() {
+  return io
+}
+
+export function disconnectUserSockets(userId) {
+  const key = String(userId)
+  const sockets = userSockets.get(key)
+  if (!sockets) return
+  if (io) {
+    for (const sid of sockets) {
+      const s = io.sockets.sockets.get(sid)
+      if (s) s.disconnect(true)
+    }
+  }
+  userSockets.delete(key)
+}
 
 export function setupSocket(httpServer) {
+  const allowedOrigins = (config.clientUrl || '').split(',').map((s) => s.trim()).filter(Boolean)
   io = new Server(httpServer, {
     cors: {
-      origin: config.clientUrl,
+      origin: allowedOrigins.length > 0 ? allowedOrigins : true,
       credentials: true,
     },
     pingTimeout: 60000,
@@ -22,7 +43,14 @@ export function setupSocket(httpServer) {
     try {
       const jwt = await import('jsonwebtoken')
       const decoded = jwt.default.verify(token, config.jwt.accessSecret)
-      socket.userId = decoded.userId
+      socket.userId = String(decoded.userId)
+
+      // Reject deactivated users at connection time; load role for room targeting
+      const user = await User.findById(decoded.userId).select('isActive role')
+      if (!user || !user.isActive) {
+        return next(new Error('Account is deactivated'))
+      }
+      socket.role = user.role
       next()
     } catch {
       next(new Error('Invalid token'))
@@ -30,15 +58,26 @@ export function setupSocket(httpServer) {
   })
 
   io.on('connection', (socket) => {
-    logger.debug(`Proctoring client connected: ${socket.userId}`)
+    logger.debug(`Client connected: ${socket.userId} (${socket.role})`)
 
-    socket.on('proctoring:join', async ({ attemptId }) => {
+    const userKey = String(socket.userId)
+    if (!userSockets.has(userKey)) userSockets.set(userKey, new Set())
+    userSockets.get(userKey).add(socket.id)
+    socket.join(`user:${userKey}`)
+    if (socket.role) socket.join(`role:${socket.role}`)
+
+    socket.on('proctoring:join', async ({ attemptId } = {}) => {
       if (!attemptId) return
-      const attempt = await Attempt.findById(attemptId).select('user')
-      if (!attempt || attempt.user.toString() !== socket.userId) return
-      socket.join(`attempt:${attemptId}`)
-      socket.currentAttemptId = attemptId
-      logger.debug(`User ${socket.userId} joined attempt ${attemptId}`)
+      try {
+        const attempt = await Attempt.findById(attemptId).select('user assessment status')
+        if (!attempt || attempt.user.toString() !== socket.userId) return
+        socket.join(`attempt:${attemptId}`)
+        if (attempt.assessment) socket.join(`assessment:${attempt.assessment}`)
+        socket.currentAttemptId = attemptId
+        logger.debug(`User ${socket.userId} joined attempt ${attemptId}`)
+      } catch (error) {
+        logger.error('proctoring:join error:', error)
+      }
     })
 
     socket.on('proctoring:leave', () => {
@@ -54,7 +93,13 @@ export function setupSocket(httpServer) {
         if (!attemptId || !type) return
 
         const attempt = await Attempt.findById(attemptId).populate('assessment')
-        if (!attempt || attempt.user.toString() !== socket.userId) return
+        if (!attempt || String(attempt.user) !== socket.userId) return
+
+        // Only log against live attempts
+        if (attempt.status !== 'in_progress') return
+
+        // Per-assessment proctoring requirement (global enable handled in logViolation)
+        if (!attempt.assessment?.proctoringRequired) return
 
         const result = await proctoringService.logViolation({
           attemptId,
@@ -65,6 +110,8 @@ export function setupSocket(httpServer) {
           metadata,
         })
 
+        if (result.dropped) return
+
         io.to(`attempt:${attemptId}`).emit('proctoring:violation-logged', {
           type,
           severity: result.violation.severity,
@@ -74,6 +121,12 @@ export function setupSocket(httpServer) {
         })
 
         if (result.shouldAutoSubmit) {
+          // Server-authoritative auto-submit: finalize first, then notify client
+          try {
+            await assessmentService.finishAttempt(attemptId, socket.userId, 'auto_submit')
+          } catch (finishErr) {
+            logger.error('Auto-submit finish failed:', finishErr)
+          }
           io.to(`attempt:${attemptId}`).emit('proctoring:auto-submit', {
             reason: `Exceeded ${type} violation limit`,
             violations: result.totalCount,
@@ -84,13 +137,12 @@ export function setupSocket(httpServer) {
       }
     })
 
-    socket.on('proctoring:frame', async (data) => {
-      // Face detection frame - could be processed server-side
-      // For now, we just acknowledge receipt
-      socket.emit('proctoring:frame-ack', { received: true })
-    })
-
     socket.on('disconnect', () => {
+      const set = userSockets.get(String(socket.userId))
+      if (set) {
+        set.delete(socket.id)
+        if (set.size === 0) userSockets.delete(String(socket.userId))
+      }
       logger.debug(`Proctoring client disconnected: ${socket.userId}`)
     })
   })

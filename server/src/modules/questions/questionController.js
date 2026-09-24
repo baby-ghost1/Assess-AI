@@ -9,14 +9,14 @@ export async function createQuestion(req, res, next) {
 
 export async function getQuestion(req, res, next) {
   try {
-    const question = await questionService.getQuestionById(req.params.id)
+    const question = await questionService.getQuestionById(req.params.id, req.user)
     res.status(200).json({ success: true, data: question, message: 'Question fetched', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
 export async function listQuestions(req, res, next) {
   try {
-    const result = await questionService.listQuestions(req.query)
+    const result = await questionService.listQuestions(req.query, req.user)
     res.status(200).json({ success: true, data: result.questions, message: 'Questions fetched', errors: null, meta: { page: result.page, limit: result.limit, total: result.total, pages: result.pages } })
   } catch (error) { next(error) }
 }
@@ -58,7 +58,7 @@ export async function reviewQuestion(req, res, next) {
 
 export async function getVersions(req, res, next) {
   try {
-    const versions = await questionService.getQuestionVersions(req.params.id)
+    const versions = await questionService.getQuestionVersions(req.params.id, req.user)
     res.status(200).json({ success: true, data: versions, message: 'Versions fetched', errors: null, meta: null })
   } catch (error) { next(error) }
 }

@@ -23,6 +23,7 @@ export const config = {
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
   clientUrl: (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, ''),
+  backendUrl: (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, ''),
   admin: {
     email: requireEnv('ADMIN_EMAIL', 'admin@assessai.com'),
     password: requireEnv('ADMIN_PASSWORD', process.env.NODE_ENV === 'production' ? undefined : 'Admin@123456'),

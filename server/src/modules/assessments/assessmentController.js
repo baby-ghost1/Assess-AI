@@ -9,14 +9,14 @@ export async function createAssessment(req, res, next) {
 
 export async function getAssessment(req, res, next) {
   try {
-    const assessment = await assessmentService.getAssessmentById(req.params.id)
+    const assessment = await assessmentService.getAssessmentById(req.params.id, req.user)
     res.status(200).json({ success: true, data: assessment, message: 'Assessment fetched', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
 export async function listAssessments(req, res, next) {
   try {
-    const result = await assessmentService.listAssessments(req.query)
+    const result = await assessmentService.listAssessments(req.query, req.user)
     res.status(200).json({ success: true, data: result.assessments, message: 'Assessments fetched', errors: null, meta: { page: result.page, limit: result.limit, total: result.total, pages: result.pages } })
   } catch (error) { next(error) }
 }
@@ -44,6 +44,43 @@ export async function startAttempt(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function getActiveAttempt(req, res, next) {
+  try {
+    const result = await assessmentService.getActiveAttempt(req.params.assessmentId, req.user._id)
+    res.status(200).json({ success: true, data: result, message: 'Active attempt fetched', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function startRestrictedAttempt(req, res, next) {
+  try {
+    const { assessmentId, candidateEmail, password } = req.validatedBody
+    const meta = { ip: req.ip, userAgent: req.headers['user-agent'] }
+    const result = await assessmentService.startRestrictedAttempt(assessmentId, candidateEmail, password, meta)
+    res.status(201).json({ success: true, data: result, message: 'Attempt started', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function getRestrictedAssessmentResults(req, res, next) {
+  try {
+    const result = await assessmentService.getRestrictedAssessmentResults(req.params.id, req.user._id)
+    res.status(200).json({ success: true, data: result, message: 'Restricted assessment results fetched', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function releaseAssessmentResults(req, res, next) {
+  try {
+    const assessment = await assessmentService.releaseAssessmentResults(req.params.id, req.user._id)
+    res.status(200).json({ success: true, data: assessment, message: 'Results released', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function grantRetake(req, res, next) {
+  try {
+    const assessment = await assessmentService.grantRetake(req.params.id, req.user._id, req.validatedBody?.userId)
+    res.status(200).json({ success: true, data: assessment, message: 'Retake granted', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
 export async function submitAnswer(req, res, next) {
   try {
     const submission = await assessmentService.submitAnswer(req.params.attemptId, req.validatedBody.questionId, req.validatedBody, req.user._id)
@@ -60,7 +97,8 @@ export async function navigateQuestion(req, res, next) {
 
 export async function finishAttempt(req, res, next) {
   try {
-    const attempt = await assessmentService.finishAttempt(req.params.attemptId, req.user._id)
+    const reason = req.validatedBody?.reason || 'manual'
+    const attempt = await assessmentService.finishAttempt(req.params.attemptId, req.user._id, reason)
     res.status(200).json({ success: true, data: attempt, message: 'Attempt completed', errors: null, meta: null })
   } catch (error) { next(error) }
 }

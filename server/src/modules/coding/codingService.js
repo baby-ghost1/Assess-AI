@@ -1,12 +1,13 @@
 import { executeRemote } from './remoteExecutor.js'
+import { logger } from '../../config/logger.js'
 
 const JUDGE0_ENABLED = process.env.JUDGE0_ENABLED !== 'false'
 
 export function detectLanguages() {
   if (JUDGE0_ENABLED) {
-    console.log('Remote execution via Judge0 CE enabled (all languages available)')
+    logger.info('Remote execution via Judge0 CE enabled (all languages available)')
   } else {
-    console.log('Remote execution disabled')
+    logger.info('Remote execution disabled')
   }
 }
 
@@ -447,6 +448,7 @@ async function runSingleTestCase(code, language, testCase, harness) {
       actual,
       passed: actual === expected,
       description: testCase.description || '',
+      hidden: testCase.isHidden === true,
       executionTime: result.executionTime || 0,
       memoryUsed: result.memoryUsed || 0,
     }
@@ -457,6 +459,7 @@ async function runSingleTestCase(code, language, testCase, harness) {
       actual: err.message || 'Execution error',
       passed: false,
       description: testCase.description || '',
+      hidden: testCase.isHidden === true,
       error: err.message,
       executionTime: 0,
       memoryUsed: 0,

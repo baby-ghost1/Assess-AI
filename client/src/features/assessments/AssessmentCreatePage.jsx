@@ -5,9 +5,9 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import {
-  ArrowLeft, Save, Plus, Trash2, AlertCircle, X, Send, Sparkles, Upload, FileText,
+  ArrowLeft, Save, Plus, Trash2, AlertCircle, X, Sparkles, Upload, FileText,
   Loader2, Brain, CheckCircle, MessageSquare, GripVertical, Settings2, Layers,
-  FileUp, Wand2, ChevronDown, Pen, Info, BookOpen,
+  FileUp, ChevronDown, Pen, Info, BookOpen,
 } from 'lucide-react'
 
 const ACCEPTED_TYPES = '.csv,.json,.xlsx,.xls,.pdf,.docx,.txt'
@@ -623,7 +623,6 @@ export function ImportForm({ onSuccess, endpoint = '/ai/import-assessment' }) {
   const [dragOver, setDragOver] = useState(false)
   const [provider, setProvider] = useState('groq')
   const [chatMessages, setChatMessages] = useState([])
-  const [chatInput, setChatInput] = useState('')
   const chatEndRef = useRef(null)
 
   const { data: providersData } = useQuery({
@@ -673,14 +672,6 @@ export function ImportForm({ onSuccess, endpoint = '/ai/import-assessment' }) {
     fd.append('file', file)
     fd.append('provider', provider)
     mutation.mutate(fd)
-  }
-
-  const handleChatSubmit = (e) => {
-    e.preventDefault()
-    if (!chatInput.trim()) return
-    setChatMessages((prev) => [...prev, { role: 'user', text: chatInput }])
-    setChatMessages((prev) => [...prev, { role: 'system', text: 'This feature is coming soon. For now, the file has been processed and questions have been generated. Go to the Assessments tab to review and submit.' }])
-    setChatInput('')
   }
 
   return (
@@ -909,6 +900,7 @@ function AssessmentSettings({ form, setForm, editStatus }) {
             ['shuffleQuestions', 'Shuffle Questions', 'Randomize question order for each attempt'],
             ['showResultImmediately', 'Show Results Immediately', 'Display score right after submission'],
             ['showCorrectAnswers', 'Show Correct Answers', 'Reveal correct answers in results'],
+            ['proctoringRequired', 'Proctoring Required', 'Enable webcam monitoring and violation detection during this assessment'],
           ].map(([key, label, desc]) => (
             <div key={key} className="flex items-center justify-between py-2.5 px-1">
               <div className="flex-1 min-w-0">
@@ -935,6 +927,77 @@ function AssessmentSettings({ form, setForm, editStatus }) {
             </div>
           </div>
         </div>
+
+        {/* Restricted Access / Hiring Mode */}
+        <div className="space-y-3 pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between py-2.5 px-1">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-text-primary font-medium">Restricted Access (Hiring Mode)</p>
+              <p className="text-[11px] text-text-tertiary">Only specific candidates can attempt. No results shown to them.</p>
+            </div>
+            <Toggle checked={form.accessMode === 'restricted'} onChange={(v) => setForm({ ...form, accessMode: v ? 'restricted' : 'open', candidateList: v ? form.candidateList : [], sharedPassword: v ? form.sharedPassword : '' })} disabled={disabled} />
+          </div>
+
+          {form.accessMode === 'restricted' && (
+            <div className="space-y-4 pb-2">
+              <div>
+                <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-1.5 block">Shared Password</label>
+                <input type="text" value={form.sharedPassword} onChange={(e) => setForm({ ...form, sharedPassword: e.target.value })} disabled={disabled}
+                  className="w-full rounded-xl border border-border bg-bg-secondary py-2.5 px-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-text-tertiary disabled:opacity-50 transition-all"
+                  placeholder="All candidates will use this password" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Candidate List</label>
+                  <span className="text-[11px] text-text-tertiary">{form.candidateList.length} added</span>
+                </div>
+                <div className="space-y-2">
+                  {form.candidateList.map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input type="text" value={c.name} onChange={(e) => {
+                        const list = [...form.candidateList]; list[i] = { ...list[i], name: e.target.value }; setForm({ ...form, candidateList: list })
+                      }} disabled={disabled} placeholder="Name"
+                        className="flex-1 rounded-lg border border-border bg-bg-secondary py-2 px-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-text-tertiary disabled:opacity-50 transition-all" />
+                      <input type="email" value={c.email} onChange={(e) => {
+                        const list = [...form.candidateList]; list[i] = { ...list[i], email: e.target.value }; setForm({ ...form, candidateList: list })
+                      }} disabled={disabled} placeholder="Email"
+                        className="flex-[2] rounded-lg border border-border bg-bg-secondary py-2 px-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-text-tertiary disabled:opacity-50 transition-all" />
+                      <button type="button" onClick={() => {
+                        const list = form.candidateList.filter((_, j) => j !== i); setForm({ ...form, candidateList: list })
+                      }} disabled={disabled} className="rounded-lg p-2 text-text-tertiary hover:text-danger hover:bg-danger/10 disabled:opacity-40 transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button type="button" onClick={() => setForm({ ...form, candidateList: [...form.candidateList, { name: '', email: '' }] })} disabled={disabled}
+                    className="rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-text-secondary hover:bg-bg-tertiary hover:border-primary/30 disabled:opacity-40 transition-all">
+                    + Add Candidate
+                  </button>
+                  <label className="rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-text-secondary hover:bg-bg-tertiary hover:border-primary/30 cursor-pointer transition-all">
+                    Import CSV
+                    <input type="file" accept=".csv" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0]; if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const lines = ev.target.result.split('\n').filter(Boolean)
+                        const newCandidates = lines.map((line) => {
+                          const [email, name] = line.split(',').map((s) => s.trim())
+                          return { email: email || '', name: name || '' }
+                        }).filter((c) => c.email)
+                        setForm({ ...form, candidateList: [...form.candidateList, ...newCandidates] })
+                      }
+                      reader.readAsText(file)
+                      e.target.value = ''
+                    }} />
+                  </label>
+                </div>
+                <p className="text-[10px] text-text-tertiary/60 mt-1.5">CSV format: email,name (one per line)</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -957,10 +1020,31 @@ export default function AssessmentCreatePage() {
     showResultImmediately: true, showCorrectAnswers: true,
     negativeMarking: false, negativeMarkingValue: 0,
     partialMarking: false, proctoringRequired: false,
+    accessMode: 'open', candidateList: [], sharedPassword: '',
     sections: [{ title: 'Section 1', description: '', questions: [], inlineQuestions: [] }],
   }
 
   const [form, setForm] = useState(defaultForm)
+
+  // Seed create-form defaults from admin settings (only once, before user edits)
+  const defaultsSeededRef = useRef(false)
+  const { data: defaultsData } = useQuery({
+    queryKey: ['assessment-defaults'],
+    queryFn: () => api.get('/assessments/defaults').then((r) => r.data),
+    enabled: !isEdit,
+  })
+
+  useEffect(() => {
+    if (isEdit || defaultsSeededRef.current || !defaultsData?.data) return
+    defaultsSeededRef.current = true
+    const d = defaultsData.data
+    setForm((prev) => ({
+      ...prev,
+      timeLimit: d.timeLimit ? String(Math.round(d.timeLimit / 60)) : '',
+      passingPercentage: d.passingPercentage ?? prev.passingPercentage,
+      maxAttempts: d.maxAttempts ?? prev.maxAttempts,
+    }))
+  }, [defaultsData, isEdit])
 
   const { data: editData, isLoading: editLoading } = useQuery({
     queryKey: ['assessment', id],
@@ -987,6 +1071,9 @@ export default function AssessmentCreatePage() {
         negativeMarkingValue: a.negativeMarkingValue ?? 0,
         partialMarking: a.partialMarking ?? false,
         proctoringRequired: a.proctoringRequired ?? false,
+        accessMode: a.accessMode ?? 'open',
+        candidateList: a.candidateList ?? [],
+        sharedPassword: a.sharedPassword ?? '',
         sections: a.sections?.length > 0
           ? a.sections.map((s) => ({
               title: s.title || '',

@@ -1,11 +1,12 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, X, Music } from 'lucide-react'
+import { LayoutDashboard, Brain, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, ChevronRight, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, X, Music, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/shared'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import useLogout from '@/hooks/useLogout'
 import { useState, useEffect, useRef } from 'react'
-import { useAppDispatch, useAppSelector } from '@/hooks'
+import { useAppSelector } from '@/hooks'
 import { useQuery } from '@tanstack/react-query'
-import { logout } from '@/features/auth/authSlice'
 import api from '@/lib/api'
 
 const sidebarConfig = {
@@ -15,6 +16,7 @@ const sidebarConfig = {
     ]},
     { section: 'Reviews', items: [
       { to: '/admin/reviews', icon: ClipboardCheck, label: 'Review Queue' },
+      { to: '/proctoring', icon: Camera, label: 'Proctoring' },
     ]},
     { section: 'Manage', items: [
       { to: '/assessments', icon: Brain, label: 'Assessments' },
@@ -86,7 +88,7 @@ function getActiveLabel(pathname, sections) {
 
 export default function Sidebar({ mobileOpen, onMobileClose }) {
   const [collapsed, setCollapsed] = useState(false)
-  const dispatch = useAppDispatch()
+  const { showConfirm, requestLogout, confirmLogout, cancelLogout } = useLogout()
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAppSelector((s) => s.auth.user)
@@ -142,6 +144,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', collapsed ? '64px' : '200px')
+  }, [collapsed])
+
   const lastPathRef = useRef(location.pathname)
 
   useEffect(() => {
@@ -154,7 +160,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
   const sidebarContent = (
     <aside className={cn(
       'relative flex flex-col transition-all duration-300 ease-in-out overflow-hidden h-full',
-      collapsed ? 'w-[72px]' : 'w-[220px]'
+      collapsed ? 'w-[64px]' : 'w-[200px]'
     )}
       style={{
         background: 'linear-gradient(180deg, var(--color-bg-secondary) 0%, color-mix(in srgb, var(--color-bg-secondary) 95%, var(--color-primary)) 100%)'
@@ -168,7 +174,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
         {!collapsed && (
           <div className="flex flex-col overflow-hidden">
             <BrandLogo className="text-lg leading-tight" />
-            <span className="text-[9px] text-text-tertiary leading-tight capitalize">{role}</span>
+            <span className={cn(
+              'text-[9px] font-bold uppercase tracking-wider leading-tight w-fit px-1.5 py-0.5 rounded-md mt-0.5',
+              role === 'admin' ? 'bg-danger/10 text-danger' :
+              role === 'setter' ? 'bg-violet-500/10 text-violet-400' :
+              'bg-primary/10 text-primary'
+            )}>{role}</span>
           </div>
         )}
       </div>
@@ -181,7 +192,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto py-2 px-2 scrollbar-hide">
         {sections.map((section, si) => (
           <div key={section.section} className={cn(si > 0 && 'mt-3')}>
             {!collapsed && (
@@ -247,47 +258,65 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
       </nav>
 
       {/* Bottom section */}
-      <div className="border-t border-border p-2 space-y-1 shrink-0">
-        {/* User card */}
+      <div className="mt-auto border-t border-border p-2 space-y-1 shrink-0">
+        {/* User + Logout card */}
         {!collapsed ? (
-          <div className="flex items-center gap-2.5 rounded-lg px-3 py-2 hover:bg-bg-tertiary/50 transition-colors cursor-pointer" onClick={() => navigate('/profile')}>
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0 ring-1 ring-primary/20">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-medium text-text-primary truncate leading-tight">{user?.name || 'User'}</span>
-              <span className="text-[10px] text-text-tertiary truncate leading-tight">{user?.email || ''}</span>
-            </div>
+          <div className="flex items-center gap-2 rounded-xl bg-bg-tertiary/40 border border-border/50 px-2.5 py-2">
+            <button onClick={() => navigate('/profile')} className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer">
+              <div className="relative shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-primary text-xs font-bold ring-2 ring-primary/20">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success border-2 border-bg-tertiary/40" />
+              </div>
+              <div className="flex flex-col min-w-0 text-left">
+                <span className="text-xs font-semibold text-text-primary truncate leading-tight">{user?.name || 'User'}</span>
+                <span className="text-[10px] text-text-tertiary truncate leading-tight">{user?.email || ''}</span>
+              </div>
+            </button>
+            <button onClick={requestLogout}
+              className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-danger hover:bg-danger/10 transition-all duration-200"
+              title="Logout">
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
           </div>
         ) : (
           <TooltipWrapper label={user?.name || 'User'} collapsed={collapsed}>
-            <button onClick={() => navigate('/profile')} className="flex w-full justify-center py-1.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold ring-1 ring-primary/20">
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            <button onClick={() => navigate('/profile')} className="flex w-full justify-center py-2">
+              <div className="relative">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-primary text-xs font-bold ring-2 ring-primary/20 hover:ring-primary/40 transition-all">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success border-[1.5px] border-bg-secondary" />
               </div>
             </button>
           </TooltipWrapper>
         )}
 
-        {/* Logout */}
-        <TooltipWrapper label="Logout" collapsed={collapsed}>
-          <button onClick={() => { dispatch(logout()); navigate('/login') }}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-danger/10 hover:text-danger transition-all duration-200',
-              collapsed && 'justify-center px-0'
-            )}>
-            <LogOut className="h-4.5 w-4.5 shrink-0" />
-            {!collapsed && <span>Logout</span>}
-          </button>
-        </TooltipWrapper>
-
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(!collapsed)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary transition-all duration-200">
-          <ChevronLeft className={cn('h-4 w-4 transition-transform duration-300', collapsed && 'rotate-180')} />
-          {!collapsed && <span className="text-xs">Collapse</span>}
+          className="flex w-full items-center justify-center gap-2 rounded-lg py-1.5 text-text-tertiary/40 hover:text-text-tertiary hover:bg-bg-tertiary/30 transition-all duration-200">
+          {collapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
+          ) : (
+            <>
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-medium tracking-wide">Collapse</span>
+            </>
+          )}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Sign out?"
+        message="You're about to sign out of your account. Any playing music will stop."
+        confirmLabel="Sign out"
+        cancelLabel="Stay"
+        variant="warning"
+        onConfirm={confirmLogout}
+        onCancel={cancelLogout}
+      />
     </aside>
   )
 
@@ -302,7 +331,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-[60] md:hidden">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onMobileClose} />
-          <div className="relative h-full w-[220px] flex">
+          <div className="relative h-full w-[min(200px,85vw)] flex">
             {sidebarContent}
             <button
               onClick={onMobileClose}

@@ -12,6 +12,19 @@ export const authLimiter = rateLimit({
   skipSuccessfulRequests: false,
 })
 
+// Restricted assessment entry is protected by a shared password but a class may
+// share one IP, so only FAILED password guesses are counted (successful entries
+// bust the counter). Prevents brute-forcing the shared password without locking
+// out a room of legitimate candidates behind a NAT.
+export const restrictedStartLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: dev ? 300 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many incorrect attempts. Try again later.' },
+  skipSuccessfulRequests: true,
+})
+
 export const codeRunLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: dev ? 30 : 5,

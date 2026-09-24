@@ -137,6 +137,12 @@ body {
   animation: orb-float-3 18s ease-in-out infinite;
 }
 
+@media (max-width: 768px) {
+  .orb-1 { width: 300px; height: 300px; top: -100px; right: -50px; }
+  .orb-2 { width: 200px; height: 200px; bottom: -50px; left: -50px; }
+  .orb-3 { width: 150px; height: 150px; }
+}
+
 @keyframes orb-float-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(-60px, 80px) scale(1.1); }
@@ -260,6 +266,36 @@ body {
   animation: pulse-ring 2s ease-in-out infinite;
 }
 
+/* ── GPU Acceleration for Music Animations ── */
+.vinyl-spin,
+.vinyl-spin-slow {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.eq-bar-1, .eq-bar-2, .eq-bar-3, .eq-bar-4, .eq-bar-5 {
+  will-change: height;
+  transform: translateZ(0);
+}
+
+.float-particle {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.music-bg-active {
+  will-change: filter;
+}
+
+.pulse-ring {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.track-enter {
+  will-change: transform, opacity;
+}
+
 @keyframes waveform {
   0% { transform: scaleY(0.3); }
   50% { transform: scaleY(1); }
@@ -358,4 +394,13 @@ body {
 @keyframes typing-dot-bounce {
   0%, 60%, 100% { transform: translateY(0); }
   30% { transform: translateY(-40%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

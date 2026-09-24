@@ -13,7 +13,9 @@ import CodingProgress from '../coding/CodingProgress.js'
 import CodingComment from '../coding/CodingComment.js'
 import CodingBookmark from '../coding/CodingBookmark.js'
 import { createNotification } from '../notifications/notificationService.js'
-import { NotFoundError, ValidationError } from '../../shared/errors/AppError.js'
+import { NotFoundError, ValidationError, ForbiddenError } from '../../shared/errors/AppError.js'
+import { DEFAULT_SETTINGS } from '../settings/settingsService.js'
+import { logger } from '../../config/logger.js'
 
 // ─── User Management ────────────────────────────────────
 
@@ -46,13 +48,13 @@ export async function listUsers(filters) {
 
 export async function getUserById(userId) {
   const user = await User.findById(userId).select('-password -refreshToken')
-  if (!user) throw new NotFoundError('User not found')
+  if (!user) throw new NotFoundError('User')
   return user
 }
 
 export async function updateUser(userId, data) {
   const existingUser = await User.findById(userId)
-  if (!existingUser) throw new NotFoundError('User not found')
+  if (!existingUser) throw new NotFoundError('User')
 
   const updates = {}
   if (data.name) updates.name = data.name
@@ -63,7 +65,7 @@ export async function updateUser(userId, data) {
   if (data.avatar) updates.avatar = data.avatar
 
   const user = await User.findByIdAndUpdate(userId, { $set: updates }, { new: true, runValidators: true }).select('-password -refreshToken')
-  if (!user) throw new NotFoundError('User not found')
+  if (!user) throw new NotFoundError('User')
 
   if (data.role && data.role !== existingUser.role) {
     await createNotification(userId, {
@@ -90,9 +92,33 @@ export async function updateUser(userId, data) {
   return user
 }
 
-export async function deleteUser(userId) {
-  const user = await User.findByIdAndDelete(userId)
-  if (!user) throw new NotFoundError('User not found')
+export async function deleteUser(userId, reason, adminId) {
+  if (!reason || !reason.trim()) throw new ValidationError([{ field: 'reason', message: 'Deletion reason is required' }])
+  if (String(userId) === String(adminId)) throw new ForbiddenError('You cannot delete your own account')
+
+  const user = await User.findById(userId)
+  if (!user) throw new NotFoundError('User')
+
+  // Reassign platform content so assessments/questions keep working
+  await Promise.all([
+    Assessment.updateMany({ createdBy: userId }, { $set: { createdBy: adminId, updatedBy: adminId } }),
+    Question.updateMany({ createdBy: userId }, { $set: { createdBy: adminId, updatedBy: adminId } }),
+  ])
+
+  // Remove personal data tied to the user
+  await Promise.all([
+    User.deleteOne({ _id: userId }),
+    Notification.deleteMany({ user: userId }),
+    ProctoringViolation.deleteMany({ user: userId }),
+    Attempt.deleteMany({ user: userId }),
+    Submission.deleteMany({ user: userId }),
+    CodingSubmission.deleteMany({ user: userId }),
+    CodingProgress.deleteMany({ user: userId }),
+    CodingComment.deleteMany({ user: userId }),
+    CodingBookmark.deleteMany({ user: userId }),
+  ])
+
+  logger.info('User deleted by admin', { userId, adminId: String(adminId), reason: reason.trim(), email: user.email, role: user.role })
   return user
 }
 
@@ -115,21 +141,6 @@ export function listRoles() {
 }
 
 // ─── System Settings ────────────────────────────────────
-
-const DEFAULT_SETTINGS = [
-  { key: 'site_name', value: 'AssessAI', description: 'Platform name', category: 'general' },
-  { key: 'site_description', value: 'AI-Powered Assessment Platform', description: 'Platform description', category: 'general' },
-  { key: 'default_assessment_time', value: 30, description: 'Default assessment time in minutes', category: 'assessment' },
-  { key: 'passing_percentage', value: 40, description: 'Default passing percentage', category: 'assessment' },
-  { key: 'max_attempts_per_assessment', value: 3, description: 'Maximum allowed attempts per assessment', category: 'assessment' },
-  { key: 'enable_proctoring', value: true, description: 'Enable AI proctoring by default', category: 'proctoring' },
-  { key: 'proctoring_face_detection', value: true, description: 'Enable webcam face detection', category: 'proctoring' },
-  { key: 'proctoring_tab_switch_limit', value: 3, description: 'Tab switch violations before warning', category: 'proctoring' },
-  { key: 'proctoring_auto_submit', value: true, description: 'Auto-submit assessment on critical violation', category: 'proctoring' },
-  { key: 'ai_provider', value: 'groq', description: 'Default AI provider for generation', category: 'ai' },
-  { key: 'enable_registration', value: true, description: 'Allow new user registration', category: 'security' },
-  { key: 'enable_email_verification', value: false, description: 'Require email verification', category: 'security' },
-]
 
 export async function getSettings(category) {
   const filter = category ? { category } : {}
@@ -175,7 +186,7 @@ export async function getPlatformStats() {
     Assessment.countDocuments(),
     Question.countDocuments(),
     Attempt.countDocuments(),
-    Attempt.countDocuments({ status: 'completed' }),
+    Attempt.countDocuments({ status: { $in: ['completed', 'auto_submitted', 'timed_out'] } }),
   ])
 
   return {

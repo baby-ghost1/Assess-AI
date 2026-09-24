@@ -105,7 +105,7 @@ export default function QuestionBankPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-heading font-bold text-text-primary">{selectMode ? 'Select Questions' : 'Question Bank'}</h2>
           <p className="mt-1 text-sm text-text-secondary">{selectMode ? 'Pick questions to add to your assessment' : 'Manage your assessment questions'}</p>
@@ -268,7 +268,7 @@ export default function QuestionBankPage() {
       )}
 
       {selectMode && selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-border bg-bg-card shadow-2xl p-4 flex items-center gap-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-border bg-bg-card shadow-2xl p-4 flex items-center gap-4 max-w-[calc(100vw-2rem)]">
           <span className="text-sm font-medium text-text-primary">{selectedIds.length} question(s) selected</span>
           <Button size="sm" onClick={handleAddSelected}>
             <CheckCircle className="h-4 w-4" /> Add to Assessment

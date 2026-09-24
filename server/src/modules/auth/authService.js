@@ -3,20 +3,24 @@ import crypto from 'crypto'
 import { config } from '../../config/index.js'
 import User from '../users/User.js'
 import Otp from './Otp.js'
-import { ConflictError, UnauthorizedError } from '../../shared/errors/AppError.js'
+import Notification from '../notifications/Notification.js'
+import { ConflictError, UnauthorizedError, ForbiddenError } from '../../shared/errors/AppError.js'
 import { createNotification } from '../notifications/notificationService.js'
-import { sendOTPEmail } from '../../services/emailService.js'
+import { sendOTPEmail, sendPasswordResetEmail } from '../../services/emailService.js'
 import { generateTokens } from './tokenUtils.js'
+import { getSettingValue } from '../settings/settingsService.js'
 
 export async function register({ name, email, password, role = 'candidate' }) {
+  // Server-authoritative registration gate (admin system setting)
+  if ((await getSettingValue('enable_registration')) === false) {
+    throw new ForbiddenError('Registration is currently disabled')
+  }
+
   const existing = await User.findOne({ email })
   if (existing) throw new ConflictError('Email already registered')
 
-  const user = await User.create({ name, email, password, role, isApproved: role === 'candidate' })
-  const tokens = generateTokens(user._id, true)
-
-  user.refreshToken = tokens.refreshToken
-  await user.save({ validateBeforeSave: false })
+  const isApproved = role === 'candidate'
+  const user = await User.create({ name, email, password, role, isApproved })
 
   await createNotification(user._id, {
     type: 'account_update',
@@ -24,11 +28,18 @@ export async function register({ name, email, password, role = 'candidate' }) {
     message: `Hi ${name}, your account has been created successfully. Start exploring assessments now!`,
   })
 
-  return { user, ...tokens }
+  if (isApproved) {
+    const tokens = generateTokens(user._id, true)
+    user.refreshToken = tokens.refreshToken
+    await user.save({ validateBeforeSave: false })
+    return { user, ...tokens }
+  }
+
+  return { user, message: 'Your account has been created. An admin will review and approve your setter account before you can sign in.' }
 }
 
 export async function login({ email, password, rememberMe = false }) {
-  const user = await User.findOne({ email }).select('+password')
+  const user = await User.findOne({ email }).select('+password +preferences')
   if (!user) throw new UnauthorizedError('Invalid email or password')
 
   const isMatch = await user.comparePassword(password)
@@ -36,26 +47,42 @@ export async function login({ email, password, rememberMe = false }) {
 
   if (!user.isActive) throw new UnauthorizedError('Account is deactivated')
 
+  if (user.role === 'setter' && !user.isApproved) {
+    throw new ForbiddenError('Your setter account is awaiting admin approval. You will be able to sign in once approved.')
+  }
+
   const tokens = generateTokens(user._id, rememberMe)
   user.refreshToken = tokens.refreshToken
   user.lastLoginAt = new Date()
   await user.save({ validateBeforeSave: false })
 
-  await createNotification(user._id, {
-    type: 'account_update',
-    title: 'New Login Detected',
-    message: 'Logged in successfully from a new session.',
-  })
+  const recentLoginNotice = await Notification.findOne({ user: user._id, message: /new session/i, createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
+  if (!recentLoginNotice && user.preferences?.passwordAlerts !== false) {
+    await createNotification(user._id, {
+      type: 'account_update',
+      title: 'New Login Detected',
+      message: 'Logged in successfully from a new session.',
+    })
+  }
 
   return { user, ...tokens }
 }
 
 export async function adminLogin({ email, password, rememberMe = false }) {
-  if (email !== config.admin.email || password !== config.admin.password) {
+  const safeEquals = (a, b) => crypto.timingSafeEqual(
+    crypto.createHash('sha256').update(a || '').digest(),
+    crypto.createHash('sha256').update(b || '').digest()
+  )
+  const emailMatch = safeEquals(String(email), config.admin.email)
+  const passwordMatch = safeEquals(String(password), config.admin.password)
+  if (!emailMatch || !passwordMatch) {
     throw new UnauthorizedError('Invalid admin credentials')
   }
 
   let user = await User.findOne({ email })
+  if (user && user.role !== 'admin') {
+    throw new UnauthorizedError('Invalid admin credentials')
+  }
   if (!user) {
     user = await User.create({ name: 'Admin', email, password, role: 'admin', isApproved: true })
   }
@@ -254,16 +281,24 @@ export async function forgotPassword(email) {
   }
 
   const resetToken = jwt.sign({ userId: user._id, purpose: 'password-reset' }, config.jwt.accessSecret, { expiresIn: '1h' })
-  user.refreshToken = resetToken
-  await user.save({ validateBeforeSave: false })
+  await User.updateOne({ _id: user._id }, { resetToken })
+
+  const clientUrl = config.clientUrl.split(',')[0].trim()
+  const resetUrl = `${clientUrl}/reset-password/${resetToken}`
+
+  try {
+    await sendPasswordResetEmail({ email: user.email, name: user.name, resetUrl })
+  } catch {
+    // Email provider failure — still create in-app notice; link was issued
+  }
 
   await createNotification(user._id, {
     type: 'account_update',
     title: 'Password Reset Requested',
-    message: `A password reset was requested. Use this token to reset your password: ${resetToken}`,
+    message: 'A password reset was requested. Check your email for the reset link.',
   })
 
-  return { message: 'If an account exists with this email, a reset link has been sent.', resetToken }
+  return { message: 'If an account exists with this email, a reset link has been sent.' }
 }
 
 export async function resetPassword(token, newPassword) {
@@ -278,11 +313,11 @@ export async function resetPassword(token, newPassword) {
 
   if (decoded.purpose !== 'password-reset') throw new UnauthorizedError('Invalid reset token')
 
-  const user = await User.findById(decoded.userId).select('+refreshToken')
-  if (!user || user.refreshToken !== token) throw new UnauthorizedError('Invalid or expired reset token')
+  const user = await User.findById(decoded.userId).select('+resetToken')
+  if (!user || user.resetToken !== token) throw new UnauthorizedError('Invalid or expired reset token')
 
   user.password = newPassword
-  user.refreshToken = null
+  user.resetToken = null
   await user.save()
 
   await createNotification(user._id, {

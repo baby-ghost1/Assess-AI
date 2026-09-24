@@ -28,10 +28,9 @@ const attemptSchema = new mongoose.Schema({
   isResumed: { type: Boolean, default: false },
   ipAddress: { type: String, default: '' },
   userAgent: { type: String, default: '' },
+  candidateEmail: { type: String, default: '' },
+  attemptNumber: { type: Number, default: 1 },
+  resultReleased: { type: Boolean, default: false },
 }, { timestamps: true })
-
-attemptSchema.index({ assessment: 1, user: 1 })
-attemptSchema.index({ user: 1, status: 1 })
-attemptSchema.index({ assessment: 1, status: 1 })
 
 export default mongoose.model('Attempt', attemptSchema)

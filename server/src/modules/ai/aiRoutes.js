@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/authenticate.js'
 import { authorize } from '../../middleware/authorize.js'
 import { aiGenerateLimiter } from '../../middleware/rateLimiter.js'
 import { generateQuestions, getAvailableProviders, generateInsights, fetchFromProvider, PROVIDER_CONFIGS } from './aiProviders.js'
+import { getCache, setCache } from '../../utils/cacheHelper.js'
 import Assessment from '../assessments/Assessment.js'
 import Attempt from '../assessments/Attempt.js'
 import Submission from '../assessments/Submission.js'
@@ -12,45 +13,73 @@ import Question from '../questions/Question.js'
 import QuestionVersion from '../questions/QuestionVersion.js'
 import { parseCSV, parseJSON, parseExcel, parsePDF, parseDOCX, parseTXT } from '../uploads/fileParser.js'
 import { upload } from '../../middleware/upload.js'
+import { getSettingValue } from '../settings/settingsService.js'
 
 const router = Router()
 
-router.use(authenticate)
-router.use(authorize('candidate', 'setter', 'admin'))
+const AI_PROVIDER_NAMES = ['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia', 'bazaarlink']
 
-router.get('/providers', (_, res) => {
-  res.json({ success: true, data: getAvailableProviders(), message: 'Providers fetched', errors: null, meta: null })
+// Resolve provider: explicit request > admin ai_provider setting > groq
+async function resolveProvider(requested) {
+  if (requested) return requested
+  const fromSettings = await getSettingValue('ai_provider')
+  if (fromSettings && (AI_PROVIDER_NAMES.includes(fromSettings) || Object.keys(PROVIDER_CONFIGS).includes(fromSettings))) {
+    return fromSettings
+  }
+  return 'groq'
+}
+
+router.use(authenticate)
+
+router.get('/providers', async (_, res) => {
+  const cacheKey = 'ai:providers'
+  const cached = await getCache(cacheKey)
+  if (cached) {
+    return res.json({ success: true, data: cached, message: 'Providers fetched', errors: null, meta: null })
+  }
+  const providers = getAvailableProviders()
+  await setCache(cacheKey, providers, 1800)
+  res.json({ success: true, data: providers, message: 'Providers fetched', errors: null, meta: null })
 })
+
+// Bank-writing / assessment-generating endpoints: setters + admins only
+router.use('/generate', authorize('setter', 'admin'))
+router.use('/generate-assessment', authorize('setter', 'admin'))
+router.use('/import-assessment', authorize('setter', 'admin'))
+
+// Practice AI quiz is candidate-facing but must not pollute the shared bank
+// (questions stay source-tagged; assessments filtered out of public lists)
 
 router.post('/generate', aiGenerateLimiter, validate(z.object({
   topic: z.string().min(2, 'Topic required'),
   count: z.coerce.number().min(1).max(20).default(5),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
   questionType: z.enum(['single_correct', 'multi_correct', 'true_false', 'fill_blanks', 'coding', 'subjective']).default('single_correct'),
-  provider: z.enum(['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia']).default('groq'),
+  provider: z.enum(AI_PROVIDER_NAMES).optional(),
   language: z.string().default('English'),
 })), async (req, res, next) => {
   try {
-    const { topic, count, difficulty, questionType, provider, language } = req.validatedBody
+    const { topic, count, difficulty, questionType, language } = req.validatedBody
+    const provider = await resolveProvider(req.validatedBody.provider)
     const questions = await generateQuestions(topic, { count, difficulty, questionType, provider, language })
 
     const created = []
-    for (const qData of questions) {
-      const question = await Question.create({
-        ...qData,
-        createdBy: req.user._id,
-        updatedBy: req.user._id,
-        status: 'draft',
-        source: 'ai_generated',
-        isAiGenerated: true,
-        aiModel: provider,
-      })
-      await QuestionVersion.create({
-        question: question._id, version: 1, data: question.toObject(),
-        changes: `AI-generated via ${provider}`, changedBy: req.user._id,
-      })
-      created.push(question)
-    }
+    const questionDocs = questions.map((qData) => ({
+      ...qData,
+      createdBy: req.user._id,
+      updatedBy: req.user._id,
+      status: 'draft',
+      source: 'ai_generated',
+      isAiGenerated: true,
+      aiModel: provider,
+    }))
+    const insertedQuestions = await Question.insertMany(questionDocs)
+    const versionDocs = insertedQuestions.map((q) => ({
+      question: q._id, version: 1, data: q.toObject(),
+      changes: `AI-generated via ${provider}`, changedBy: req.user._id,
+    }))
+    await QuestionVersion.insertMany(versionDocs)
+    created.push(...insertedQuestions)
 
     res.status(201).json({ success: true, data: { count: created.length, questions: created }, message: `${created.length} questions generated via ${provider}`, errors: null, meta: null })
   } catch (error) { next(error) }
@@ -61,13 +90,14 @@ router.post('/quiz/generate-and-start', validate(z.object({
   count: z.coerce.number().min(1).max(20).default(5),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
   questionTypes: z.array(z.enum(['single_correct', 'multi_correct', 'true_false', 'fill_blanks'])).min(1).default(['single_correct']),
-  provider: z.enum(['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia']).default('groq'),
+  provider: z.enum(AI_PROVIDER_NAMES).optional(),
   timerType: z.enum(['overall', 'per_question']).default('overall'),
   timeLimit: z.coerce.number().min(0).default(600),
   language: z.string().default('English'),
 })), async (req, res, next) => {
   try {
-    const { topic, count, difficulty, questionTypes, provider, timerType, timeLimit, language } = req.validatedBody
+    const { topic, count, difficulty, questionTypes, timerType, timeLimit, language } = req.validatedBody
+    const provider = await resolveProvider(req.validatedBody.provider)
 
     const perType = Math.max(1, Math.floor(count / questionTypes.length))
     const allQuestions = []
@@ -82,22 +112,22 @@ router.post('/quiz/generate-and-start', validate(z.object({
     }
 
     const created = []
-    for (const qData of allQuestions) {
-      const question = await Question.create({
-        ...qData,
-        createdBy: req.user._id,
-        updatedBy: req.user._id,
-        status: 'approved',
-        source: 'ai_generated',
-        isAiGenerated: true,
-        aiModel: provider,
-      })
-      await QuestionVersion.create({
-        question: question._id, version: 1, data: question.toObject(),
-        changes: `AI quiz question via ${provider}`, changedBy: req.user._id,
-      })
-      created.push(question)
-    }
+    const questionDocs2 = allQuestions.map((qData) => ({
+      ...qData,
+      createdBy: req.user._id,
+      updatedBy: req.user._id,
+      status: 'approved',
+      source: 'ai_generated',
+      isAiGenerated: true,
+      aiModel: provider,
+    }))
+    const insertedQuestions2 = await Question.insertMany(questionDocs2)
+    const versionDocs2 = insertedQuestions2.map((q) => ({
+      question: q._id, version: 1, data: q.toObject(),
+      changes: `AI quiz question via ${provider}`, changedBy: req.user._id,
+    }))
+    await QuestionVersion.insertMany(versionDocs2)
+    created.push(...insertedQuestions2)
 
     const totalMarks = created.length
     const assessment = await Assessment.create({
@@ -140,15 +170,14 @@ router.post('/quiz/generate-and-start', validate(z.object({
       startedAt: new Date(),
     })
 
-    for (let i = 0; i < questionOrder.length; i++) {
-      await Submission.create({
-        attempt: attempt._id,
-        assessment: assessment._id,
-        user: req.user._id,
-        question: questionOrder[i],
-        order: i,
-      })
-    }
+    const submissionDocs = questionOrder.map((qId, i) => ({
+      attempt: attempt._id,
+      assessment: assessment._id,
+      user: req.user._id,
+      question: qId,
+      order: i,
+    }))
+    await Submission.insertMany(submissionDocs)
 
     res.status(201).json({
       success: true,
@@ -171,7 +200,7 @@ router.get('/quiz/history', async (req, res, next) => {
       .populate({
         path: 'assessment',
         match: { isAiGenerated: true },
-        select: 'title difficulty aiQuizConfig isAiGenerated',
+        select: 'title difficulty aiQuizConfig isAiGenerated accessMode resultsReleased',
       })
       .sort({ createdAt: -1 })
       .limit(20)
@@ -181,24 +210,31 @@ router.get('/quiz/history', async (req, res, next) => {
 
     res.json({
       success: true,
-      data: filtered.map((a) => ({
-        attemptId: a._id,
-        assessmentId: a.assessment._id,
-        title: a.assessment.title,
-        difficulty: a.assessment.difficulty,
-        topic: a.assessment.title?.replace('AI Quiz: ', ''),
-        provider: a.assessment.aiQuizConfig?.aiProvider,
-        timerType: a.assessment.aiQuizConfig?.timerType,
-        score: a.score,
-        totalMarks: a.totalMarks,
-        percentage: a.percentage,
-        passed: a.passed,
-        status: a.status,
-        timeSpent: a.totalTimeSpent,
-        startedAt: a.startedAt,
-        completedAt: a.completedAt,
-        totalQuestions: a.questionOrder?.length || 0,
-      })),
+      data: filtered.map((a) => {
+        const released = a.assessment.accessMode !== 'restricted' || a.assessment.resultsReleased === true
+        const entry = {
+          attemptId: a._id,
+          assessmentId: a.assessment._id,
+          title: a.assessment.title,
+          difficulty: a.assessment.difficulty,
+          topic: a.assessment.title?.replace('AI Quiz: ', ''),
+          provider: a.assessment.aiQuizConfig?.aiProvider,
+          timerType: a.assessment.aiQuizConfig?.timerType,
+          status: a.status,
+          timeSpent: a.totalTimeSpent,
+          startedAt: a.startedAt,
+          completedAt: a.completedAt,
+          totalQuestions: a.questionOrder?.length || 0,
+          released,
+        }
+        if (released) {
+          entry.score = a.score
+          entry.totalMarks = a.totalMarks
+          entry.percentage = a.percentage
+          entry.passed = a.passed
+        }
+        return entry
+      }),
       message: 'Quiz history fetched',
       errors: null,
       meta: null,
@@ -209,10 +245,14 @@ router.get('/quiz/history', async (req, res, next) => {
 router.get('/quiz/:attemptId/insights', async (req, res, next) => {
   try {
     const attempt = await Attempt.findById(req.params.attemptId)
-      .populate('assessment', 'title difficulty')
+      .populate('assessment', 'title difficulty accessMode resultsReleased')
     if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' })
     if (attempt.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Not your attempt' })
+    }
+
+    if (attempt.assessment?.accessMode === 'restricted' && attempt.assessment.resultsReleased !== true) {
+      return res.status(403).json({ success: false, message: 'Results have not been released yet' })
     }
 
     const submissions = await Submission.find({ attempt: req.params.attemptId })
@@ -266,7 +306,7 @@ router.get('/quiz/:attemptId/insights', async (req, res, next) => {
   } catch (error) { next(error) }
 })
 
-// ─── Generate Assessment from Topic ──────────────────────
+// â”€â”€â”€ Generate Assessment from Topic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.post('/generate-assessment', validate(z.object({
   title: z.string().min(2).max(200).optional(),
@@ -274,7 +314,7 @@ router.post('/generate-assessment', validate(z.object({
   count: z.coerce.number().min(1).max(50).default(10),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
   questionType: z.enum(['single_correct', 'multi_correct', 'true_false', 'fill_blanks']).default('single_correct'),
-  provider: z.enum(['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia']).default('groq'),
+  provider: z.enum(AI_PROVIDER_NAMES).optional(),
   language: z.string().default('English'),
   assessmentType: z.enum(['quiz', 'coding', 'mixed']).default('quiz'),
   timeLimit: z.coerce.number().positive().optional().nullable().default(null),
@@ -288,31 +328,32 @@ router.post('/generate-assessment', validate(z.object({
 })), async (req, res, next) => {
   try {
     const {
-      title, topic, count, difficulty, questionType, provider, language,
+      title, topic, count, difficulty, questionType, language,
       assessmentType, timeLimit, passingPercentage, maxAttempts,
       shuffleQuestions, showResultImmediately, showCorrectAnswers,
       negativeMarking, negativeMarkingValue,
     } = req.validatedBody
+    const provider = await resolveProvider(req.validatedBody.provider)
 
     const questions = await generateQuestions(topic, { count, difficulty, questionType, provider, language })
 
     const created = []
-    for (const qData of questions) {
-      const question = await Question.create({
-        ...qData,
-        createdBy: req.user._id,
-        updatedBy: req.user._id,
-        status: 'draft',
-        source: 'ai_generated',
-        isAiGenerated: true,
-        aiModel: provider,
-      })
-      await QuestionVersion.create({
-        question: question._id, version: 1, data: question.toObject(),
-        changes: `AI-generated via ${provider}`, changedBy: req.user._id,
-      })
-      created.push(question)
-    }
+    const questionDocs3 = questions.map((qData) => ({
+      ...qData,
+      createdBy: req.user._id,
+      updatedBy: req.user._id,
+      status: 'draft',
+      source: 'ai_generated',
+      isAiGenerated: true,
+      aiModel: provider,
+    }))
+    const insertedQuestions3 = await Question.insertMany(questionDocs3)
+    const versionDocs3 = insertedQuestions3.map((q) => ({
+      question: q._id, version: 1, data: q.toObject(),
+      changes: `AI-generated via ${provider}`, changedBy: req.user._id,
+    }))
+    await QuestionVersion.insertMany(versionDocs3)
+    created.push(...insertedQuestions3)
 
     const assessment = await Assessment.create({
       title: title || `AI Assessment: ${topic}`,
@@ -349,7 +390,7 @@ router.post('/generate-assessment', validate(z.object({
   } catch (error) { next(error) }
 })
 
-// ─── Import Assessment from File (AI-powered) ────────────
+// â”€â”€â”€ Import Assessment from File (AI-powered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function extractTextFromFile(file) {
   const { buffer, mimetype } = file
@@ -379,7 +420,7 @@ async function extractTextFromFile(file) {
 
 router.post('/import-assessment', upload.single('file'), validate(z.object({
   title: z.string().min(2).max(200).optional(),
-  provider: z.enum(['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia']).default('groq'),
+  provider: z.enum(AI_PROVIDER_NAMES).optional(),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
   assessmentType: z.enum(['quiz', 'coding', 'mixed']).default('quiz'),
   timeLimit: z.coerce.number().positive().optional().nullable().default(null),
@@ -396,7 +437,8 @@ router.post('/import-assessment', upload.single('file'), validate(z.object({
       return res.status(400).json({ success: false, data: null, message: 'Could not extract readable content from file. Ensure the file is not empty and contains text.', errors: null, meta: null })
     }
 
-    const { title, provider, difficulty, assessmentType, timeLimit, passingPercentage, language } = req.validatedBody
+    const { title, difficulty, assessmentType, timeLimit, passingPercentage, language } = req.validatedBody
+    const provider = await resolveProvider(req.validatedBody.provider)
     const truncatedText = fileText.slice(0, 8000)
 
     const prompt = `You are an expert assessment creator. Analyze the following content and generate a well-structured assessment.
@@ -473,25 +515,25 @@ Rules:
 
     const questionsData = aiResult.questions || []
     const created = []
-    for (const qData of questionsData) {
-      try {
-        const question = await Question.create({
-          ...qData,
-          createdBy: req.user._id,
-          updatedBy: req.user._id,
-          status: 'draft',
-          source: 'imported',
-          isAiGenerated: true,
-          aiModel: provider,
-        })
-        await QuestionVersion.create({
-          question: question._id, version: 1, data: question.toObject(),
-          changes: `AI-imported from file via ${provider}`, changedBy: req.user._id,
-        })
-        created.push(question)
-      } catch (qErr) {
-        // Skip individual question errors, continue with others
-      }
+    const questionDocs4 = questionsData.map((qData) => ({
+      ...qData,
+      createdBy: req.user._id,
+      updatedBy: req.user._id,
+      status: 'draft',
+      source: 'imported',
+      isAiGenerated: true,
+      aiModel: provider,
+    }))
+    try {
+      const insertedQuestions4 = await Question.insertMany(questionDocs4, { ordered: false })
+      const versionDocs4 = insertedQuestions4.map((q) => ({
+        question: q._id, version: 1, data: q.toObject(),
+        changes: `AI-imported from file via ${provider}`, changedBy: req.user._id,
+      }))
+      await QuestionVersion.insertMany(versionDocs4, { ordered: false })
+      created.push(...insertedQuestions4)
+    } catch (qErr) {
+      // Bulk insert may partially fail; created contains what succeeded
     }
 
     if (created.length === 0) {

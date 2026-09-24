@@ -1,7 +1,8 @@
 import { config } from '../../config/index.js'
 import User from '../users/User.js'
-import { UnauthorizedError } from '../../shared/errors/AppError.js'
+import { UnauthorizedError, ForbiddenError } from '../../shared/errors/AppError.js'
 import { generateTokens } from './tokenUtils.js'
+import { getSettingValue } from '../settings/settingsService.js'
 
 async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar }) {
   let user = await User.findOne({ provider, providerId })
@@ -21,6 +22,11 @@ async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar
     user.lastLoginAt = new Date()
     await user.save({ validateBeforeSave: false })
     return user
+  }
+
+  // New account via OAuth — registration gate applies
+  if ((await getSettingValue('enable_registration')) === false) {
+    throw new ForbiddenError('Registration is currently disabled')
   }
 
   user = await User.create({

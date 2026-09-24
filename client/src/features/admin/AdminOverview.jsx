@@ -194,7 +194,7 @@ export default function AdminOverview() {
   }))
 
   const recentAttempts = a?.recentAttempts || []
-  const attemptTrend = recentAttempts.slice(-7).map((d, i) => ({
+  const attemptTrend = recentAttempts.slice(-7).map((d) => ({
     label: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2),
     value: d.score || 0,
   }))

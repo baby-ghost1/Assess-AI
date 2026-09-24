@@ -74,12 +74,7 @@ const questionSchema = new mongoose.Schema({
   aiModel: { type: String, default: '' },
   isAiGenerated: { type: Boolean, default: false },
   usageCount: { type: Number, default: 0 },
+  approvedAt: { type: Date, default: null },
 }, { timestamps: true })
-
-questionSchema.index({ title: 'text', description: 'text' })
-questionSchema.index({ questionType: 1, difficulty: 1 })
-questionSchema.index({ status: 1, createdBy: 1 })
-questionSchema.index({ tags: 1 })
-questionSchema.index({ category: 1 })
 
 export default mongoose.model('Question', questionSchema)

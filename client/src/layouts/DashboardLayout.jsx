@@ -2,8 +2,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAppSelector } from '@/hooks'
-import { useState } from 'react'
-import MiniPlayer from '@/features/vibes/MiniPlayer'
+import { useState, useEffect } from 'react'
 import AppLoader from '@/components/shared/AppLoader'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -16,7 +15,16 @@ const pageVariants = {
 export default function DashboardLayout() {
   const { isAuthenticated, isLoading, user } = useAppSelector((s) => s.auth)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const location = useLocation()
+
+  // Hide sidebar/topbar while in fullscreen (e.g. proctored quiz)
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement))
+    sync()
+    document.addEventListener('fullscreenchange', sync)
+    return () => document.removeEventListener('fullscreenchange', sync)
+  }, [])
 
   if (isLoading) {
     return <AppLoader text="Preparing dashboard..." userId={user?._id} />
@@ -28,11 +36,13 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg-secondary">
-      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+      {!isFullscreen && (
+        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+      )}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-        <Topbar onMenuToggle={() => setMobileMenuOpen((p) => !p)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <AnimatePresence mode="wait">
+        {!isFullscreen && <Topbar onMenuToggle={() => setMobileMenuOpen((p) => !p)} />}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
+          <AnimatePresence>
             <motion.div
               key={location.pathname}
               variants={pageVariants}
@@ -47,7 +57,6 @@ export default function DashboardLayout() {
           </AnimatePresence>
         </main>
       </div>
-      <MiniPlayer />
     </div>
   )
 }

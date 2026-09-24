@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useAppSelector } from '@/hooks'
+import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { Shield, AlertTriangle, Search } from 'lucide-react'
 import { TableSkeleton } from '@/components/shared'
@@ -23,14 +25,48 @@ const violationLabels = {
   fullscreen_exit: 'Fullscreen Exit',
   copy_paste: 'Copy/Paste',
   right_click: 'Right Click',
+  face_not_centered: 'Face Not Centered',
+  low_lighting: 'Low Lighting',
+  face_outside_screen: 'Face Outside Screen',
+  posture_violation: 'Posture Violation',
 }
 
 export default function ProctoringDashboard() {
   const [search, setSearch] = useState('')
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState('')
+  const user = useAppSelector((s) => s.auth.user)
+  const navigate = useNavigate()
 
-  const { data: violationsData, isLoading } = useQuery({
-    queryKey: ['violations-admin'],
-    queryFn: () => api.get('/proctoring/violations/my').then((r) => r.data),
+  // Role guard — route is not role-gated in the router
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
+
+  const isAdmin = user?.role === 'admin'
+
+  // Assessment selector for filtering violations
+  const { data: assessmentsData } = useQuery({
+    queryKey: ['proctoring-assessments'],
+    queryFn: () => api.get('/assessments?limit=100').then((r) => r.data),
+    enabled: isAdmin,
+  })
+  const assessments = assessmentsData?.data || []
+  const assessmentsKey = assessments.map((a) => a._id).join(',')
+
+  // Auto-select first assessment when list loads
+  useEffect(() => {
+    if (!selectedAssessmentId && assessmentsKey) {
+      const first = assessmentsKey.split(',')[0]
+      if (first) setSelectedAssessmentId(first)
+    }
+  }, [assessmentsKey, selectedAssessmentId])
+
+  const { data: violationsData, isLoading, error } = useQuery({
+    queryKey: ['violations-admin', selectedAssessmentId],
+    queryFn: () => api.get(`/proctoring/violations/assessment/${selectedAssessmentId}`).then((r) => r.data),
+    enabled: isAdmin && Boolean(selectedAssessmentId),
   })
 
   const violations = violationsData?.data || []
@@ -43,11 +79,35 @@ export default function ProctoringDashboard() {
     counts[v.type] = (counts[v.type] || 0) + 1
   })
 
+  if (!isAdmin) {
+    return (
+      <div className="py-16 text-center">
+        <Shield className="h-12 w-12 text-text-tertiary mx-auto mb-4" />
+        <p className="text-sm text-text-secondary">Admin access required</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-heading font-bold text-text-primary">Proctoring Dashboard</h2>
         <p className="mt-1 text-sm text-text-secondary">Monitor candidate violations and proctoring activity</p>
+      </div>
+
+      {/* Assessment selector */}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Assessment</label>
+        <select
+          value={selectedAssessmentId}
+          onChange={(e) => setSelectedAssessmentId(e.target.value)}
+          className="min-w-[280px] rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="">Select an assessment…</option>
+          {assessments.map((a) => (
+            <option key={a._id} value={a._id}>{a.title}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -69,12 +129,19 @@ export default function ProctoringDashboard() {
           placeholder="Search violations..." />
       </div>
 
-      {isLoading ? <TableSkeleton rows={8} /> : (
+      {isLoading ? <TableSkeleton rows={8} /> : error ? (
+        <div className="rounded-xl border border-danger/20 bg-danger/5 p-8 text-center">
+          <AlertTriangle className="h-10 w-10 text-danger mx-auto mb-3" />
+          <p className="text-sm text-text-secondary">{error?.response?.data?.message || 'Failed to load violations'}</p>
+        </div>
+      ) : (
         <div className="rounded-xl border border-border bg-bg-card divide-y divide-border">
           {filtered.length === 0 ? (
             <div className="py-16 text-center">
               <Shield className="h-12 w-12 text-text-tertiary mx-auto mb-4" />
-              <p className="text-sm text-text-secondary">No violations recorded</p>
+              <p className="text-sm text-text-secondary">
+                {selectedAssessmentId ? 'No violations recorded for this assessment' : 'Select an assessment to view violations'}
+              </p>
             </div>
           ) : filtered.map((v) => (
             <div key={v._id} className="flex items-center justify-between px-6 py-4">
@@ -86,6 +153,7 @@ export default function ProctoringDashboard() {
                   <p className="text-sm font-medium text-text-primary">{violationLabels[v.type] || v.type}</p>
                   <p className="text-xs text-text-secondary">
                     {v.user?.name || 'Unknown'} &middot; {v.details || ''}
+                    {v.attempt ? ` · Attempt #${v.attempt.attemptNumber || '?'}` : ''}
                   </p>
                 </div>
               </div>

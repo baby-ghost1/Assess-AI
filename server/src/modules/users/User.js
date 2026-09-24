@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
   provider: { type: String, enum: ['local', 'google', 'github'], default: 'local' },
   providerId: { type: String, select: false },
   refreshToken: { type: String, select: false },
+  resetToken: { type: String, select: false },
   lastLoginAt: { type: Date },
   preferences: {
     type: {

@@ -66,8 +66,22 @@ export async function getAdminInsights(req, res, next) {
 export async function getLeaderboard(req, res, next) {
   try {
     const data = await analyticsService.getLeaderboard(req.user)
-    res.json({ success: true, data, message: 'Leaderboard fetched', errors: null, meta: null })
+    const me = req.user?._id?.toString()
+    // Never expose candidate emails to other users on the public leaderboard.
+    const sanitized = data.map((entry) => ({
+      ...entry,
+      email: entry._id?.toString() === me ? entry.email : undefined,
+    }))
+    res.json({ success: true, data: sanitized, message: 'Leaderboard fetched', errors: null, meta: null })
   } catch (error) { next(error) }
+}
+
+function escapeCsv(val) {
+  const str = String(val ?? '')
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
 }
 
 export async function downloadReport(req, res, next) {
@@ -78,10 +92,21 @@ export async function downloadReport(req, res, next) {
 
     if (type === 'user') {
       data = await analyticsService.getUserAnalytics(req.user._id)
-    } else     if (type === 'assessment' && req.query.id) {
+    } else if (type === 'assessment' && req.query.id) {
+      const { default: Assessment } = await import('../assessments/Assessment.js')
+      const assessment = await Assessment.findById(req.query.id).select('createdBy')
+      if (!assessment) return res.status(404).json({ success: false, message: 'Assessment not found', errors: null, meta: null })
+      if (req.user.role !== 'admin' && assessment.createdBy?.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized', errors: null, meta: null })
+      }
       data = await analyticsService.getAssessmentAnalytics(req.query.id)
-    } else {
+    } else if (type === 'admin') {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Not authorized', errors: null, meta: null })
+      }
       data = await analyticsService.getAdminAnalytics()
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid report type', errors: null, meta: null })
     }
 
     if (format === 'csv') {
@@ -89,16 +114,16 @@ export async function downloadReport(req, res, next) {
       if (type === 'user') {
         csv = 'Date,Assessment,Score,Passed\n'
         data.scores.forEach((s) => {
-          csv += `${s.date},${s.assessment},${s.score},${s.passed}\n`
+          csv += `${escapeCsv(s.date)},${escapeCsv(s.assessment)},${escapeCsv(s.score)},${escapeCsv(s.passed)}\n`
         })
       } else if (type === 'assessment') {
         csv = 'Question,Type,Difficulty,Correct,Incorrect,Skipped,Correct%,AvgTime\n'
         data.questionStats.forEach((qs) => {
-          csv += `${qs.title},${qs.type},${qs.difficulty},${qs.correct},${qs.incorrect},${qs.skipped},${qs.correctPercentage},${qs.avgTime}\n`
+          csv += `${escapeCsv(qs.title)},${escapeCsv(qs.type)},${escapeCsv(qs.difficulty)},${escapeCsv(qs.correct)},${escapeCsv(qs.incorrect)},${escapeCsv(qs.skipped)},${escapeCsv(qs.correctPercentage)},${escapeCsv(qs.avgTime)}\n`
         })
       } else {
         csv = 'Metric,Value\n'
-        csv += `Total Users,${data.totalUsers}\nTotal Assessments,${data.totalAssessments}\nTotal Attempts,${data.totalAttempts}\nTotal Questions,${data.totalQuestions}\nCompleted Attempts,${data.completedAttempts}\nPass Rate,${data.passRate}%\n`
+        csv += `Total Users,${escapeCsv(data.totalUsers)}\nTotal Assessments,${escapeCsv(data.totalAssessments)}\nTotal Attempts,${escapeCsv(data.totalAttempts)}\nTotal Questions,${escapeCsv(data.totalQuestions)}\nCompleted Attempts,${escapeCsv(data.completedAttempts)}\nPass Rate,${escapeCsv(data.passRate)}%\n`
         data.assessmentTypeDistribution.forEach((a) => {
           csv += `Assessment Type - ${a.type},${a.count}\n`
         })

@@ -21,11 +21,14 @@ router.get('/preferences', authenticate, authController.getPreferences)
 router.patch('/preferences', authenticate, validate(z.object({
   theme: z.enum(['light', 'dark', 'system']).optional(),
   emailNotifications: z.boolean().optional(),
+  assessmentReminders: z.boolean().optional(),
+  resultAlerts: z.boolean().optional(),
+  passwordAlerts: z.boolean().optional(),
   language: z.string().min(1).max(20).optional(),
 }).strict()), authController.updatePreferences)
-router.post('/send-delete-otp', authenticate, validate(sendDeleteOtpSchema), authController.sendDeleteOtp)
+router.post('/send-delete-otp', authenticate, authLimiter, validate(sendDeleteOtpSchema), authController.sendDeleteOtp)
 router.post('/verify-delete-otp', authenticate, authLimiter, validate(verifyDeleteOtpSchema), authController.verifyDeleteOtp)
-router.post('/send-password-otp', authenticate, validate(sendPasswordOtpSchema), authController.sendPasswordOtp)
+router.post('/send-password-otp', authenticate, authLimiter, validate(sendPasswordOtpSchema), authController.sendPasswordOtp)
 router.post('/verify-password-otp', authenticate, authLimiter, validate(verifyPasswordOtpSchema), authController.verifyPasswordOtp)
 router.delete('/account', authenticate, validate(deleteAccountSchema), authController.deleteAccount)
 

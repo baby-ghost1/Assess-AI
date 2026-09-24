@@ -5,16 +5,25 @@ import Question from '../questions/Question.js'
 import User from '../users/User.js'
 import { NotFoundError } from '../../shared/errors/AppError.js'
 import { generateInsights } from '../ai/aiProviders.js'
+import { getCache, setCache, delCache } from '../../utils/cacheHelper.js'
+
+const ANALYTICS_TTL = 300
+const LEADERBOARD_TTL = 300
 
 // ─── User Analytics ─────────────────────────────────────
 
 export async function getUserAnalytics(userId) {
+  const cacheKey = `analytics:user:${userId}`
+  const cached = await getCache(cacheKey)
+  if (cached) return cached
+
   const attempts = await Attempt.find({ user: userId })
     .populate('assessment', 'title assessmentType difficulty passingPercentage')
     .sort({ createdAt: -1 })
+    .lean()
 
   const totalAttempts = attempts.length
-  const completed = attempts.filter((a) => a.status === 'completed')
+  const completed = attempts.filter((a) => ['completed', 'auto_submitted', 'timed_out'].includes(a.status))
   const passed = completed.filter((a) => a.passed)
   const passRate = completed.length > 0 ? (passed.length / completed.length) * 100 : 0
   const avgScore = completed.length > 0 ? completed.reduce((acc, a) => acc + a.percentage, 0) / completed.length : 0
@@ -42,7 +51,7 @@ export async function getUserAnalytics(userId) {
     status: a.status,
   }))
 
-  return {
+  const result = {
     totalAttempts,
     completed: completed.length,
     passed: passed.length,
@@ -52,15 +61,22 @@ export async function getUserAnalytics(userId) {
     typeDistribution,
     recentActivity,
   }
+
+  await setCache(cacheKey, result, ANALYTICS_TTL)
+  return result
 }
 
 // ─── Assessment Analytics ───────────────────────────────
 
 export async function getAssessmentAnalytics(assessmentId) {
-  const assessment = await Assessment.findById(assessmentId)
-  if (!assessment) throw new NotFoundError('Assessment not found')
+  const cacheKey = `analytics:assessment:${assessmentId}`
+  const cached = await getCache(cacheKey)
+  if (cached) return cached
 
-  const attempts = await Attempt.find({ assessment: assessmentId, status: 'completed' })
+  const assessment = await Assessment.findById(assessmentId).lean()
+  if (!assessment) throw new NotFoundError('Assessment')
+
+  const attempts = await Attempt.find({ assessment: assessmentId, status: { $in: ['completed', 'auto_submitted', 'timed_out'] } }).lean()
   const totalAttempts = attempts.length
   const passed = attempts.filter((a) => a.passed)
   const passRate = totalAttempts > 0 ? (passed.length / totalAttempts) * 100 : 0
@@ -74,7 +90,7 @@ export async function getAssessmentAnalytics(assessmentId) {
   }
   scoreDistribution.push({ range: '100%', count: attempts.filter((a) => a.percentage === 100).length })
 
-  const submissions = await Submission.find({ assessment: assessmentId }).populate('question')
+  const submissions = await Submission.find({ assessment: assessmentId }).populate('question').lean()
 
   const questionStats = {}
   submissions.forEach((s) => {
@@ -107,7 +123,7 @@ export async function getAssessmentAnalytics(assessmentId) {
     delete qs.totalTime
   })
 
-  return {
+  const result = {
     assessmentId,
     title: assessment.title,
     totalAttempts,
@@ -125,6 +141,9 @@ export async function getAssessmentAnalytics(assessmentId) {
       timeSpent: a.totalTimeSpent,
     })),
   }
+
+  await setCache(cacheKey, result, ANALYTICS_TTL)
+  return result
 }
 
 // ─── Setter Analytics ───────────────────────────────────
@@ -169,7 +188,7 @@ export async function getSetterAnalytics(userId) {
   })
 
   if (assessmentIds.length > 0) {
-    const attempts = await Attempt.find({ assessment: { $in: assessmentIds }, status: 'completed' })
+    const attempts = await Attempt.find({ assessment: { $in: assessmentIds }, status: { $in: ['completed', 'auto_submitted', 'timed_out'] } })
       .populate('assessment', 'title')
       .lean()
 
@@ -286,7 +305,7 @@ export async function getAdminAnalytics() {
     Assessment.countDocuments(),
     Attempt.countDocuments(),
     Question.countDocuments(),
-    Attempt.countDocuments({ status: 'completed' }),
+    Attempt.countDocuments({ status: { $in: ['completed', 'auto_submitted', 'timed_out'] } }),
     Attempt.find()
       .populate('user', 'name email')
       .populate('assessment', 'title')
@@ -299,7 +318,7 @@ export async function getAdminAnalytics() {
   ])
 
   const passRate = completedAttempts > 0
-    ? Math.round((await Attempt.countDocuments({ status: 'completed', passed: true })) / completedAttempts * 100 * 100) / 100
+    ? Math.round((await Attempt.countDocuments({ status: { $in: ['completed', 'auto_submitted', 'timed_out'] }, passed: true })) / completedAttempts * 100 * 100) / 100
     : 0
 
   return {
@@ -325,7 +344,7 @@ export async function getAdminAnalytics() {
 // ─── Question Analytics ─────────────────────────────────
 
 export async function getQuestionAnalytics(questionId) {
-  const submissions = await Submission.find({ question: questionId }).populate('question')
+  const submissions = await Submission.find({ question: questionId }).populate('question').lean()
 
   const total = submissions.length
   const correct = submissions.filter((s) => s.isCorrect).length
@@ -349,16 +368,20 @@ export async function getQuestionAnalytics(questionId) {
 // ─── Leaderboard ────────────────────────────────────────
 
 export async function getLeaderboard(currentUser) {
+  const cacheKey = 'leaderboard'
+  const cached = await getCache(cacheKey)
+  if (cached) return cached
+
   const match = {}
   if (currentUser.role === 'candidate') {
     match.role = 'candidate'
   }
 
-  const users = await User.find(match).select('name email role')
+  const users = await User.find(match).select('name email role').lean()
   const userIds = users.map((u) => u._id)
 
   const stats = await Attempt.aggregate([
-    { $match: { user: { $in: userIds }, status: 'completed' } },
+    { $match: { user: { $in: userIds }, status: { $in: ['completed', 'auto_submitted', 'timed_out'] } } },
     { $group: { _id: '$user', avgScore: { $avg: '$percentage' }, totalAssessments: { $sum: 1 }, totalScore: { $sum: '$percentage' } } },
     { $sort: { avgScore: -1 } },
     { $limit: 50 },
@@ -367,7 +390,7 @@ export async function getLeaderboard(currentUser) {
   const userMap = {}
   users.forEach((u) => { userMap[u._id.toString()] = u })
 
-  return stats.map((s) => {
+  const result = stats.map((s) => {
     const u = userMap[s._id.toString()] || {}
     return {
       _id: s._id,
@@ -378,6 +401,9 @@ export async function getLeaderboard(currentUser) {
       totalAssessments: s.totalAssessments,
     }
   })
+
+  await setCache(cacheKey, result, LEADERBOARD_TTL)
+  return result
 }
 
 // ─── AI-Powered Insights ────────────────────────────────
@@ -463,10 +489,11 @@ export async function getAIInsights(userId, scope = 'user', providerName) {
   if (scope === 'user') {
     analyticsData = await getUserAnalytics(userId)
   } else if (scope === 'assessment') {
-    const attempts = await Attempt.find({ user: userId, status: 'completed' })
+    const attempts = await Attempt.find({ user: userId, status: { $in: ['completed', 'auto_submitted', 'timed_out'] } })
       .populate('assessment', 'title')
       .sort({ createdAt: -1 })
       .limit(5)
+      .lean()
     analyticsData = {
       recentScores: attempts.map((a) => ({ title: a.assessment?.title, score: a.percentage, passed: a.passed })),
       avgScore: attempts.length > 0 ? attempts.reduce((a, b) => a + b.percentage, 0) / attempts.length : 0,
@@ -487,4 +514,19 @@ export async function getAIInsights(userId, scope = 'user', providerName) {
     setCachedInsights(cacheKey, result)
     return result
   }
+}
+
+// ─── Cache Invalidation ──────────────────────────────────
+
+export async function invalidateUserCaches(userId) {
+  await delCache(`analytics:user:${userId}`)
+  await delCache('leaderboard')
+}
+
+export async function invalidateAssessmentCaches(assessmentId) {
+  await delCache(`analytics:assessment:${assessmentId}`)
+}
+
+export async function invalidateLeaderboard() {
+  await delCache('leaderboard')
 }

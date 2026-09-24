@@ -3,10 +3,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/hooks'
 import { register as registerUser, clearError } from './authSlice'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, UserCheck, FileEdit, Sparkles, Star, Zap } from 'lucide-react'
-import gsap from 'gsap'
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, UserCheck, FileEdit, Sparkles, Star, Zap, AlertTriangle } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Min 2 characters'),
@@ -138,31 +139,11 @@ function PasswordStrength({ value }) {
   )
 }
 
-function MagneticButton({ children, className = '', disabled, isLoading, ...props }) {
-  const btnRef = useRef(null)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-
-  const handleMouseMove = useCallback((e) => {
-    const btn = btnRef.current
-    if (!btn) return
-    const rect = btn.getBoundingClientRect()
-    const x = e.clientX - rect.left - rect.width / 2
-    const y = e.clientY - rect.top - rect.height / 2
-    setPosition({ x: x * 0.3, y: y * 0.3 })
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    setPosition({ x: 0, y: 0 })
-  }, [])
-
+function SubmitButton({ children, className = '', disabled, isLoading, ...props }) {
   return (
     <button
-      ref={btnRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       disabled={disabled || isLoading}
-      className={`group relative overflow-hidden rounded-2xl font-semibold transition-all duration-200 ${className}`}
-      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+      className={`group relative overflow-hidden rounded-2xl font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${className}`}
       {...props}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
@@ -193,7 +174,7 @@ function ParticleField() {
     const ctx = canvas.getContext('2d')
     let animId
     let particles = []
-    const count = 50
+    const count = 25
 
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
     resize()
@@ -210,6 +191,9 @@ function ParticleField() {
       })
     }
 
+    const maxDist = 100
+    const maxDistSq = maxDist * maxDist
+
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       particles.forEach((p) => {
@@ -218,15 +202,25 @@ function ParticleField() {
         if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(16, 185, 129, ${p.a})`; ctx.fill()
-        particles.forEach((p2) => {
-          const dx = p.x - p2.x; const dy = p.y - p2.y; const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 100) {
-            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y)
-            ctx.strokeStyle = `rgba(16, 185, 129, ${0.06 * (1 - dist / 100)})`
-            ctx.lineWidth = 0.5; ctx.stroke()
-          }
-        })
       })
+
+      ctx.lineWidth = 0.5
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const distSq = dx * dx + dy * dy
+          if (distSq < maxDistSq) {
+            const dist = Math.sqrt(distSq)
+            ctx.beginPath()
+            ctx.moveTo(particles[i].x, particles[i].y)
+            ctx.lineTo(particles[j].x, particles[j].y)
+            ctx.strokeStyle = `rgba(16, 185, 129, ${0.06 * (1 - dist / maxDist)})`
+            ctx.stroke()
+          }
+        }
+      }
+
       animId = requestAnimationFrame(draw)
     }
     draw()
@@ -242,9 +236,17 @@ export default function RegisterPage() {
   const { isAuthenticated, isLoading, error } = useAppSelector((s) => s.auth)
   const [show, setShow] = useState({ pass: false, confirm: false })
   const [role, setRole] = useState('candidate')
+  const [registered, setRegistered] = useState(false)
   const { register, handleSubmit, watch, formState: { errors } } = useForm({ resolver: zodResolver(registerSchema) })
   const passwordValue = watch('password', '')
-  const nameValue = watch('name', '')
+
+  const { data: publicSettings } = useQuery({
+    queryKey: ['public-settings'],
+    queryFn: () => api.get('/settings/public').then((r) => r.data),
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+  const registrationEnabled = publicSettings?.data?.registrationEnabled !== false
 
   const cardRef = useRef(null)
   const formRef = useRef(null)
@@ -259,47 +261,62 @@ export default function RegisterPage() {
   useEffect(() => { if (isAuthenticated) navigate('/dashboard') }, [isAuthenticated, navigate])
   useEffect(() => () => dispatch(clearError()), [dispatch])
 
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.set(cardRef.current, { y: 40, opacity: 0, scale: 0.97 })
-      gsap.set(roleRef.current?.children || [], { y: 15, opacity: 0 })
-      gsap.set(formRef.current?.children || [], { y: 15, opacity: 0 })
-      gsap.set(dividerRef.current, { scaleX: 0, opacity: 0 })
-      gsap.set(socialRef.current?.children || [], { y: 12, opacity: 0 })
-      gsap.set(footerRef.current, { y: 10, opacity: 0 })
+  const onSubmit = async (d) => {
+    const result = await dispatch(registerUser({ name: d.name, email: d.email, password: d.password, role }))
+    if (role === 'setter' && result.meta.requestStatus === 'fulfilled') {
+      setRegistered(true)
+    }
+  }
 
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
-      tl.to(cardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.8 })
-        .to(roleRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.08, duration: 0.4 }, '-=0.4')
-        .to(formRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.05, duration: 0.4 }, '-=0.3')
-        .to(dividerRef.current, { scaleX: 1, opacity: 1, duration: 0.4 }, '-=0.15')
-        .to(socialRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.07, duration: 0.35 }, '-=0.25')
-        .to(footerRef.current, { y: 0, opacity: 1, duration: 0.25 }, '-=0.1')
+  useEffect(() => {
+    import('gsap').then(({ default: gsap }) => {
+      const ctx = gsap.context(() => {
+        gsap.set(cardRef.current, { y: 40, opacity: 0, scale: 0.97 })
+        gsap.set(roleRef.current?.children || [], { y: 15, opacity: 0 })
+        gsap.set(formRef.current?.children || [], { y: 15, opacity: 0 })
+        gsap.set(dividerRef.current, { scaleX: 0, opacity: 0 })
+        gsap.set(socialRef.current?.children || [], { y: 12, opacity: 0 })
+        gsap.set(footerRef.current, { y: 10, opacity: 0 })
+
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+        tl.to(cardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.8 })
+          .to(roleRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.08, duration: 0.4 }, '-=0.4')
+          .to(formRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.05, duration: 0.4 }, '-=0.3')
+          .to(dividerRef.current, { scaleX: 1, opacity: 1, duration: 0.4 }, '-=0.15')
+          .to(socialRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.07, duration: 0.35 }, '-=0.25')
+          .to(footerRef.current, { y: 0, opacity: 1, duration: 0.25 }, '-=0.1')
+      })
+      return () => ctx.revert()
     })
-    return () => ctx.revert()
   }, [])
 
   useEffect(() => {
     if (error && errorRef.current) {
-      gsap.fromTo(errorRef.current, { x: -15, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.5, ease: 'elastic.out(1, 0.3)' })
+      import('gsap').then(({ default: gsap }) => {
+        gsap.fromTo(errorRef.current, { x: -15, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.5, ease: 'elastic.out(1, 0.3)' })
+      })
     }
   }, [error])
 
   useEffect(() => {
     if (roleIndicatorRef.current) {
-      gsap.fromTo(roleIndicatorRef.current, { scale: 0.8, opacity: 0 },
-        { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(2)' })
+      import('gsap').then(({ default: gsap }) => {
+        gsap.fromTo(roleIndicatorRef.current, { scale: 0.8, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(2)' })
+      })
     }
   }, [role])
 
   useEffect(() => {
     const handleMouse = (e) => {
       if (glowRef.current) {
-        gsap.to(glowRef.current, {
-          left: `${e.clientX - 150}px`,
-          top: `${e.clientY - 150}px`,
-          duration: 1.5, ease: 'power2.out',
+        import('gsap').then(({ default: gsap }) => {
+          gsap.to(glowRef.current, {
+            left: `${e.clientX - 150}px`,
+            top: `${e.clientY - 150}px`,
+            duration: 1.5, ease: 'power2.out',
+          })
         })
       }
     }
@@ -307,8 +324,29 @@ export default function RegisterPage() {
     return () => window.removeEventListener('mousemove', handleMouse)
   }, [])
 
+  if (registered) {
+    return (
+      <div className="relative min-h-screen bg-[#0A0A0F] flex items-center justify-center select-none px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 ring-1 ring-inset ring-white/10 mb-6">
+            <CheckCircle className="h-8 w-8 text-emerald-400" />
+          </div>
+          <h2 className="text-2xl font-heading font-bold text-white/90 mb-2">Registration successful!</h2>
+          <p className="text-sm text-white/40 mb-8">
+            An admin will review and approve your setter account before you can sign in.
+          </p>
+          <Link to="/login"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300">
+            Go to login
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="relative min-h-screen bg-[#0A0A0F] overflow-hidden flex items-center justify-center select-none">
+    <div className="relative min-h-screen bg-[#0A0A0F] overflow-x-hidden overflow-y-auto flex items-center justify-center select-none">
       <ParticleField />
 
       <div className="fixed inset-0 z-[1]">
@@ -349,6 +387,13 @@ export default function RegisterPage() {
               <p className="text-sm text-white/30 mt-1">Choose your role and create an account</p>
             </div>
 
+            {!registrationEnabled && (
+              <div className="mb-6 flex items-start gap-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-300">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>Registration is currently disabled. Please contact the administrator for an invite.</span>
+              </div>
+            )}
+
             {/* Role Selector */}
             <div ref={roleRef} className="flex gap-3 mb-6">
               <button type="button" onClick={() => setRole('candidate')}
@@ -385,7 +430,7 @@ export default function RegisterPage() {
               </button>
             </div>
 
-            <form ref={formRef} onSubmit={handleSubmit((d) => dispatch(registerUser({ name: d.name, email: d.email, password: d.password, role })))} className="space-y-2">
+            <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-2">
               {error && (
                 <div ref={errorRef} className="flex items-center gap-2.5 rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300">
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-[10px] font-bold">!</div>
@@ -395,11 +440,6 @@ export default function RegisterPage() {
 
               <div className="relative">
                 <FloatingInput label="Full Name" icon={User} error={errors.name?.message} registration={register('name')} autoFocus />
-                {nameValue && nameValue.length >= 2 && (
-                  <div className="absolute right-3 top-3.5">
-                    <CheckCircle className="h-3.5 w-3.5 text-emerald-400 animate-[popIn_0.3s_ease-out]" />
-                  </div>
-                )}
               </div>
               <FloatingInput label="Email Address" icon={Mail} error={errors.email?.message} registration={register('email')} type="email" />
               <FloatingInput label="Password" icon={Lock} error={errors.password?.message} registration={register('password')} showToggle showState={show.pass} onToggleShow={() => setShow({ ...show, pass: !show.pass })} />
@@ -409,9 +449,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="pt-3">
-                <MagneticButton type="submit" isLoading={isLoading} disabled={isLoading} className="w-full">
+                <SubmitButton type="submit" isLoading={isLoading} disabled={isLoading || !registrationEnabled} className="w-full">
                   Create {role === 'candidate' ? 'Candidate' : 'Setter'} Account
-                </MagneticButton>
+                </SubmitButton>
               </div>
             </form>
 

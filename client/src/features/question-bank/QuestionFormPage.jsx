@@ -7,6 +7,7 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { Save, ArrowLeft, Plus, X, Check, Tag } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { notify } from '@/lib/notify'
 
 const questionFormSchema = z.object({
   title: z.string().min(2, 'Title required'),
@@ -86,8 +87,10 @@ export default function QuestionFormPage() {
     mutationFn: (data) => isEdit ? api.put(`/questions/${id}`, data) : api.post('/questions', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions'] })
+      queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
       navigate('/question-bank')
     },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to save question'),
   })
 
   const onSubmit = (data) => {

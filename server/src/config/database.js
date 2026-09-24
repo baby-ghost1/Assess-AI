@@ -18,4 +18,8 @@ export async function connectDatabase() {
   mongoose.connection.on('disconnected', () => {
     logger.warn('MongoDB disconnected')
   })
+
+  mongoose.connection.on('reconnected', () => {
+    logger.info('MongoDB reconnected')
+  })
 }

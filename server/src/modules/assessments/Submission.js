@@ -17,8 +17,4 @@ const submissionSchema = new mongoose.Schema({
   order: { type: Number, default: 0 },
 }, { timestamps: true })
 
-submissionSchema.index({ attempt: 1, question: 1 }, { unique: true })
-submissionSchema.index({ attempt: 1 })
-submissionSchema.index({ user: 1, assessment: 1 })
-
 export default mongoose.model('Submission', submissionSchema)

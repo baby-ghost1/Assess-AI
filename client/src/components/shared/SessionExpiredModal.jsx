@@ -9,7 +9,7 @@ export default function SessionExpiredModal() {
 
   useEffect(() => {
     const handleStorage = (e) => {
-      if (e.key === 'token' && e.newValue === null) {
+      if (e.key === 'accessToken' && e.newValue === null) {
         setShow(true)
       }
     }

@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Clock, Eye, BookOpen, AlertTriangle, Send, Undo2 
 import { TableSkeleton } from '@/components/shared'
 import { useState } from 'react'
 import { useAppSelector } from '@/hooks'
+import { notify } from '@/lib/notify'
 
 const typeColors = {
   single_correct: 'bg-blue-500/10 text-blue-400',
@@ -43,6 +44,12 @@ function ConfirmModal({ open, title, message, onConfirm, onCancel, isPending, va
 
 function RejectModal({ open, onConfirm, onCancel, isPending }) {
   const [reason, setReason] = useState('')
+  // Reset reason whenever modal reopens
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setReason('')
+  }
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -110,17 +117,30 @@ export default function ApprovalQueuePage() {
 
   const approveMutation = useMutation({
     mutationFn: (id) => api.post(`/questions/${id}/review`, { status: 'approved' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questions-approval'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
+      notify.success('Question approved')
+    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve question'),
   })
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, rejectionReason }) => api.post(`/questions/${id}/review`, { status: 'rejected', rejectionReason }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['questions-approval'] }); setRejectTarget(null) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
+      setRejectTarget(null)
+      notify.success('Question rejected')
+    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to reject question'),
   })
 
   const withdrawMutation = useMutation({
     mutationFn: (id) => api.post(`/questions/${id}/withdraw-review`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questions-approval'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
+      notify.success('Withdrawn from review')
+    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to withdraw'),
   })
 
   if (isAdmin) {

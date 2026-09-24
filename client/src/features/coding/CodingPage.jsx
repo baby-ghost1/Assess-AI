@@ -715,7 +715,7 @@ export default function CodingPage() {
           )}
         </div>
 
-        {!isMobile && <div onMouseDown={onVerticalDrag} onTouchStart={onVerticalDrag} className="w-1 hover:bg-primary/30 bg-border/50 cursor-col-resize transition-colors shrink-0" />}
+        {!isMobile && <div onMouseDown={onVerticalDrag} onTouchStart={onVerticalDrag} className="w-1.5 hover:bg-primary/30 bg-border/50 cursor-col-resize transition-colors shrink-0" />}
 
         <div className={cn(
           'flex-1 flex flex-col overflow-hidden',
@@ -735,7 +735,7 @@ export default function CodingPage() {
             />
           </div>
 
-          {!isMobile && <div onMouseDown={onHorizontalDrag} onTouchStart={onHorizontalDrag} className="h-1 hover:bg-primary/30 bg-border/50 cursor-row-resize transition-colors shrink-0" />}
+          {!isMobile && <div onMouseDown={onHorizontalDrag} onTouchStart={onHorizontalDrag} className="h-1.5 hover:bg-primary/30 bg-border/50 cursor-row-resize transition-colors shrink-0" />}
 
           <div style={isMobile ? { height: 150 } : { height: bottomHeight }} className="border-t border-border shrink-0 overflow-hidden">
             <TestResultsPanel results={results} running={running} consoleOutput={consoleOutput} error={runError} />

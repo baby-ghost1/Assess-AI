@@ -3,7 +3,7 @@ import { useMusicPlayer } from './musicPlayerContext'
 
 export default function useKeyboardShortcuts() {
   const {
-    hasTrack, isPlaying, volume, progress, duration, currentTrack,
+    hasTrack, volume, progress, duration, currentTrack,
     togglePlayPause, playNext, playPrev,
     seek, changeVolume, toggleMute, toggleShuffle, toggleRepeat,
     toggleQueuePanel, toggleLike,
@@ -17,7 +17,9 @@ export default function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e) => {
       const tag = e.target.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+      if (!hasTrack || e.defaultPrevented || e.altKey || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT' || e.target.getAttribute?.('role') === 'slider' || e.target.isContentEditable) return
+      if ((e.ctrlKey || e.metaKey) && e.code !== 'ArrowRight' && e.code !== 'ArrowLeft') return
+      if (e.repeat && !['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.code)) return
 
       const currentPct = durationRef.current ? progressRef.current / durationRef.current : 0
 
@@ -97,7 +99,7 @@ export default function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [hasTrack, isPlaying, volume, currentTrack,
+  }, [hasTrack, volume, currentTrack,
     togglePlayPause, playNext, playPrev,
     seek, changeVolume, toggleMute, toggleShuffle, toggleRepeat,
     toggleQueuePanel, toggleLike])

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Play, Pause, Music, Heart, Loader2, X,
@@ -7,10 +7,10 @@ import {
   Moon, Sun, PartyPopper, BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import api from '@/lib/api'
 import { useMusicPlayer } from './musicPlayerContext'
+import useKeyboardShortcuts from './useKeyboardShortcuts'
 import Equalizer from './Equalizer'
-
-const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const MOOD_CHIPS = [
   { label: 'Bollywood', query: 'bollywood hits', icon: Sparkles },
@@ -26,7 +26,7 @@ const MOOD_CHIPS = [
 ]
 
 function formatTime(sec) {
-  if (!sec || isNaN(sec)) return '0:00'
+  if (!Number.isFinite(sec) || sec <= 0) return '0:00'
   const m = Math.floor(sec / 60)
   const s = Math.floor(sec % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
@@ -40,28 +40,30 @@ function formatPlays(n) {
   return `${n}`
 }
 
-async function fetchSuggestions(q) {
-  const res = await fetch(`${API_BASE}/api/v1/music/suggest?q=${encodeURIComponent(q)}`)
-  const data = await res.json()
+async function fetchSuggestions(q, signal) {
+  const { data } = await api.get('/music/suggest', { params: { q }, signal })
   return data.suggestions || []
 }
 
-async function fetchSongById(id) {
-  const res = await fetch(`${API_BASE}/api/v1/music/songs/${id}`)
-  const data = await res.json()
+async function fetchSongById(id, signal) {
+  const { data } = await api.get(`/music/songs/${encodeURIComponent(id)}`, { signal })
   return data.song || null
 }
 
-async function searchSaavn(q) {
-  const res = await fetch(`${API_BASE}/api/v1/music/search?q=${encodeURIComponent(q)}`)
-  const data = await res.json()
-  return data.results || []
+async function searchSaavn(q, signal) {
+  const { data } = await api.get('/music/search', { params: { q }, signal })
+  return (data.results || []).filter((track) => track?.streamUrl)
 }
 
-async function loadTrendingSaavn() {
-  const res = await fetch(`${API_BASE}/api/v1/music/trending`)
-  const data = await res.json()
-  return data.results || []
+async function loadTrendingSaavn(signal) {
+  try {
+    const { data } = await api.get('/music/trending', { signal })
+    if (data.results?.length) return data.results
+  } catch (error) {
+    if (error.code === 'ERR_CANCELED') throw error
+  }
+  const { data } = await api.get('/music/search', { params: { q: 'bollywood hits' }, signal })
+  return (data.results || []).filter((track) => track?.streamUrl)
 }
 
 function SkeletonCard() {
@@ -74,7 +76,7 @@ function SkeletonCard() {
   )
 }
 
-function SuggestionDropdown({ suggestions, onSelect, loading, playingId }) {
+const SuggestionDropdown = React.memo(function SuggestionDropdown({ suggestions, onSelect, loading, playingId }) {
   if (!suggestions.length && !loading) return null
 
   return (
@@ -83,6 +85,9 @@ function SuggestionDropdown({ suggestions, onSelect, loading, playingId }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
+      id="vibe-suggestions"
+      role="listbox"
+      aria-label="Music suggestions"
       className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl bg-[#282828] border border-[#333] overflow-hidden max-h-80 overflow-y-auto shadow-2xl shadow-black/60"
     >
       {loading ? (
@@ -92,8 +97,10 @@ function SuggestionDropdown({ suggestions, onSelect, loading, playingId }) {
       ) : (
         suggestions.map((s) => (
           <button
-            key={s.id}
-            onClick={() => onSelect(s)}
+             key={s.id}
+             role="option"
+             aria-selected={playingId === s.id}
+             onClick={() => onSelect(s)}
             className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[#333] transition-colors text-left group"
           >
             <div className="relative shrink-0">
@@ -126,23 +133,32 @@ function SuggestionDropdown({ suggestions, onSelect, loading, playingId }) {
       )}
     </motion.div>
   )
-}
+})
+
+const FLOATING_PARTICLES = Array.from({ length: 8 }, (_, i) => ({
+  width: 3 + (((i * 7 + 3) % 10) / 10) * 5,
+  height: 3 + (((i * 3 + 7) % 10) / 10) * 5,
+  left: 10 + (((i * 13 + 5) % 100) / 100) * 80,
+  top: 20 + (((i * 11 + 2) % 100) / 100) * 60,
+  duration: 5 + (((i * 9 + 1) % 10) / 10) * 8,
+  delay: (((i * 6 + 4) % 10) / 10) * 5,
+}))
 
 function FloatingParticles({ isPlaying }) {
   if (!isPlaying) return null
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 8 }).map((_, i) => (
+      {FLOATING_PARTICLES.map((p, i) => (
         <div
           key={i}
-          className="absolute rounded-full bg-[#1db954]/15"
+          className="absolute rounded-full bg-[#1db954]/15 will-change-transform"
           style={{
-            width: `${3 + Math.random() * 5}px`,
-            height: `${3 + Math.random() * 5}px`,
-            left: `${10 + Math.random() * 80}%`,
-            top: `${20 + Math.random() * 60}%`,
-            animation: `float-particle ${5 + Math.random() * 8}s ease-in-out infinite`,
-            animationDelay: `${Math.random() * 5}s`,
+            width: `${p.width}px`,
+            height: `${p.height}px`,
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            animation: `float-particle ${p.duration}s ease-in-out infinite`,
+            animationDelay: `${p.delay}s`,
           }}
         />
       ))}
@@ -150,14 +166,18 @@ function FloatingParticles({ isPlaying }) {
   )
 }
 
-function TrackCard({ track, index, isActive, isPlaying, onPlay, onAddToQueue, isLiked, onToggleLike }) {
+const TrackCard = React.memo(function TrackCard({ track, index, isActive, isPlaying, onPlay, onAddToQueue, isLiked, onToggleLike }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.35 }}
       className="group relative p-3 rounded-lg bg-[#181818] hover:bg-[#282828] transition-all duration-300 cursor-pointer"
-      onDoubleClick={() => onPlay(track)}
+      role="group"
+      tabIndex={0}
+      aria-label={`${isActive && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
+      onClick={() => onPlay(track)}
+      onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPlay(track) } }}
     >
       <div className="relative mb-3 aspect-square rounded-md overflow-hidden shadow-lg shadow-black/40">
         {track.image ? (
@@ -171,10 +191,11 @@ function TrackCard({ track, index, isActive, isPlaying, onPlay, onAddToQueue, is
           'absolute bottom-2 right-2 transition-all duration-300',
           isActive && isPlaying
             ? 'opacity-100 translate-y-0'
-            : 'opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0'
+            : 'opacity-100 sm:opacity-0 sm:translate-y-2 sm:group-hover:opacity-100 sm:group-hover:translate-y-0'
         )}>
           <button
             onClick={(e) => { e.stopPropagation(); onPlay(track) }}
+            aria-label={`${isActive && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
             className="h-12 w-12 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-black/50"
           >
             {isActive && isPlaying ? (
@@ -204,9 +225,10 @@ function TrackCard({ track, index, isActive, isPlaying, onPlay, onAddToQueue, is
         </p>
       </div>
       {/* Hover actions */}
-      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button
           onClick={(e) => { e.stopPropagation(); onToggleLike(track) }}
+          aria-label={`${isLiked ? 'Remove' : 'Add'} ${track.title} ${isLiked ? 'from' : 'to'} liked songs`}
           className={cn(
             'h-7 w-7 flex items-center justify-center rounded-full transition-all',
             isLiked ? 'text-[#1db954] bg-[#1db954]/10' : 'text-[#b3b3b3] hover:text-white bg-black/40 backdrop-blur-sm'
@@ -217,6 +239,7 @@ function TrackCard({ track, index, isActive, isPlaying, onPlay, onAddToQueue, is
         <button
           onClick={(e) => { e.stopPropagation(); onAddToQueue(track) }}
           className="h-7 w-7 flex items-center justify-center rounded-full text-[#b3b3b3] hover:text-white bg-black/40 backdrop-blur-sm transition-all"
+          aria-label={`Add ${track.title} to queue`}
           title="Add to queue"
         >
           <ListMusic className="h-3.5 w-3.5" />
@@ -224,15 +247,19 @@ function TrackCard({ track, index, isActive, isPlaying, onPlay, onAddToQueue, is
       </div>
     </motion.div>
   )
-}
+})
 
-function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue, isLiked, onToggleLike }) {
+const TrackListItem = React.memo(function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue, isLiked, onToggleLike }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.025, duration: 0.3 }}
-      onDoubleClick={() => onPlay(track)}
+      role="group"
+      tabIndex={0}
+      aria-label={`${isActive && isPlaying ? 'Pause' : 'Play'} ${track.title}`}
+      onClick={() => onPlay(track)}
+      onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPlay(track) } }}
       className={cn(
         'group grid grid-cols-[32px_1fr_48px] sm:grid-cols-[32px_40px_1fr_48px] md:grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-3 sm:gap-4 items-center px-3 sm:px-4 py-2 rounded-md cursor-pointer transition-colors duration-150',
         isActive ? 'bg-[#282828]' : 'hover:bg-[#ffffff0a]'
@@ -260,7 +287,7 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
         )}
       </div>
       <div className="min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <p className={cn(
             'text-sm truncate leading-tight transition-colors',
             isActive ? 'text-[#1db954]' : 'text-white'
@@ -276,7 +303,8 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
       <div className="hidden sm:flex items-center gap-2">
         <button
           onClick={(e) => { e.stopPropagation(); onToggleLike(track) }}
-          className={cn('transition-all', isLiked ? 'text-[#1db954]' : 'text-[#7f7f7f] opacity-0 group-hover:opacity-100 hover:text-white')}
+          aria-label={`${isLiked ? 'Remove' : 'Add'} ${track.title} ${isLiked ? 'from' : 'to'} liked songs`}
+          className={cn('transition-all', isLiked ? 'text-[#1db954]' : 'text-[#7f7f7f] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white')}
         >
           <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />
         </button>
@@ -287,7 +315,8 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
       <div className="flex items-center gap-2 justify-end">
         <button
           onClick={(e) => { e.stopPropagation(); onAddToQueue(track) }}
-          className="text-[#7f7f7f] opacity-0 group-hover:opacity-100 hover:text-white transition-all"
+          className="text-[#7f7f7f] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white transition-all"
+          aria-label={`Add ${track.title} to queue`}
           title="Add to queue"
         >
           <ListMusic className="h-4 w-4" />
@@ -296,19 +325,21 @@ function TrackListItem({ track, index, isActive, isPlaying, onPlay, onAddToQueue
       </div>
     </motion.div>
   )
-}
+})
 
 export default function MusicPlayerPage() {
   const {
-    currentTrack, isPlaying, progress, duration, playTrack, seek, hasTrack,
+    currentTrack, isPlaying, progress, duration, playTrack, playOrToggleTrack, seek, hasTrack,
     recentlyPlayed, addToQueue, toggleLike, isLiked, likedSongs,
   } = useMusicPlayer()
+  useKeyboardShortcuts()
   const [query, setQuery] = useState('')
   const [tracks, setTracks] = useState([])
   const [trending, setTrending] = useState([])
   const [loading, setLoading] = useState(false)
   const [trendingLoading, setTrendingLoading] = useState(true)
   const [searchDone, setSearchDone] = useState(false)
+  const [searchError, setSearchError] = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -317,103 +348,198 @@ export default function MusicPlayerPage() {
   const [activeTab, setActiveTab] = useState('discover')
   const inputRef = useRef(null)
   const debounceRef = useRef(null)
+  const suggestionAbortRef = useRef(null)
+  const suggestionPlayAbortRef = useRef(null)
+  const searchAbortRef = useRef(null)
+  const suggestionRequestRef = useRef(0)
+  const searchRequestRef = useRef(0)
+  const suggestionPlayRequestRef = useRef(0)
   const wrapperRef = useRef(null)
 
   useEffect(() => {
-    loadTrendingSaavn().then(setTrending).catch(() => setTrending([])).finally(() => setTrendingLoading(false))
+    let active = true
+    const controller = new AbortController()
+    loadTrendingSaavn(controller.signal)
+      .then((results) => { if (active) setTrending(results) })
+      .catch(() => { if (active) setTrending([]) })
+      .finally(() => { if (active) setTrendingLoading(false) })
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [])
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setShowSuggestions(false)
-      }
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowSuggestions(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const fetchAutocomplete = useCallback((q) => {
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      suggestionAbortRef.current?.abort()
+      suggestionPlayAbortRef.current?.abort()
+      searchAbortRef.current?.abort()
+    }
+  }, [])
+
+  const fetchAutocomplete = useCallback((value) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!q.trim()) { setSuggestions([]); setShowSuggestions(false); return }
-    debounceRef.current = setTimeout(async () => {
-      setSuggestionLoading(true)
-      try { const res = await fetchSuggestions(q.trim()); setSuggestions(res); setShowSuggestions(true) }
-      catch { setSuggestions([]) }
+    suggestionAbortRef.current?.abort()
+    const requestId = ++suggestionRequestRef.current
+    const queryText = value.trim()
+    if (!queryText) {
+      setSuggestions([])
       setSuggestionLoading(false)
+      setShowSuggestions(false)
+      return
+    }
+    debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController()
+      suggestionAbortRef.current = controller
+      setSuggestionLoading(true)
+      try {
+        const results = await fetchSuggestions(queryText, controller.signal)
+        if (requestId !== suggestionRequestRef.current) return
+        setSuggestions(results)
+        setShowSuggestions(true)
+      } catch (requestError) {
+        if (requestId !== suggestionRequestRef.current || requestError.code === 'ERR_CANCELED') return
+        setSuggestions([])
+      } finally {
+        if (requestId === suggestionRequestRef.current) setSuggestionLoading(false)
+      }
     }, 300)
   }, [])
 
-  const handleQueryChange = useCallback((e) => {
-    const val = e.target.value; setQuery(val); fetchAutocomplete(val)
+  const handleQueryChange = useCallback((event) => {
+    const value = event.target.value
+    setQuery(value)
+    fetchAutocomplete(value)
   }, [fetchAutocomplete])
 
   const handleSearch = useCallback(async (searchQuery) => {
-    const q = (searchQuery || query).trim()
+    const q = (searchQuery ?? query).trim()
     if (!q) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    setShowSuggestions(false); setLoading(true); setSearchDone(false); setQuery(q)
-    try { const results = await searchSaavn(q); setTracks(results) }
-    catch { setTracks([]) }
-    setLoading(false); setSearchDone(true)
+    suggestionAbortRef.current?.abort()
+    searchAbortRef.current?.abort()
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+    const requestId = ++searchRequestRef.current
+    setShowSuggestions(false)
+    setSearchError(null)
+    setLoading(true)
+    setSearchDone(false)
+    setQuery(q)
+    setActiveTab('discover')
+    try {
+      const results = await searchSaavn(q, controller.signal)
+      if (requestId !== searchRequestRef.current) return
+      setTracks(results)
+    } catch (requestError) {
+      if (requestId !== searchRequestRef.current || requestError.code === 'ERR_CANCELED') return
+      setTracks([])
+      setSearchError(requestError.response?.data?.message || 'Unable to search music right now')
+    } finally {
+      if (requestId === searchRequestRef.current) {
+        setLoading(false)
+        setSearchDone(true)
+      }
+    }
   }, [query])
 
   const handleSelectSuggestion = useCallback(async (suggestion) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    setSuggestions([]); setShowSuggestions(false)
-
+    suggestionAbortRef.current?.abort()
+    suggestionPlayAbortRef.current?.abort()
+    const requestId = ++suggestionPlayRequestRef.current
+    const controller = new AbortController()
+    suggestionPlayAbortRef.current = controller
+    setSuggestions([])
+    setShowSuggestions(false)
     if (suggestion.type === 'album') {
-      setQuery(suggestion.title); handleSearch(suggestion.title)
+      setQuery(suggestion.title)
+      handleSearch(suggestion.title)
       return
     }
 
     setPlayingSuggestion(suggestion.id)
     try {
-      const song = await fetchSongById(suggestion.id)
-      if (song && song.streamUrl) {
+      const song = await fetchSongById(suggestion.id, controller.signal)
+      if (requestId !== suggestionPlayRequestRef.current) return
+      if (song?.streamUrl) {
         playTrack(song, [song])
         setQuery(song.title)
-        setPlayingSuggestion(null)
         return
       }
-    } catch {}
+    } catch (requestError) {
+      if (requestId !== suggestionPlayRequestRef.current || requestError.code === 'ERR_CANCELED') return
+    }
 
-    // Fallback: search for the song title and play first result
     try {
       setQuery(suggestion.title)
-      const results = await searchSaavn(suggestion.title)
-      if (results.length > 0 && results[0].streamUrl) {
-        playTrack(results[0], results)
-      }
-    } catch {}
-    setPlayingSuggestion(null)
+      const results = await searchSaavn(suggestion.title, controller.signal)
+      if (requestId !== suggestionPlayRequestRef.current) return
+      if (results[0]?.streamUrl) playTrack(results[0], results)
+      else setSearchError('No playable version found')
+    } catch (requestError) {
+      if (requestId !== suggestionPlayRequestRef.current || requestError.code === 'ERR_CANCELED') return
+      setSearchError('Unable to play that suggestion')
+    } finally {
+      if (requestId === suggestionPlayRequestRef.current) setPlayingSuggestion(null)
+    }
   }, [handleSearch, playTrack])
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') { setShowSuggestions(false); handleSearch() }
-    if (e.key === 'Escape') setShowSuggestions(false)
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      setShowSuggestions(false)
+      handleSearch()
+    }
+    if (event.key === 'Escape') setShowSuggestions(false)
   }
 
-  const handlePlay = useCallback((track) => {
-    const list = searchDone ? tracks : trending
-    playTrack(track, list)
-  }, [searchDone, tracks, trending, playTrack])
+  const handlePlay = useCallback((track, listOverride) => {
+    const list = listOverride ?? (searchDone ? tracks : trending)
+    playOrToggleTrack(track, list)
+  }, [playOrToggleTrack, searchDone, tracks, trending])
 
   const handlePlayAll = useCallback(() => {
-    const list = activeTab === 'liked' ? likedSongs : (searchDone ? tracks : trending)
+    const list = activeTab === 'liked' && !searchDone ? likedSongs : (searchDone ? tracks : trending)
     if (list.length > 0) playTrack(list[0], list)
   }, [activeTab, likedSongs, searchDone, tracks, trending, playTrack])
 
   const handleShuffleAll = useCallback(() => {
-    const list = activeTab === 'liked' ? likedSongs : (searchDone ? tracks : trending)
-    if (list.length > 0) {
-      const shuffled = [...list].sort(() => Math.random() - 0.5)
-      playTrack(shuffled[0], shuffled)
+    const list = activeTab === 'liked' && !searchDone ? likedSongs : (searchDone ? tracks : trending)
+    if (list.length === 0) return
+    const shuffled = [...list]
+    for (let index = shuffled.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1))
+      ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
     }
+    playTrack(shuffled[0], shuffled)
   }, [activeTab, likedSongs, searchDone, tracks, trending, playTrack])
 
   const handleClearSearch = () => {
-    setQuery(''); setTracks([]); setSearchDone(false); setSuggestions([]); setShowSuggestions(false)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    suggestionAbortRef.current?.abort()
+    suggestionPlayAbortRef.current?.abort()
+    searchAbortRef.current?.abort()
+    suggestionRequestRef.current++
+    suggestionPlayRequestRef.current++
+    searchRequestRef.current++
+    setQuery('')
+    setTracks([])
+    setSearchDone(false)
+    setSearchError(null)
+    setPlayingSuggestion(null)
+    setSuggestions([])
+    setSuggestionLoading(false)
+    setShowSuggestions(false)
     inputRef.current?.focus()
   }
 
@@ -449,14 +575,19 @@ export default function MusicPlayerPage() {
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#b3b3b3]" />
                 <input
-                  ref={inputRef} type="text" value={query} onChange={handleQueryChange}
-                  onKeyDown={handleKeyDown} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                  placeholder="What do you want to listen to?"
+                   ref={inputRef} type="text" value={query} onChange={handleQueryChange}
+                   onKeyDown={handleKeyDown} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                   role="combobox"
+                   aria-label="Search for music"
+                   aria-autocomplete="list"
+                   aria-expanded={showSuggestions}
+                   aria-controls="vibe-suggestions"
+                   placeholder="What do you want to listen to?"
                   className="w-full pl-12 pr-24 py-3.5 rounded-full bg-[#242424] border-2 border-transparent text-sm text-white placeholder:text-[#7f7f7f] focus:outline-none focus:border-[#1db954] focus:bg-[#2a2a2a] transition-all duration-200"
                 />
                 {query ? (
-                  <button onClick={handleClearSearch}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-full bg-[#333] text-[#b3b3b3] hover:text-white hover:bg-[#444] transition-colors">
+                   <button onClick={handleClearSearch} aria-label="Clear search"
+                     className="absolute right-4 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-full bg-[#333] text-[#b3b3b3] hover:text-white hover:bg-[#444] transition-colors">
                     <X className="h-4 w-4" />
                   </button>
                 ) : (
@@ -506,9 +637,12 @@ export default function MusicPlayerPage() {
             <div className="max-w-4xl mx-auto mb-6">
               <div className="flex items-center gap-1 bg-[#1a1a1a] rounded-full p-1 w-fit" role="tablist" aria-label="Music view">
                 <button
-                  role="tab"
-                  aria-selected={activeTab === 'discover'}
-                  onClick={() => setActiveTab('discover')}
+                   id="vibe-discover-tab"
+                   role="tab"
+                   aria-controls="vibe-discover-panel"
+                   aria-selected={activeTab === 'discover'}
+                   tabIndex={0}
+                   onClick={() => setActiveTab('discover')}
                   className={cn(
                     'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200',
                     activeTab === 'discover' ? 'bg-white text-black' : 'text-[#b3b3b3] hover:text-white'
@@ -517,9 +651,12 @@ export default function MusicPlayerPage() {
                   Discover
                 </button>
                 <button
-                  role="tab"
-                  aria-selected={activeTab === 'liked'}
-                  onClick={() => setActiveTab('liked')}
+                   id="vibe-liked-tab"
+                   role="tab"
+                   aria-controls="vibe-liked-panel"
+                   aria-selected={activeTab === 'liked'}
+                   tabIndex={0}
+                   onClick={() => setActiveTab('liked')}
                   className={cn(
                     'px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2',
                     activeTab === 'liked' ? 'bg-white text-black' : 'text-[#b3b3b3] hover:text-white'
@@ -541,8 +678,8 @@ export default function MusicPlayerPage() {
           )}
 
           {/* ─── Liked Songs View ─── */}
-          {activeTab === 'liked' && !searchDone && !showSuggestions && (
-            <div className="max-w-4xl mx-auto mb-8">
+           {activeTab === 'liked' && !searchDone && !showSuggestions && (
+             <div id="vibe-liked-panel" role="tabpanel" aria-labelledby="vibe-liked-tab" className="max-w-4xl mx-auto mb-8">
               {likedSongs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="h-20 w-20 rounded-full bg-[#282828] flex items-center justify-center mb-4">
@@ -553,7 +690,7 @@ export default function MusicPlayerPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
                       <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-[#450af5] to-[#c4efd9] flex items-center justify-center">
                         <Heart className="h-7 w-7 text-white fill-current" />
@@ -563,10 +700,11 @@ export default function MusicPlayerPage() {
                         <p className="text-sm text-[#b3b3b3]">{likedSongs.length} songs</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
-                        onClick={handleShuffleAll}
-                        className="h-10 w-10 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all shadow-lg"
+                         onClick={handleShuffleAll}
+                         aria-label="Shuffle liked songs"
+                         className="h-10 w-10 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all shadow-lg"
                       >
                         <Shuffle className="h-5 w-5 text-black" />
                       </button>
@@ -586,7 +724,7 @@ export default function MusicPlayerPage() {
                     </div>
                     {likedSongs.map((track, i) => (
                       <TrackListItem key={track.id} track={track} index={i}
-                        isActive={currentTrack?.id === track.id} isPlaying={isPlaying} onPlay={(t) => playTrack(t, likedSongs)}
+                        isActive={currentTrack?.id === track.id} isPlaying={isPlaying} onPlay={(t) => playOrToggleTrack(t, likedSongs)}
                         onAddToQueue={addToQueue} isLiked={true} onToggleLike={toggleLike} />
                     ))}
                   </div>
@@ -606,17 +744,24 @@ export default function MusicPlayerPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="relative flex flex-col sm:flex-row items-center gap-6 sm:gap-8 p-6 sm:p-8">
                     <div className="relative shrink-0">
-                      <div className={cn('h-32 w-32 sm:h-44 sm:w-44 rounded-xl overflow-hidden shadow-2xl shadow-black/60 transition-all duration-500',
-                        isPlaying && 'vinyl-spin-slow')}>
-                        {currentTrack.image ? (
-                          <img src={currentTrack.image} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full w-full bg-[#282828] flex items-center justify-center">
-                            <Music className="h-16 w-16 text-[#7f7f7f]" />
-                          </div>
-                        )}
+                      {/* CD Disc Shape - Hero */}
+                      <div className={cn(
+                        'relative rounded-full shadow-2xl shadow-black/60 transition-all duration-500',
+                        isPlaying && 'vinyl-spin-slow'
+                      )} style={{ width: '180px', height: '180px' }}>
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#2a2a2a] via-[#1a1a1a] to-[#111] shadow-[0_0_20px_rgba(0,0,0,0.6)]" />
+                        <div className="absolute inset-[5px] rounded-full overflow-hidden bg-[#282828]">
+                          {currentTrack.image ? (
+                            <img src={currentTrack.image} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full bg-[#282828] flex items-center justify-center">
+                              <Music className="h-16 w-16 text-[#7f7f7f]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[#181818] border-2 border-[#333] shadow-inner z-10" />
                       </div>
-                      {isPlaying && <div className="absolute -inset-1 rounded-xl border border-[#1db954]/30 pulse-ring" />}
+                      {isPlaying && <div className="absolute -inset-2 rounded-full border border-[#1db954]/30 pulse-ring" />}
                     </div>
                     <div className="flex-1 min-w-0 text-center sm:text-left">
                       <div className="flex items-center gap-2 mb-2 justify-center sm:justify-start">
@@ -646,11 +791,21 @@ export default function MusicPlayerPage() {
 
                       {/* Progress */}
                       <div className="max-w-md mx-auto sm:mx-0">
-                        <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden group cursor-pointer"
-                          onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); seek((e.clientX - rect.left) / rect.width) }}>
-                          <div className="absolute top-0 left-0 h-full bg-white rounded-full transition-all"
+                         <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden group cursor-pointer"
+                           role="slider"
+                           tabIndex={0}
+                           aria-label="Seek through current track"
+                           aria-valuemin={0}
+                           aria-valuemax={duration || 0}
+                           aria-valuenow={progress}
+                           onKeyDown={(event) => {
+                             if (event.key === 'ArrowRight') { event.preventDefault(); seek(Math.min(1, (progress / (duration || 1)) + 0.05)) }
+                             if (event.key === 'ArrowLeft') { event.preventDefault(); seek(Math.max(0, (progress / (duration || 1)) - 0.05)) }
+                           }}
+                           onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); seek((e.clientX - rect.left) / rect.width) }}>
+                          <div className="absolute top-0 left-0 h-full bg-white rounded-full will-change-transform"
                             style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }} />
-                          <div className="absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          <div className="absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity will-change-transform"
                             style={{ left: `${duration ? (progress / duration) * 100 : 0}%`, marginLeft: '-7px' }} />
                         </div>
                         <div className="flex justify-between mt-1.5">
@@ -674,7 +829,7 @@ export default function MusicPlayerPage() {
               </div>
               <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
                 {recentlyPlayed.slice(0, 8).map((track) => (
-                  <button key={track.id} onClick={() => handlePlay(track)}
+                  <button key={track.id} onClick={() => handlePlay(track, recentlyPlayed)}
                     className="flex items-center gap-3 px-3 py-2 rounded-full bg-[#232323] hover:bg-[#2a2a2a] border border-[#333] hover:border-[#1db954]/30 transition-all shrink-0 group">
                     <div className="h-8 w-8 rounded overflow-hidden bg-[#333] shrink-0">
                       {track.image ? (
@@ -692,7 +847,15 @@ export default function MusicPlayerPage() {
             </div>
           )}
 
+          {searchError && (
+            <div className="max-w-4xl mx-auto mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300" role="alert">
+              {searchError}
+            </div>
+          )}
+
           {/* ─── Content ─── */}
+          {activeTab === 'discover' && (
+            <div id="vibe-discover-panel" role="tabpanel" aria-labelledby="vibe-discover-tab">
           {loading || trendingLoading ? (
             <div className="max-w-4xl mx-auto">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -715,17 +878,18 @@ export default function MusicPlayerPage() {
           ) : searchDone ? (
             <div className="max-w-4xl mx-auto">
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Search className="h-4 w-4 text-[#1db954]" />
                   <span className="text-sm text-[#b3b3b3] font-medium">Results for "<span className="text-white font-semibold">{query}</span>"</span>
                   <span className="text-xs text-[#7f7f7f]">({displayTracks.length} songs)</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {displayTracks.length > 0 && (
                     <>
                       <button onClick={handleShuffleAll}
                         className="h-8 w-8 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all"
-                        title="Shuffle play">
+                         title="Shuffle play"
+                         aria-label="Shuffle play">
                         <Shuffle className="h-4 w-4 text-black" />
                       </button>
                       <button onClick={handlePlayAll}
@@ -756,8 +920,8 @@ export default function MusicPlayerPage() {
                 </div>
               ) : (
                 <div className="bg-[#121212] rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-4 items-center px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
-                    <span className="text-center">#</span><span>Title</span><span></span>
+                   <div className="grid grid-cols-[32px_1fr_48px] sm:grid-cols-[32px_40px_1fr_48px] md:grid-cols-[16px_42px_1fr_minmax(60px,auto)_80px] gap-3 sm:gap-4 items-center px-3 sm:px-4 py-2 border-b border-[#282828] text-xs text-[#b3b3b3] uppercase tracking-wider">
+                     <span className="text-center">#</span><span className="hidden sm:block"></span><span>Title</span>
                     <span className="text-right hidden sm:block">Plays</span>
                     <span className="text-right"><Clock className="h-3.5 w-3.5 inline" /></span>
                   </div>
@@ -772,12 +936,12 @@ export default function MusicPlayerPage() {
           ) : (
             <div className="max-w-4xl mx-auto">
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-[#1db954]" />
                   <span className="text-sm font-bold text-white">Trending Now</span>
                 </div>
                 {displayTracks.length > 0 && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button onClick={handleShuffleAll}
                       className="h-8 w-8 flex items-center justify-center rounded-full bg-[#1db954] hover:bg-[#1ed760] hover:scale-105 active:scale-95 transition-all"
                       title="Shuffle play">
@@ -792,8 +956,12 @@ export default function MusicPlayerPage() {
               </div>
               {displayTracks.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-                  <div onClick={() => handlePlay(displayTracks[0])}
-                    className="group relative rounded-xl overflow-hidden cursor-pointer bg-gradient-to-r from-[#1a472a] via-[#1db954]/20 to-[#1a472a] border border-[#1db954]/10 hover:border-[#1db954]/30 transition-all duration-300">
+                   <div onClick={() => handlePlay(displayTracks[0])}
+                     onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handlePlay(displayTracks[0]) } }}
+                     role="button"
+                     tabIndex={0}
+                     aria-label={`Play featured track ${displayTracks[0].title}`}
+                     className="group relative rounded-xl overflow-hidden cursor-pointer bg-gradient-to-r from-[#1a472a] via-[#1db954]/20 to-[#1a472a] border border-[#1db954]/10 hover:border-[#1db954]/30 transition-all duration-300">
                     <div className="flex items-center gap-5 sm:gap-6 p-5">
                       <div className="relative shrink-0">
                         <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-lg overflow-hidden shadow-2xl shadow-black/50">
@@ -822,15 +990,8 @@ export default function MusicPlayerPage() {
                   </div>
                 </motion.div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-                {displayTracks.slice(1).map((track, i) => (
-                  <TrackCard key={track.id} track={track} index={i}
-                    isActive={currentTrack?.id === track.id} isPlaying={isPlaying} onPlay={handlePlay}
-                    onAddToQueue={addToQueue} isLiked={isLiked(track.id)} onToggleLike={toggleLike} />
-                ))}
-              </div>
-              {displayTracks.length > 6 && (
-                <div className="mt-8">
+              {displayTracks.length > 0 && (
+                <div className="mt-2">
                   <div className="flex items-center gap-2 mb-3">
                     <ListMusic className="h-4 w-4 text-[#b3b3b3]" />
                     <span className="text-sm font-bold text-white">All Tracks</span>
@@ -849,6 +1010,8 @@ export default function MusicPlayerPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
             </div>
           )}
         </div>

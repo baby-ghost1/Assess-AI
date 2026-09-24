@@ -1,10 +1,11 @@
-import { jsPDF } from 'jspdf'
-import { applyPlugin } from 'jspdf-autotable'
 import { notify } from '@/lib/notify'
-applyPlugin(jsPDF)
 
-export function exportAnalyticsPDF(type, data, extra = {}) {
+export async function exportAnalyticsPDF(type, data, extra = {}) {
   try {
+    const { jsPDF } = await import('jspdf')
+    const { applyPlugin } = await import('jspdf-autotable')
+    applyPlugin(jsPDF)
+
     const doc = new jsPDF('p', 'mm', 'a4')
     const pageWidth = doc.internal.pageSize.getWidth()
 

@@ -26,9 +26,12 @@ export default function AssessmentReviewPage() {
       queryClient.invalidateQueries({ queryKey: ['assessments-pending'] })
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
+      queryClient.invalidateQueries({ queryKey: ['sidebar-admin-pending-assessment-count'] })
+      queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
       setConfirmApprove(null)
       notify.success('Assessment approved successfully')
     },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve assessment'),
   })
 
   const rejectMutation = useMutation({
@@ -37,9 +40,12 @@ export default function AssessmentReviewPage() {
       queryClient.invalidateQueries({ queryKey: ['assessments-pending'] })
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
+      queryClient.invalidateQueries({ queryKey: ['sidebar-admin-pending-assessment-count'] })
+      queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
       setRejectTarget(null)
       notify.success('Assessment rejected')
     },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to reject assessment'),
   })
 
   const assessments = data?.data || []

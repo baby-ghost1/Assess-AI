@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { useAppSelector } from '@/hooks'
@@ -10,7 +10,7 @@ import DonutChart from './DonutChart'
 import { SkeletonCard, SkeletonChart } from './Skeletons'
 import { exportAnalyticsPDF } from '@/lib/reportUtils'
 
-function ScoreChart({ scores }) {
+const ScoreChart = React.memo(function ScoreChart({ scores }) {
   const hasData = scores && scores.length > 0
 
   return (
@@ -27,7 +27,7 @@ function ScoreChart({ scores }) {
       )}
     </div>
   )
-}
+})
 
 function ScoreLineChart({ scores }) {
   const [hovered, setHovered] = useState(null)
@@ -50,7 +50,7 @@ function ScoreLineChart({ scores }) {
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[400px]" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-0" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.3" />
@@ -184,7 +184,7 @@ function SetterAnalyticsView() {
     <div className="max-w-5xl mx-auto space-y-6 py-6">
       <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-heading font-bold text-text-primary">Content Analytics</h2>
             <p className="text-sm text-text-secondary mt-1">Performance of your questions and assessments</p>
@@ -422,7 +422,7 @@ function CandidateAnalyticsView() {
     <div className="max-w-5xl mx-auto space-y-6 py-6">
       <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-heading font-bold text-text-primary">My Analytics</h2>
             <p className="text-sm text-text-secondary mt-1">Track your performance and progress</p>

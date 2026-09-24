@@ -35,6 +35,9 @@ export default defineConfig({
           if (id.includes('node_modules/@tanstack/react-query')) return 'query'
           if (id.includes('node_modules/lucide-react') || id.includes('node_modules/framer-motion')) return 'ui'
           if (id.includes('node_modules/socket.io-client')) return 'socket'
+          if (id.includes('node_modules/gsap')) return 'gsap'
+          if (id.includes('node_modules/jspdf')) return 'pdf'
+          if (id.includes('node_modules/zod') || id.includes('node_modules/react-hook-form')) return 'forms'
         },
       },
     },

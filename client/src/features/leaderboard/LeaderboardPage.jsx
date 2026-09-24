@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Trophy, Medal, Award, Users, Code2, Crown, User } from 'lucide-react'
 import { ErrorState, EmptyState } from '@/components/shared'
@@ -11,7 +11,7 @@ const TABS = [
   { id: 'coding', label: 'Coding', icon: Code2 },
 ]
 
-function PodiumCard({ entry, rank, suffix = '%' }) {
+const PodiumCard = React.memo(function PodiumCard({ entry, rank, suffix = '%' }) {
   const medals = { 1: { icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-400/10', ring: 'ring-yellow-400/30', label: 'Gold' }, 2: { icon: Medal, color: 'text-gray-300', bg: 'bg-gray-300/10', ring: 'ring-gray-300/30', label: 'Silver' }, 3: { icon: Award, color: 'text-amber-600', bg: 'bg-amber-600/10', ring: 'ring-amber-600/30', label: 'Bronze' } }
   const m = medals[rank]
   const Icon = m.icon
@@ -26,9 +26,9 @@ function PodiumCard({ entry, rank, suffix = '%' }) {
       <p className="text-xs text-text-secondary mt-0.5">{entry.detail}</p>
     </div>
   )
-}
+})
 
-function RankCard({ rank, entry, isCurrentUser, suffix = '%' }) {
+const RankCard = React.memo(function RankCard({ rank, entry, isCurrentUser, suffix = '%' }) {
   return (
     <div className={`flex items-center gap-4 rounded-xl border bg-bg-card p-4 transition-all duration-200 hover:shadow-md ${isCurrentUser ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : 'border-border'}`}>
       <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold ${
@@ -52,7 +52,7 @@ function RankCard({ rank, entry, isCurrentUser, suffix = '%' }) {
       </div>
     </div>
   )
-}
+})
 
 function SkeletonLeaderboard() {
   return (
@@ -99,18 +99,18 @@ export default function LeaderboardPage() {
 
   const assessmentEntries = (assessmentData?.data || []).map((e) => ({
     id: e._id,
-    name: e.name || e.email || 'Anonymous',
+    name: e.name || 'Anonymous',
     score: e.avgScore || 0,
-    detail: e.email || '',
-    sub: `${e.totalAssessments || 0} assessments`,
+    detail: e.totalAssessments ? `${e.totalAssessments} assessments` : '',
+    sub: '',
   }))
 
   const codingEntries = (codingData?.data || []).map((e) => ({
     id: e.user?._id || e._id,
-    name: e.user?.name || e.user?.email || 'Anonymous',
+    name: e.user?.name || 'Anonymous',
     score: e.totalSolved || 0,
-    detail: e.user?.email || '',
-    sub: `${e.totalSubmissions || 0} submissions`,
+    detail: e.totalSubmissions ? `${e.totalSubmissions} submissions` : '',
+    sub: '',
   }))
 
   const entries = tab === 'assessments' ? assessmentEntries : codingEntries
@@ -213,7 +213,7 @@ export default function LeaderboardPage() {
 
           {/* Top 3 Podium */}
           {podium.length > 0 && (
-            <div className={`grid gap-4 ${podium.length >= 3 ? 'grid-cols-3' : podium.length === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-xs mx-auto'}`}>
+            <div className={`grid gap-4 ${podium.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : podium.length === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-xs mx-auto'}`}>
               {podium.map((e, i) => (
                 <PodiumCard key={e.id || i} entry={e} rank={i + 1} suffix={isCount ? '' : '%'} />
               ))}

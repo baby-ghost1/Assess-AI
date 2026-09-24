@@ -5,6 +5,7 @@ import { Button } from '@/components/ui'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Brain, Code2, BarChart3 } from 'lucide-react'
 import { useState } from 'react'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { notify } from '@/lib/notify'
 
 const typeColors = {
   single_correct: 'bg-blue-500/10 text-blue-400',
@@ -90,7 +91,11 @@ export default function AssessmentReviewDetailPage() {
 
   const reviewMutation = useMutation({
     mutationFn: ({ questionId, status }) => api.post(`/assessments/${id}/questions/${questionId}/review`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assessment-review', id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assessment-review', id] })
+      notify.success('Question status updated')
+    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to update question'),
   })
 
   const approveAllMutation = useMutation({
@@ -100,9 +105,12 @@ export default function AssessmentReviewDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['assessments-pending'] })
       queryClient.invalidateQueries({ queryKey: ['admin-assessments'] })
       queryClient.invalidateQueries({ queryKey: ['admin-pending-assessments'] })
+      queryClient.invalidateQueries({ queryKey: ['sidebar-admin-pending-assessment-count'] })
       setConfirmApproveAll(false)
       navigate('/admin/reviews')
+      notify.success('Assessment approved successfully')
     },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve assessment'),
   })
 
   if (isLoading) {

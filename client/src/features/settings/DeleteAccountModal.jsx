@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppDispatch } from '@/hooks'
 import { deleteAccount, sendDeleteOtp, verifyDeleteOtp, logout } from '@/features/auth/authSlice'
+import { useMusicPlayer } from '@/features/vibes/musicPlayerContext'
 import {
   X, Heart, AlertTriangle, Eye, EyeOff, Loader2, ArrowRight, ArrowLeft,
   BarChart3, Brain, Trophy, Users, Sparkles, Shield, Mail, Trash2, KeyRound,
@@ -130,6 +131,7 @@ function OtpInput({ value, onChange, onComplete, error, disabled }) {
 export default function DeleteAccountModal({ open, onClose, user }) {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const { stop } = useMusicPlayer()
   const isOAuth = user?.provider && user.provider !== 'local'
 
   const [step, setStep] = useState(1)
@@ -237,6 +239,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
         confirmation,
         reason: selectedReason === 'Other' ? customReason : selectedReason,
       })).unwrap()
+      stop()
       dispatch(logout())
       goTo(5)
     } catch (err) {
@@ -252,6 +255,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
     setLoading(true)
     try {
       await dispatch(verifyDeleteOtp(otp)).unwrap()
+      stop()
       dispatch(logout())
       goTo(5)
     } catch (err) {

@@ -54,7 +54,7 @@ export default function SetterDashboard() {
   const quickActions = [
     { icon: PlusCircle, label: 'Create Question', desc: 'Add a new question to the bank', color: 'text-primary bg-primary/10', onClick: () => navigate('/question-bank/create') },
     { icon: Send, label: 'Create Assessment', desc: 'Build a new assessment', color: 'text-accent bg-accent/10', onClick: () => navigate('/assessments/create') },
-    { icon: Eye, label: 'View Submissions', desc: 'Review candidate submissions', color: 'text-warning bg-warning/10', onClick: () => navigate('/submissions') },
+    { icon: Eye, label: 'View Submissions', desc: 'Review attempts on your assessments', color: 'text-warning bg-warning/10', onClick: () => navigate('/assessments') },
   ]
 
   const stagger = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }

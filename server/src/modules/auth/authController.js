@@ -1,11 +1,14 @@
 import * as authService from './authService.js'
-import { setRefreshCookie } from './tokenUtils.js'
+import { setRefreshCookie, setMediaCookie, clearMediaCookie } from './tokenUtils.js'
 
 export async function register(req, res, next) {
   try {
     const result = await authService.register(req.validatedBody)
-    setRefreshCookie(res, result.refreshToken, true)
-    res.status(201).json({ success: true, data: result, message: 'Registration successful', errors: null, meta: null })
+    if (result.refreshToken) {
+      setRefreshCookie(res, result.refreshToken, true)
+    }
+    setMediaCookie(res, result.accessToken)
+    res.status(201).json({ success: true, data: result, message: result.message || 'Registration successful', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
@@ -13,6 +16,7 @@ export async function login(req, res, next) {
   try {
     const result = await authService.login(req.validatedBody)
     setRefreshCookie(res, result.refreshToken, req.validatedBody.rememberMe)
+    setMediaCookie(res, result.accessToken)
     res.status(200).json({ success: true, data: result, message: 'Login successful', errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -21,14 +25,16 @@ export async function adminLogin(req, res, next) {
   try {
     const result = await authService.adminLogin(req.validatedBody)
     setRefreshCookie(res, result.refreshToken, req.validatedBody.rememberMe)
+    setMediaCookie(res, result.accessToken)
     res.status(200).json({ success: true, data: result, message: 'Admin login successful', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
 export async function logout(req, res, next) {
   try {
-    await authService.logout(req.user._id)
     res.clearCookie('refreshToken', { path: '/' })
+    clearMediaCookie(res)
+    await authService.logout(req.user._id)
     res.status(200).json({ success: true, data: null, message: 'Logout successful', errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -38,11 +44,15 @@ export async function refreshToken(req, res, next) {
     const token = req.cookies?.refreshToken
     const result = await authService.refreshToken(token)
     setRefreshCookie(res, result.refreshToken, true)
+    setMediaCookie(res, result.accessToken)
     res.status(200).json({ success: true, data: result, message: 'Token refreshed', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
 export async function getMe(req, res) {
+  const token = req.headers.authorization?.split(' ')[1]
+  if (token) setMediaCookie(res, token)
+  else clearMediaCookie(res)
   res.status(200).json({ success: true, data: req.user, message: 'User fetched', errors: null, meta: null })
 }
 
@@ -78,6 +88,7 @@ export async function deleteAccount(req, res, next) {
   try {
     const result = await authService.deleteAccount(req.user._id, req.validatedBody)
     res.clearCookie('refreshToken', { path: '/' })
+    clearMediaCookie(res)
     res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -93,6 +104,7 @@ export async function verifyDeleteOtp(req, res, next) {
   try {
     const result = await authService.verifyDeleteOtp(req.user._id, req.validatedBody)
     res.clearCookie('refreshToken', { path: '/' })
+    clearMediaCookie(res)
     res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
   } catch (error) { next(error) }
 }

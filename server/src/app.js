@@ -26,6 +26,7 @@ import adminRoutes from './modules/admin/adminRoutes.js'
 import { candidateRouter as candidateDashboardRoutes, setterRouter as setterDashboardRoutes } from './modules/dashboard/dashboardRoutes.js'
 import codingRoutes from './modules/coding/codingRoutes.js'
 import notificationRoutes from './modules/notifications/notificationRoutes.js'
+import settingsRoutes from './modules/settings/settingsRoutes.js'
 import privacyRouter from './modules/legal/privacyRouter.js'
 import termsRouter from './modules/legal/termsRouter.js'
 import homeRouter from './modules/legal/homeRouter.js'
@@ -52,12 +53,14 @@ app.use(helmet({
   },
 }))
 app.use(compression())
+// Trust the single reverse proxy hop (Render/Vercel) so rate limiters and
+// attempt ipAddress capture see the real client IP.
+app.set('trust proxy', 1)
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = (config.clientUrl || 'http://localhost:5173').split(',').map(s => s.trim()).filter(Boolean)
     const ok = !origin
       || allowed.includes(origin)
-      || origin.endsWith('.vercel.app')
       || /^https?:\/\/localhost(:\d+)?$/.test(origin)
     callback(null, ok)
   },
@@ -72,7 +75,18 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
 })
-app.use('/api/', limiter)
+const musicStreamLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: config.nodeEnv === 'production' ? 600 : 6000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many stream requests, please try again later.' },
+})
+app.use('/api/v1/music/stream', musicStreamLimiter)
+app.use('/api/', (req, res, next) => {
+  if (req.path.startsWith('/v1/music/stream')) return next()
+  return limiter(req, res, next)
+})
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }))
@@ -96,6 +110,7 @@ app.use('/api/v1/candidate/dashboard', candidateDashboardRoutes)
 app.use('/api/v1/setter/dashboard', setterDashboardRoutes)
 app.use('/api/v1/coding', codingRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
+app.use('/api/v1/settings', settingsRoutes)
 app.use('/api/v1/music', jiosaavnRoutes)
 
 // Legal pages (Google OAuth branding verification)
@@ -108,6 +123,11 @@ app.get('/api/health', (_, res) => {
   res.json({ success: true, message: 'Server is running', timestamp: new Date().toISOString() })
 })
 
+// Lightweight ping endpoint (no auth, for keep-alive)
+app.get('/api/ping', (_, res) => {
+  res.json({ status: 'ok', ts: Date.now() })
+})
+
 // Serve static files from client build (only if built locally)
 import fs from 'fs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -117,7 +137,7 @@ const clientDistExists = fs.existsSync(clientDist)
 if (clientDistExists) {
   app.use(express.static(clientDist))
 } else {
-  console.log('⚠️  client/dist not found — serving API only (frontend hosted on Vercel)')
+  logger.info('⚠️  client/dist not found — serving API only (frontend hosted on Vercel)')
 }
 
 // SPA catch-all: return index.html for non-API, non-file routes
@@ -139,6 +159,30 @@ app.use(errorHandler)
 // Socket.io setup
 const io = setupSocket(httpServer)
 
+// ─── Self-ping to prevent free-tier sleep (Render/Vercel/Railway) ───
+function setupKeepAlive() {
+  const baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || `http://localhost:${config.port}`
+  const pingUrl = `${baseUrl}/api/ping`
+  const PING_INTERVAL = 14 * 60 * 1000 // 14 minutes (Render sleeps after 15)
+
+  // Only run in production or when SERVER_URL is set
+  if (config.nodeEnv !== 'production' && !process.env.SERVER_URL) {
+    logger.info('Keep-alive disabled in development (set SERVER_URL to enable)')
+    return
+  }
+
+  setInterval(async () => {
+    try {
+      const res = await fetch(pingUrl)
+      logger.debug(`Keep-alive ping: ${res.status}`)
+    } catch (err) {
+      logger.warn(`Keep-alive ping failed: ${err.message}`)
+    }
+  }, PING_INTERVAL)
+
+  logger.info(`Keep-alive ping scheduled every 14 minutes → ${pingUrl}`)
+}
+
 // Start server
 async function start() {
   await connectDatabase()
@@ -148,8 +192,16 @@ async function start() {
 
   httpServer.listen(config.port, () => {
     logger.info(`Server running on port ${config.port} in ${config.nodeEnv} mode`)
+    setupKeepAlive()
   })
 }
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection:', reason)
+})
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception:', err)
+})
 
 start().catch((error) => {
   logger.error('Failed to start server:', error)

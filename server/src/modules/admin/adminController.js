@@ -1,4 +1,6 @@
 import * as adminService from './adminService.js'
+import { getIO, disconnectUserSockets } from '../../config/socket.js'
+import { getProctoringSettings } from '../settings/settingsService.js'
 
 // ─── Users ──────────────────────────────────────────────
 
@@ -19,13 +21,17 @@ export async function getUserById(req, res, next) {
 export async function updateUser(req, res, next) {
   try {
     const data = await adminService.updateUser(req.params.id, req.validatedBody)
+    if (req.validatedBody?.isActive === false) {
+      disconnectUserSockets(req.params.id)
+    }
     res.json({ success: true, data, message: 'User updated', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
 export async function deleteUser(req, res, next) {
   try {
-    await adminService.deleteUser(req.params.id)
+    await adminService.deleteUser(req.params.id, req.validatedBody.reason, req.user._id)
+    disconnectUserSockets(req.params.id)
     res.json({ success: true, data: null, message: 'User deleted', errors: null, meta: null })
   } catch (error) { next(error) }
 }
@@ -51,6 +57,14 @@ export async function getSettings(req, res, next) {
 export async function updateSetting(req, res, next) {
   try {
     const data = await adminService.updateSetting(req.params.key, req.validatedBody.value, req.user._id)
+    // Broadcast full proctoring settings whenever any proctoring key changes
+    if (req.params.key === 'enable_proctoring' || req.params.key.startsWith('proctoring_')) {
+      const io = getIO()
+      if (io) {
+        const settings = await getProctoringSettings()
+        io.emit('proctoring:settings-changed', settings)
+      }
+    }
     res.json({ success: true, data, message: 'Setting updated', errors: null, meta: null })
   } catch (error) { next(error) }
 }

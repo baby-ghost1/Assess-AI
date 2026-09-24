@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { authenticate } from '../../middleware/authenticate.js'
+import { authorize } from '../../middleware/authorize.js'
 import { validate } from '../../middleware/validate.js'
 import { codeRunLimiter } from '../../middleware/rateLimiter.js'
 import { runCodeSchema, submitCodeSchema, addCommentSchema } from './codingValidation.js'
@@ -12,7 +13,7 @@ router.use(authenticate)
 router.get('/languages', codingController.getLanguages)
 router.post('/run', codeRunLimiter, validate(runCodeSchema), codingController.runCode)
 router.post('/submit', codeRunLimiter, validate(submitCodeSchema), codingController.submitCode)
-router.post('/seed', codingController.seedProblems)
+router.post('/seed', authorize('admin'), codingController.seedProblems)
 
 router.get('/submissions/:questionId', codingController.getSubmissions)
 router.get('/submission/:id', codingController.getSubmissionById)

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Search, Ban, X, ChevronLeft, ChevronRight, CheckCircle, XCircle, Shield, UserCheck, UserX } from 'lucide-react'
+import { Search, Ban, ChevronLeft, ChevronRight, CheckCircle, XCircle, UserCheck, UserX, Trash2 } from 'lucide-react'
+import { RejectDialog } from '@/components/shared'
+import { useAppSelector } from '@/hooks'
 import { notify } from '@/lib/notify'
 
 export default function UserManagement() {
@@ -9,10 +11,12 @@ export default function UserManagement() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const currentUserId = useAppSelector((s) => s.auth.user?._id)
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users', search, roleFilter, page],
-    queryFn: () => api.get('/admin/users', { params: { search, role: roleFilter, page, limit: 15 } }).then((r) => r.data),
+    queryFn: () => api.get('/admin/users', { params: { search, role: roleFilter, page, limit: 20 } }).then((r) => r.data),
   })
 
   const updateMutation = useMutation({
@@ -23,8 +27,20 @@ export default function UserManagement() {
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, reason }) => api.delete(`/admin/users/${id}`, { data: { reason } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      setDeleteTarget(null)
+      notify.success('User deleted')
+    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to delete user'),
+  })
+
   const users = data?.data?.users || []
   const pagination = data?.data?.pagination
+
+  const canDelete = (u) => String(u._id) !== String(currentUserId)
 
   return (
     <div className="space-y-4">
@@ -156,6 +172,14 @@ export default function UserManagement() {
                           <option value="setter">Setter</option>
                           <option value="admin">Admin</option>
                         </select>
+                        <button
+                          disabled={!canDelete(user)}
+                          title={canDelete(user) ? 'Delete user' : 'You cannot delete your own account'}
+                          onClick={() => setDeleteTarget(user)}
+                          className="rounded p-1.5 text-danger bg-danger/10 hover:bg-danger/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -244,6 +268,15 @@ export default function UserManagement() {
                     <option value="setter">Setter</option>
                     <option value="admin">Admin</option>
                   </select>
+                  <button
+                    disabled={!canDelete(user)}
+                    title={canDelete(user) ? 'Delete user' : 'You cannot delete your own account'}
+                    onClick={() => setDeleteTarget(user)}
+                    className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger hover:bg-danger/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-3 w-3 inline mr-1" />
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
@@ -277,6 +310,18 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+
+      <RejectDialog
+        open={!!deleteTarget}
+        title="Delete User"
+        message={deleteTarget ? `Permanently delete "${deleteTarget.name}"? Their account and personal data will be removed. This action cannot be undone.` : ''}
+        placeholder="Reason for deletion (required)..."
+        confirmLabel={deleteMutation.isPending ? 'Deleting...' : 'Delete User'}
+        pendingLabel="Deleting..."
+        onConfirm={(reason) => deleteMutation.mutate({ id: deleteTarget._id, reason })}
+        onCancel={() => setDeleteTarget(null)}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   )
 }

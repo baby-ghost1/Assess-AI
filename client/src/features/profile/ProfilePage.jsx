@@ -25,6 +25,7 @@ const cardVariants = {
 }
 
 function StatsSection() {
+  const currentUserId = useAppSelector((s) => s.auth.user?._id)
   const { data, isLoading } = useQuery({
     queryKey: ['user-analytics'],
     queryFn: () => api.get('/analytics/me').then((r) => r.data),
@@ -37,7 +38,7 @@ function StatsSection() {
 
   const d = data?.data || {}
   const lb = leaderboardData?.data || []
-  const currentUserRank = lb.findIndex((e) => e._id === useAppSelector((s) => s.auth.user?._id)) + 1
+  const currentUserRank = lb.findIndex((e) => e._id === currentUserId) + 1
   const rankDisplay = currentUserRank > 0 ? `#${currentUserRank}` : '—'
 
   const stats = [

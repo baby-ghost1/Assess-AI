@@ -73,7 +73,7 @@ export async function submitCode(req, res, next) {
   try {
     const { code, language, questionId } = req.validatedBody
     const question = await resolveQuestion(questionId)
-    if (!question) throw new NotFoundError('Question not found')
+    if (!question) throw new NotFoundError('Question')
     const { testCases, harness } = getTestData(questionId, question, language)
     const results = await codingService.runAllTests(code, language, testCases, harness)
     const passed = results.filter((r) => r.passed).length
@@ -82,12 +82,19 @@ export async function submitCode(req, res, next) {
     const totalTime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0)
     const maxMemory = results.length ? Math.max(...results.map(r => r.memoryUsed || 0)) : 0
 
+    // Never leak hidden test-case inputs/expected outputs back to the candidate —
+    // keep only the pass/fail verdict for hidden cases in both the response and the
+    // stored record.
+    const sanitizedResults = results.map((r) => r.hidden
+      ? { passed: r.passed, hidden: true, description: r.description || '', error: r.error, executionTime: r.executionTime || 0, memoryUsed: r.memoryUsed || 0 }
+      : r)
+
     const submission = await CodingSubmission.create({
       user: req.user._id,
       question: questionId,
       code,
       language,
-      results,
+      results: sanitizedResults,
       passed,
       total,
       allPassed,
@@ -120,7 +127,7 @@ export async function submitCode(req, res, next) {
       )
     }
 
-    res.json({ success: true, data: { results, passed, total, allPassed, executionTime: totalTime, memoryUsed: maxMemory, submissionId: submission._id }, message: 'Solution submitted', errors: null, meta: null })
+    res.json({ success: true, data: { results: sanitizedResults, passed, total, allPassed, executionTime: totalTime, memoryUsed: maxMemory, submissionId: submission._id }, message: 'Solution submitted', errors: null, meta: null })
   } catch (error) { next(error) }
 }
 
@@ -189,7 +196,7 @@ export async function getProgress(req, res, next) {
 export async function getLeaderboard(req, res, next) {
   try {
     const leaderboard = await CodingProgress.find()
-      .populate('user', 'name email')
+      .populate('user', 'name')
       .sort({ totalSolved: -1, totalSubmissions: 1 })
       .limit(50)
     res.json({ success: true, data: leaderboard, message: 'Leaderboard fetched', errors: null, meta: null })

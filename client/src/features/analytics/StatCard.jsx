@@ -1,6 +1,7 @@
+import React from 'react'
 import AnimatedNumber from '@/lib/animatedNumber.jsx'
 
-export default function StatCard({ icon: Icon, label, value, sub, color }) {
+const StatCard = React.memo(function StatCard({ icon: Icon, label, value, sub, color }) {
   const numericValue = typeof value === 'string' ? parseFloat(value) : value
   const suffix = typeof value === 'string' ? value.replace(/[\d.]/g, '') : ''
   const isNumeric = !isNaN(numericValue) && numericValue !== null && numericValue !== undefined
@@ -21,4 +22,6 @@ export default function StatCard({ icon: Icon, label, value, sub, color }) {
       </div>
     </div>
   )
-}
+})
+
+export default StatCard

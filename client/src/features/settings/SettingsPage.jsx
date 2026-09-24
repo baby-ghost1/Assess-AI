@@ -5,12 +5,12 @@ import { toggleTheme } from '@/store/themeSlice'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2, KeyRound, Check, Sparkles } from 'lucide-react'
-import { changePassword } from '@/features/auth/authSlice'
-import { logout } from '@/features/auth/authSlice'
+import { changePassword, logout } from '@/features/auth/authSlice'
 import { notify } from '@/lib/notify'
 import DeleteAccountModal from './DeleteAccountModal'
 import OAuthChangePasswordModal from './OAuthChangePasswordModal'
 import { useSpinnerSelection, getAllSpinners } from '@/components/shared/spinnerRegistry'
+import { useMusicPlayer } from '@/features/vibes/musicPlayerContext'
 
 const TABS = [
   { id: 'account', label: 'Account', icon: User },
@@ -421,8 +421,7 @@ function ChangePasswordModal({ open, onClose }) {
   )
 }
 
-function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth }) {
-  const dispatch = useAppDispatch()
+function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth, onSignOut }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   return (
@@ -479,7 +478,7 @@ function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth }) {
             </div>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowLogoutConfirm(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">Cancel</button>
-              <button onClick={() => dispatch(logout())} className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors">Sign out</button>
+               <button onClick={onSignOut} className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors">Sign out</button>
             </div>
           </div>
         </div>
@@ -489,9 +488,21 @@ function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth }) {
 }
 
 function SystemTab() {
+  const queryClient = useQueryClient()
+  const [activeCategory, setActiveCategory] = useState('general')
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-settings'],
     queryFn: () => api.get('/admin/settings').then((r) => r.data),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ key, value }) => api.patch(`/admin/settings/${key}`, { value }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
+      notify.success('Setting saved')
+    },
+    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to save'),
   })
 
   if (isLoading) {
@@ -531,32 +542,71 @@ function SystemTab() {
 
   return (
     <div className="space-y-4">
-      {categories.map((cat) => (
-        <div key={cat} className="rounded-xl border border-border bg-bg-card p-5">
-          <h4 className="text-sm font-heading font-semibold text-text-primary capitalize mb-3">{cat}</h4>
-          {settings.filter((s) => s.category === cat).map((s) => (
-            <div key={s.key} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-              <div className="min-w-0">
-                <p className="text-sm text-text-primary capitalize">{s.key.replace(/_/g, ' ')}</p>
-                {s.description && <p className="text-xs text-text-secondary">{s.description}</p>}
+      <div className="flex gap-2 flex-wrap">
+        {categories.map((cat) => (
+          <button key={cat} onClick={() => setActiveCategory(cat)}
+            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+              activeCategory === cat
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-text-secondary hover:bg-bg-tertiary'
+            }`}>
+            {cat.charAt(0).toUpperCase() + cat.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-border bg-bg-card p-5 space-y-1">
+        {settings.filter((s) => s.category === activeCategory).map((s) => {
+          const isBool = typeof s.value === 'boolean'
+          return (
+            <div key={s.key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary capitalize">{s.key.replace(/_/g, ' ')}</p>
+                {s.description && <p className="text-xs text-text-secondary mt-0.5">{s.description}</p>}
               </div>
-              <span className="text-xs text-text-secondary bg-bg-tertiary px-2 py-0.5 rounded ml-3 shrink-0">{String(s.value)}</span>
+              <div className="flex items-center gap-2 ml-4">
+                {isBool ? (
+                  <button
+                    onClick={() => updateMutation.mutate({ key: s.key, value: !s.value })}
+                    className={`relative h-6 w-11 rounded-full transition-colors ${s.value ? 'bg-primary' : 'bg-bg-tertiary'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${s.value ? 'translate-x-5' : ''}`} />
+                  </button>
+                ) : (
+                  <input
+                    defaultValue={s.value}
+                    key={s.key}
+                    onBlur={(e) => {
+                      const newVal = typeof s.value === 'number' ? Number(e.target.value) : e.target.value
+                      if (newVal !== s.value) updateMutation.mutate({ key: s.key, value: newVal })
+                    }}
+                    type={typeof s.value === 'number' ? 'number' : 'text'}
+                    className="w-28 rounded-lg border border-border bg-bg-secondary px-3 py-1.5 text-sm text-text-primary text-right focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all"
+                  />
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      ))}
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 export default function SettingsPage() {
   const { user } = useAppSelector((s) => s.auth)
+  const dispatch = useAppDispatch()
+  const { stop } = useMusicPlayer()
   const role = user?.role || 'candidate'
   const isOAuth = user?.provider && user.provider !== 'local'
   const roleLabels = { admin: 'Administrator', setter: 'Question Setter', candidate: 'Candidate' }
   const [activeTab, setActiveTab] = useState('account')
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const handleSignOut = () => {
+    stop()
+    dispatch(logout())
+  }
 
   const allTabs = role === 'admin'
     ? [...TABS, { id: 'system', label: 'System', icon: Globe }]
@@ -586,7 +636,7 @@ export default function SettingsPage() {
               role="tab"
               aria-selected={isActive}
               onClick={() => setActiveTab(t.id)}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors duration-200 z-10 shrink-0 whitespace-nowrap ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-medium transition-colors duration-200 z-10 shrink-0 whitespace-nowrap ${
                 isActive ? 'text-white' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
@@ -606,7 +656,7 @@ export default function SettingsPage() {
       {activeTab === 'account' && <AccountTab user={user} />}
       {activeTab === 'appearance' && <AppearanceTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
-      {activeTab === 'security' && <SecurityTab isOAuth={isOAuth} onChangePassword={() => setShowChangePassword(true)} onDeleteAccount={() => setShowDeleteAccount(true)} />}
+       {activeTab === 'security' && <SecurityTab isOAuth={isOAuth} onChangePassword={() => setShowChangePassword(true)} onDeleteAccount={() => setShowDeleteAccount(true)} onSignOut={handleSignOut} />}
       {activeTab === 'system' && role === 'admin' && <SystemTab />}
 
       <ChangePasswordModal open={showChangePassword && !isOAuth} onClose={() => setShowChangePassword(false)} />

@@ -1,4 +1,6 @@
-export default function DonutChart({ data, size = 160, thickness = 24 }) {
+import React from 'react'
+
+const DonutChart = React.memo(function DonutChart({ data, size = 160, thickness = 24 }) {
   if (!data || data.length === 0) return null
 
   const total = data.reduce((a, b) => a + b.value, 0)
@@ -52,4 +54,6 @@ export default function DonutChart({ data, size = 160, thickness = 24 }) {
       </div>
     </div>
   )
-}
+})
+
+export default DonutChart

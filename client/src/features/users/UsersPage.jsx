@@ -1,20 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, Users, Shield, UserCheck, UserX, Search } from 'lucide-react'
+import { Users, Shield, UserCheck, UserX, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/shared'
 import { useState } from 'react'
 
+const PAGE_SIZE = 20
+
 export default function UsersPage() {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-users', search],
-    queryFn: () => api.get(`/admin/users${search ? `?search=${search}` : ''}`).then((r) => r.data),
+    queryKey: ['admin-users', search, page],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) })
+      if (search) params.set('search', search)
+      return api.get(`/admin/users?${params}`).then((r) => r.data)
+    },
   })
 
   const users = data?.data?.users || []
+  const pagination = data?.data?.pagination
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 py-6">
+    <div className="max-w-5xl mx-auto space-y-6 py-6 pb-8">
       <div className="flex items-center gap-4">
         <div className="rounded-xl bg-primary/10 p-3"><Users className="h-6 w-6 text-primary" /></div>
         <div>
@@ -25,7 +34,7 @@ export default function UsersPage() {
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
+        <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 pl-10 pr-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="Search users by name or email..." />
       </div>
@@ -121,6 +130,32 @@ export default function UsersPage() {
             ))}
           </div>
         </>
+      )}
+
+      {pagination && pagination.pages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-text-secondary">
+            Page {pagination.page} of {pagination.pages} ({pagination.total} users)
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="rounded-lg border border-border p-2 text-text-secondary hover:bg-bg-tertiary disabled:opacity-40"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              disabled={page >= pagination.pages}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-border p-2 text-text-secondary hover:bg-bg-tertiary disabled:opacity-40"
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

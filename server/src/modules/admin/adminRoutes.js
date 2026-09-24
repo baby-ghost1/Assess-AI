@@ -18,8 +18,11 @@ router.patch('/users/:id', validate(z.object({
   email: z.string().email().optional(),
   role: z.enum(['candidate', 'setter', 'admin']).optional(),
   isActive: z.boolean().optional(),
+  isApproved: z.boolean().optional(),
 }).strict()), adminController.updateUser)
-router.delete('/users/:id', adminController.deleteUser)
+router.delete('/users/:id', validate(z.object({
+  reason: z.string().trim().min(5, 'Reason must be at least 5 characters').max(500),
+}).strict()), adminController.deleteUser)
 
 // Roles
 router.get('/roles', adminController.listRoles)

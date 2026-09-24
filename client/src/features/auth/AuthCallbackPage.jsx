@@ -10,7 +10,6 @@ export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    const accessToken = searchParams.get('accessToken')
     const provider = searchParams.get('provider')
     const error = searchParams.get('error')
 
@@ -19,8 +18,8 @@ export default function AuthCallbackPage() {
       return
     }
 
-    if (accessToken && provider) {
-      dispatch(oauthCallback({ accessToken, provider }))
+    if (provider) {
+      dispatch(oauthCallback())
         .unwrap()
         .then(() => navigate('/dashboard', { replace: true }))
         .catch((err) => navigate(`/login?error=${encodeURIComponent(err)}`, { replace: true }))

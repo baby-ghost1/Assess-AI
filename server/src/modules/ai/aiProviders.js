@@ -8,8 +8,12 @@ export const PROVIDER_CONFIGS = {
   deepseek: { apiKey: process.env.DEEPSEEK_API_KEY, model: 'deepseek-chat', baseUrl: 'https://api.deepseek.com/v1' },
   openrouter: { apiKey: process.env.OPENROUTER_API_KEY, model: 'openai/gpt-4o', baseUrl: 'https://openrouter.ai/api/v1' },
   perplexity: { apiKey: process.env.PERPLEXITY_API_KEY, model: 'llama-3.1-sonar-large-128k-online', baseUrl: 'https://api.perplexity.ai' },
-  groq: { apiKey: process.env.GROQ_API_KEY, model: 'llama-3.1-8b-instant', baseUrl: 'https://api.groq.com/openai/v1' },
+  groq: { apiKey: process.env.GROQ_API_KEY, model: 'openai/gpt-oss-20b', baseUrl: 'https://api.groq.com/openai/v1' },
   nvidia: { apiKey: process.env.NVIDIA_API_KEY, model: 'deepseek-ai/deepseek-v4-pro', baseUrl: 'https://integrate.api.nvidia.com/v1' },
+  nvidia_llama: { apiKey: process.env.NVIDIA_LLAMA_API_KEY, model: 'nvidia/llama-3.1-8b-instruct', baseUrl: 'https://integrate.api.nvidia.com/v1' },
+  nvidia_mixtral: { apiKey: process.env.NVIDIA_MIXTRAL_API_KEY, model: 'nvidia/mixtral-8x7b-instruct-v0.1', baseUrl: 'https://integrate.api.nvidia.com/v1' },
+  nvidia_deepseek: { apiKey: process.env.NVIDIA_DEEPSEEK_API_KEY, model: 'deepseek-ai/deepseek-v3', baseUrl: 'https://integrate.api.nvidia.com/v1' },
+  kimi_k3: { apiKey: process.env.NVIDIA_KIMI_K3_API_KEY, model: 'kimi-k3', baseUrl: 'https://integrate.api.nvidia.com/v1' },
   bazaarlink: { apiKey: process.env.BAZAARLINK_API_KEY, model: 'auto:free', baseUrl: 'https://api.bazaarlink.ai/v1' },
 }
 
@@ -175,6 +179,10 @@ const providers = {
   perplexity: (t, c) => openAICompatibleGenerate(t, c, 'perplexity'),
   groq: (t, c) => openAICompatibleGenerate(t, c, 'groq'),
   nvidia: (t, c) => openAICompatibleGenerate(t, c, 'nvidia'),
+  nvidia_llama: (t, c) => openAICompatibleGenerate(t, c, 'nvidia_llama'),
+  nvidia_mixtral: (t, c) => openAICompatibleGenerate(t, c, 'nvidia_mixtral'),
+  nvidia_deepseek: (t, c) => openAICompatibleGenerate(t, c, 'nvidia_deepseek'),
+  kimi_k3: (t, c) => openAICompatibleGenerate(t, c, 'kimi_k3'),
   bazaarlink: (t, c) => openAICompatibleGenerate(t, c, 'bazaarlink'),
 }
 
@@ -320,7 +328,7 @@ async function genericFetchGenerate(prompt, providerName) {
     }),
   })
   const text = data?.choices?.[0]?.message?.content || ''
-  return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+  return safeParseJSON(text)
 }
 
 export async function generateInsights(analyticsData, scope = 'user', providerName = 'groq') {
@@ -337,7 +345,7 @@ export async function generateInsights(analyticsData, scope = 'user', providerNa
       }),
     })
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+    return safeParseJSON(text)
   }
 
   if (providerName === 'claude') {
@@ -352,7 +360,7 @@ export async function generateInsights(analyticsData, scope = 'user', providerNa
       }),
     })
     const text = data?.content?.[0]?.text || ''
-    return JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+    return safeParseJSON(text)
   }
 
   return genericFetchGenerate(prompt, providerName)

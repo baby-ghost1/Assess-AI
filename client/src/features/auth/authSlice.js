@@ -26,7 +26,9 @@ export const adminLogin = createAsyncThunk('auth/adminLogin', async (credentials
 export const register = createAsyncThunk('auth/register', async (userData, { rejectWithValue }) => {
   try {
     const { data } = await api.post('/auth/register', userData)
-    localStorage.setItem('accessToken', data.data.accessToken)
+    if (data.data.accessToken) {
+      localStorage.setItem('accessToken', data.data.accessToken)
+    }
     return data.data.user
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || 'Registration failed')
@@ -111,9 +113,8 @@ export const verifyDeleteOtp = createAsyncThunk('auth/verifyDeleteOtp', async (o
   }
 })
 
-export const oauthCallback = createAsyncThunk('auth/oauthCallback', async ({ accessToken }, { dispatch, rejectWithValue }) => {
+export const oauthCallback = createAsyncThunk('auth/oauthCallback', async (_, { dispatch, rejectWithValue }) => {
   try {
-    localStorage.setItem('accessToken', accessToken)
     const result = await dispatch(getCurrentUser()).unwrap()
     return result
   } catch (error) {
@@ -125,7 +126,15 @@ export const oauthCallback = createAsyncThunk('auth/oauthCallback', async ({ acc
 const authSlice = createSlice({
   name: 'auth',
   initialState,
-  reducers: { clearError: (state) => { state.error = null } },
+  reducers: {
+    clearError: (state) => { state.error = null },
+    clearSession: (state) => {
+      state.user = null
+      state.isAuthenticated = false
+      state.isLoading = false
+      state.error = null
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(login.pending, (s) => { s.isLoading = true; s.error = null })
@@ -135,20 +144,25 @@ const authSlice = createSlice({
       .addCase(adminLogin.fulfilled, (s, a) => { s.isLoading = false; s.isAuthenticated = true; s.user = a.payload })
       .addCase(adminLogin.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
       .addCase(register.pending, (s) => { s.isLoading = true; s.error = null })
-      .addCase(register.fulfilled, (s, a) => { s.isLoading = false; s.isAuthenticated = true; s.user = a.payload })
+      .addCase(register.fulfilled, (s, a) => {
+        s.isLoading = false
+        s.isAuthenticated = a.payload?.isApproved === true
+        s.user = a.payload
+      })
       .addCase(register.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
       .addCase(logout.fulfilled, (s) => { s.user = null; s.isAuthenticated = false })
       .addCase(getCurrentUser.pending, (s) => { s.isLoading = true })
       .addCase(getCurrentUser.fulfilled, (s, a) => { s.isLoading = false; s.isAuthenticated = true; s.user = a.payload })
       .addCase(getCurrentUser.rejected, (s) => { s.isLoading = false; s.isAuthenticated = false; s.user = null })
-      .addCase(updateProfile.pending, (s) => { s.isLoading = true; s.error = null })
-      .addCase(updateProfile.fulfilled, (s, a) => { s.isLoading = false; s.user = a.payload })
-      .addCase(updateProfile.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
+      // Profile save must NOT flip global isLoading — DashboardLayout unmounts the page mid-save
+      .addCase(updateProfile.pending, (s) => { s.error = null })
+      .addCase(updateProfile.fulfilled, (s, a) => { s.user = a.payload })
+      .addCase(updateProfile.rejected, (s, a) => { s.error = a.payload })
       .addCase(deleteAccount.pending, (s) => { s.isLoading = true; s.error = null })
       .addCase(deleteAccount.fulfilled, (s) => { s.isLoading = false; s.user = null; s.isAuthenticated = false })
       .addCase(deleteAccount.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
   },
 })
 
-export const { clearError } = authSlice.actions
+export const { clearError, clearSession } = authSlice.actions
 export default authSlice.reducer

@@ -164,6 +164,22 @@ export default function AdminAnalyticsPage() {
     color: typeColors[i % typeColors.length],
   }))
 
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/admin/analytics/report', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `admin-report-${Date.now()}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Failed to export report')
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 py-6">
       {/* Gradient Header */}
@@ -174,10 +190,8 @@ export default function AdminAnalyticsPage() {
             <h2 className="text-2xl font-heading font-bold text-text-primary">Admin Analytics</h2>
             <p className="text-sm text-text-secondary mt-1">Platform-wide performance overview</p>
           </div>
-          <Button variant="outline" size="sm" asChild className="gap-2">
-            <a href="/api/v1/admin/analytics/report" download>
-              <Download className="h-4 w-4" /> Export CSV
-            </a>
+          <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
+            <Download className="h-4 w-4" /> Export CSV
           </Button>
         </div>
       </div>

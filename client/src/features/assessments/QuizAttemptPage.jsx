@@ -1,34 +1,45 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
+import { io } from 'socket.io-client'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { Loader2, Bookmark, BookmarkCheck, BookOpen, ChevronLeft, ChevronRight, Flag, Send, Eraser, AlertTriangle, X, AlertCircle } from 'lucide-react'
+import { Loader2, Bookmark, BookmarkCheck, BookOpen, ChevronLeft, ChevronRight, Flag, Send, Eraser, AlertTriangle, X, AlertCircle, CheckCircle, Lock, Mail } from 'lucide-react'
 import useProctoring from '@/features/proctoring/useProctoring'
 import ProctoringOverlay from '@/features/proctoring/ProctoringOverlay'
 
 export default function QuizAttemptPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const navAssessment = location.state?.assessment
   const [attempt, setAttempt] = useState(null)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [currentQ, setCurrentQ] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [timeLeft, setTimeLeft] = useState(null)
+  const [deadline, setDeadline] = useState(null)
   const timerRef = useRef(null)
   const questionTimerRef = useRef(0)
+  const startingRef = useRef(false)
   const [starting, setStarting] = useState(false)
   const [timerType, setTimerType] = useState('overall')
   const [perQuestionTime, setPerQuestionTime] = useState(null)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [attemptError, setAttemptError] = useState(null)
   const [showPalette, setShowPalette] = useState(false)
+  const [submittedScreen, setSubmittedScreen] = useState(false)
+  const [restrictedEmail, setRestrictedEmail] = useState('')
+  const [restrictedPassword, setRestrictedPassword] = useState('')
+  const [proctoringSettings, setProctoringSettings] = useState(null)
+  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const finishRef = useRef(() => {})
 
   const { data: attemptData, isLoading, error: queryError } = useQuery({
     queryKey: ['attempt', id],
-    queryFn: () => api.get(`/assessments/attempt/${id}`).then((r) => r.data),
-    enabled: Boolean(id),
+    queryFn: () => api.get(`/assessments/attempt/active/${id}`).then((r) => r.data),
+    enabled: Boolean(id) && !attempt && !starting,
   })
 
   useEffect(() => {
@@ -36,6 +47,7 @@ export default function QuizAttemptPage() {
       const a = attemptData.data.attempt
       setAttempt(a)
       setTimeLeft(a.timeRemaining)
+      setDeadline(a.deadline || (a.startedAt && a.timeLimit ? new Date(a.startedAt).getTime() + a.timeLimit * 1000 : null))
       const config = a.assessment?.aiQuizConfig || {}
       setTimerType(config.timerType || 'overall')
       setPerQuestionTime(config.perQuestionTime || null)
@@ -63,6 +75,17 @@ export default function QuizAttemptPage() {
   useEffect(() => {
     if (timeLeft !== null && timeLeft > 0 && attempt?.status === 'in_progress') {
       timerRef.current = setInterval(() => {
+        // Overall timer ticks from the server-authoritative deadline so a reload,
+        // clock skew or a throttled background tab can't desync the countdown.
+        if (timerType === 'overall' && deadline) {
+          const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000))
+          setTimeLeft(remaining)
+          if (remaining <= 0) {
+            clearInterval(timerRef.current)
+            finishRef.current('timeout')
+          }
+          return
+        }
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(timerRef.current)
@@ -74,7 +97,7 @@ export default function QuizAttemptPage() {
               }
               return perQuestionTime || 0
             }
-            setShowSubmitDialog(true)
+            finishRef.current('timeout')
             return 0
           }
           return prev - 1
@@ -82,20 +105,69 @@ export default function QuizAttemptPage() {
       }, 1000)
     }
     return () => clearInterval(timerRef.current)
-  }, [timeLeft, attempt?.status, timerType, currentIdx, submissions.length, perQuestionTime])
+  }, [timeLeft, attempt?.status, timerType, currentIdx, submissions.length, perQuestionTime, deadline])
 
-  const assessmentData = attemptData?.data?.attempt?.assessment
-  const proctoringEnabled = assessmentData?.proctoringRequired && attempt?.status === 'in_progress'
+  const assessmentData = attempt?.assessment || attemptData?.data?.attempt?.assessment
 
-  const { status: proctorStatus, lastViolation, videoRef, violationsRef } = useProctoring({
-    attemptId: id,
+  const { data: assessmentDetailData } = useQuery({
+    queryKey: ['assessment-detail', id],
+    queryFn: () => api.get(`/assessments/${id}`).then((r) => r.data),
+    enabled: Boolean(id) && !attempt && !starting,
+  })
+  const assessmentDetail = assessmentDetailData?.data
+  const isRestricted = (assessmentDetail?.accessMode === 'restricted') || (navAssessment?.accessMode === 'restricted')
+
+  // Fetch full proctoring settings (sub-toggles, tab limit, auto-submit)
+  const { data: proctoringStatusData } = useQuery({
+    queryKey: ['proctoring-status'],
+    queryFn: () => api.get('/assessments/proctoring/status').then((r) => r.data),
+    refetchInterval: 10000,
+  })
+
+  useEffect(() => {
+    if (proctoringStatusData?.data) {
+      setProctoringSettings(proctoringStatusData.data)
+    }
+  }, [proctoringStatusData])
+
+  // Listen for real-time proctoring setting / per-assessment proctoring changes
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    const settingsSocket = io(window.location.origin, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+    })
+
+    settingsSocket.on('proctoring:settings-changed', (data) => {
+      setProctoringSettings(data)
+    })
+
+    settingsSocket.on('assessment:proctoring-changed', (data) => {
+      setAttempt((prev) => (prev ? {
+        ...prev,
+        assessment: { ...prev.assessment, proctoringRequired: data.proctoringRequired },
+      } : prev))
+    })
+
+    return () => { settingsSocket.disconnect() }
+  }, [])
+
+  const proctoringEnabled = assessmentData?.proctoringRequired && proctoringSettings?.enabled !== false && attempt?.status === 'in_progress'
+
+  const attemptId = attempt?._id
+
+  const { status: proctorStatus, lastViolation, videoRef, violationsRef, streamRef, isFullscreen, enterFullscreen } = useProctoring({
+    attemptId,
     enabled: proctoringEnabled,
-    onAutoSubmit: () => { handleFinish() },
-    onViolation: (v) => { console.warn('Proctoring violation:', v) },
+    settings: proctoringSettings,
+    onAutoSubmit: () => { finishRef.current('auto_submit') },
+    onViolation: (v) => {
+      if (v.type === 'tab_switch') setTabSwitchCount((c) => c + 1)
+    },
   })
 
   const navigateMut = useMutation({
-    mutationFn: ({ idx }) => api.post(`/assessments/attempt/${id}/navigate/${idx}`),
+    mutationFn: ({ idx }) => api.post(`/assessments/attempt/${attemptId}/navigate/${idx}`),
     onSuccess: (res) => {
       const data = res.data.data
       setCurrentIdx(data.attempt.currentQuestionIndex)
@@ -110,32 +182,46 @@ export default function QuizAttemptPage() {
   })
 
   const submitMut = useMutation({
-    mutationFn: (data) => api.post(`/assessments/attempt/${id}/answer`, data),
+    mutationFn: (data) => api.post(`/assessments/attempt/${attemptId}/answer`, data),
     onError: (err) => {
       setAttemptError(err?.response?.data?.message || 'Failed to save answer')
     },
   })
 
   const finishMut = useMutation({
-    mutationFn: () => api.post(`/assessments/attempt/${id}/finish`),
-    onSuccess: () => {
+    mutationFn: (reason = 'manual') => api.post(`/assessments/attempt/${attemptId}/finish`, { reason }),
+    onSuccess: (res) => {
       clearInterval(timerRef.current)
       setShowSubmitDialog(false)
-      navigate(`/results/${id}`)
+      const finishedStatus = res?.data?.data?.status || 'completed'
+      setAttempt((prev) => (prev ? { ...prev, status: finishedStatus } : prev))
+      const showImmediately = assessmentData?.accessMode !== 'restricted' && assessmentData?.showResultImmediately !== false
+      if (showImmediately) {
+        navigate(`/results/${attemptId}`)
+      } else {
+        setSubmittedScreen(true)
+      }
     },
     onError: (err) => {
       setAttemptError(err?.response?.data?.message || 'Failed to submit')
     },
   })
 
+  finishRef.current = (reason = 'manual') => {
+    if (attempt && !finishMut.isPending) finishMut.mutate(reason)
+  }
+
   const startAttempt = useCallback(async () => {
+    if (startingRef.current) return
+    startingRef.current = true
     setStarting(true)
     setAttemptError(null)
     try {
       const res = await api.post('/assessments/attempt/start', { assessmentId: id })
       const data = res.data.data
       setAttempt(data)
-      setTimeLeft(data.timeLimit)
+      setTimeLeft(data.timeRemaining ?? data.timeLimit)
+      setDeadline(data.deadline || (data.startedAt && data.timeLimit ? new Date(data.startedAt).getTime() + data.timeLimit * 1000 : null))
       setCurrentIdx(0)
       const config = data.assessment?.aiQuizConfig || {}
       setTimerType(config.timerType || 'overall')
@@ -148,14 +234,69 @@ export default function QuizAttemptPage() {
       setAttemptError(err?.response?.data?.message || 'Failed to start attempt')
     } finally {
       setStarting(false)
+      startingRef.current = false
     }
   }, [id])
 
+  const startRestrictedAttempt = useCallback(async (e) => {
+    e.preventDefault()
+    if (startingRef.current) return
+    startingRef.current = true
+    setStarting(true)
+    setAttemptError(null)
+    try {
+      const res = await api.post('/assessments/attempt/restricted-start', {
+        assessmentId: id,
+        candidateEmail: restrictedEmail,
+        password: restrictedPassword,
+      })
+      const result = res.data.data
+      const data = result.attempt || result
+      setAttempt(data)
+      setTimeLeft(data.timeRemaining ?? data.timeLimit)
+      setDeadline(data.deadline || (data.startedAt && data.timeLimit ? new Date(data.startedAt).getTime() + data.timeLimit * 1000 : null))
+      setCurrentIdx(0)
+      const config = data.assessment?.aiQuizConfig || {}
+      setTimerType(config.timerType || 'overall')
+      setPerQuestionTime(config.perQuestionTime || null)
+      const subRes = await api.get(`/assessments/attempt/${data._id}`)
+      const subs = subRes.data.data.submissions
+      setSubmissions(subs)
+      if (subs?.length > 0) setCurrentQ(subs[0])
+    } catch (err) {
+      setAttemptError(err?.response?.data?.message || 'Failed to start attempt')
+    } finally {
+      setStarting(false)
+      startingRef.current = false
+    }
+  }, [id, restrictedEmail, restrictedPassword])
+
+  const textSaveTimerRef = useRef(null)
+  const pendingTextSaveRef = useRef(null)
+
+  const flushPendingAnswer = () => {
+    if (textSaveTimerRef.current) {
+      clearTimeout(textSaveTimerRef.current)
+      textSaveTimerRef.current = null
+    }
+    if (pendingTextSaveRef.current) {
+      const p = pendingTextSaveRef.current
+      pendingTextSaveRef.current = null
+      submitMut.mutate({ questionId: p.qId, answer: p.answer, timeSpent: p.timeSpent })
+    }
+  }
+
+  useEffect(() => () => {
+    if (textSaveTimerRef.current) clearTimeout(textSaveTimerRef.current)
+  }, [])
+
   const handleNavigate = useCallback((idx) => {
+    flushPendingAnswer()
     if (attempt && idx >= 0 && idx < submissions.length) {
       navigateMut.mutate({ idx })
     }
-  }, [attempt, submissions.length, navigateMut])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt, submissions.length, navigateMut, submitMut])
 
   const handleNavigateRef = useRef(handleNavigate)
   handleNavigateRef.current = handleNavigate
@@ -169,9 +310,33 @@ export default function QuizAttemptPage() {
   const handleAnswer = (answer) => {
     if (!currentQ) return
     const qId = currentQ.question?._id
-    submitMut.mutate({ questionId: qId, answer, timeSpent: questionTimerRef.current })
-    updateSubmission(qId, { answer, isAnswered: answer !== null && answer !== undefined && answer !== '' })
-    setCurrentQ({ ...currentQ, answer, isAnswered: answer !== null && answer !== undefined && answer !== '' })
+    const isAnswered = answer !== null && answer !== undefined && answer !== ''
+
+    // Options save immediately; free-text is debounced to avoid keystroke races
+    if (typeof answer === 'string') {
+      pendingTextSaveRef.current = { qId, answer, timeSpent: questionTimerRef.current }
+      if (textSaveTimerRef.current) clearTimeout(textSaveTimerRef.current)
+      textSaveTimerRef.current = setTimeout(() => {
+        const p = pendingTextSaveRef.current
+        pendingTextSaveRef.current = null
+        textSaveTimerRef.current = null
+        if (p) submitMut.mutate({ questionId: p.qId, answer: p.answer, timeSpent: p.timeSpent })
+      }, 600)
+    } else {
+      if (textSaveTimerRef.current) {
+        clearTimeout(textSaveTimerRef.current)
+        textSaveTimerRef.current = null
+      }
+      if (pendingTextSaveRef.current) {
+        const p = pendingTextSaveRef.current
+        pendingTextSaveRef.current = null
+        submitMut.mutate({ questionId: p.qId, answer: p.answer, timeSpent: p.timeSpent })
+      }
+      submitMut.mutate({ questionId: qId, answer, timeSpent: questionTimerRef.current })
+    }
+
+    updateSubmission(qId, { answer, isAnswered })
+    setCurrentQ({ ...currentQ, answer, isAnswered })
     questionTimerRef.current = 0
   }
 
@@ -188,8 +353,9 @@ export default function QuizAttemptPage() {
     setCurrentQ({ ...currentQ, isBookmarked: newVal })
   }
 
-  const handleFinish = () => {
-    if (attempt) finishMut.mutate()
+  const handleFinish = (reason = 'manual') => {
+    flushPendingAnswer()
+    finishRef.current(reason)
   }
 
   const formatTime = (s) => {
@@ -213,7 +379,66 @@ export default function QuizAttemptPage() {
     )
   }
 
+  if (submittedScreen) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-6">
+        <div className="h-20 w-20 rounded-full bg-success/10 flex items-center justify-center mx-auto">
+          <CheckCircle className="h-10 w-10 text-success" />
+        </div>
+        <h2 className="text-2xl font-heading font-bold text-text-primary">Test Submitted Successfully</h2>
+        <p className="text-text-secondary text-sm max-w-md mx-auto">
+          Your responses have been recorded. Thank you for completing this assessment.
+          The results will be communicated to you separately.
+        </p>
+        <Button variant="secondary" onClick={() => navigate('/assessments')}>
+          Back to Assessments
+        </Button>
+      </div>
+    )
+  }
+
   if (!attempt && !starting) {
+    if (isRestricted) {
+      return (
+        <div className="max-w-lg mx-auto py-16 text-center space-y-6">
+          {attemptError && (
+            <div className="rounded-xl border border-danger/20 bg-danger/5 p-4 flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-danger shrink-0" />
+              <p className="text-sm text-danger">{attemptError}</p>
+            </div>
+          )}
+          <div className="mx-auto h-16 w-16 rounded-full bg-amber-500/10 flex items-center justify-center">
+            <Lock className="h-8 w-8 text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-heading font-bold text-text-primary">This assessment requires authentication</h2>
+          <p className="text-text-secondary text-sm">Enter your registered email and the shared password to start.</p>
+          <form onSubmit={startRestrictedAttempt} className="space-y-4 text-left max-w-sm mx-auto">
+            <div>
+              <label className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-1.5 block">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+                <input type="email" required value={restrictedEmail} onChange={(e) => setRestrictedEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-1.5 block">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+                <input type="password" required value={restrictedPassword} onChange={(e) => setRestrictedPassword(e.target.value)}
+                  placeholder="Shared password"
+                  className="w-full rounded-lg border border-border bg-bg-secondary py-2.5 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+            </div>
+            <Button type="submit" size="lg" className="w-full" disabled={starting || !restrictedEmail || !restrictedPassword}>
+              {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
+              {starting ? 'Verifying...' : 'Start Assessment'}
+            </Button>
+          </form>
+        </div>
+      )
+    }
     return (
       <div className="max-w-2xl mx-auto py-16 text-center space-y-6">
         {attemptError && (
@@ -243,8 +468,8 @@ export default function QuizAttemptPage() {
   const question = currentQ.question
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] -m-6">
-      <ProctoringOverlay status={proctorStatus} lastViolation={lastViolation} videoRef={videoRef} violations={violationsRef} />
+    <div className={`flex ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)]'} -m-6`}>
+      <ProctoringOverlay status={proctorStatus} lastViolation={lastViolation} videoRef={videoRef} violations={violationsRef} streamRef={streamRef} isFullscreen={isFullscreen} enterFullscreen={enterFullscreen} settings={proctoringSettings} tabSwitchCount={tabSwitchCount} />
 
       {showSubmitDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -277,7 +502,7 @@ export default function QuizAttemptPage() {
               }}>
                 Review Answers
               </Button>
-              <Button variant="danger" className="flex-1" onClick={handleFinish} disabled={finishMut.isPending}>
+              <Button variant="danger" className="flex-1" onClick={() => handleFinish('manual')} disabled={finishMut.isPending}>
                 {finishMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Submit Now
               </Button>

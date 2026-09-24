@@ -33,12 +33,28 @@ const assessmentSchema = new mongoose.Schema({
   negativeMarkingValue: { type: Number, default: 0 },
   partialMarking: { type: Boolean, default: false },
   proctoringRequired: { type: Boolean, default: false },
+  accessMode: {
+    type: String,
+    enum: ['open', 'restricted'],
+    default: 'open',
+  },
+  candidateList: [{
+    email: { type: String, required: true, lowercase: true, trim: true },
+    name: { type: String, default: '' },
+  }],
+  sharedPassword: { type: String, default: '' },
+  resultsReleased: { type: Boolean, default: false },
+  retakeGrants: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    grantedAt: { type: Date, default: Date.now },
+  }],
   status: {
     type: String,
     enum: ['draft', 'pending_approval', 'approved', 'published', 'archived'],
     default: 'draft',
   },
   rejectionReason: { type: String, default: '' },
+  publishedAt: { type: Date, default: null },
   questionStatus: {
     type: Map,
     of: {
@@ -61,6 +77,5 @@ const assessmentSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 assessmentSchema.index({ status: 1, createdBy: 1 })
-assessmentSchema.index({ title: 'text', description: 'text' })
 
 export default mongoose.model('Assessment', assessmentSchema)

@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, Lightbulb, Target, Sparkles, TrendingUp, AlertCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Clock, BarChart3, Trophy, RefreshCw, RotateCw, Lightbulb, Target, Sparkles, TrendingUp, AlertCircle, Loader2 } from 'lucide-react'
 import { ErrorState, EmptyState } from '@/components/shared'
 
 export default function ResultsPage() {
@@ -15,10 +15,15 @@ export default function ResultsPage() {
     refetchInterval: false,
   })
 
+  const attempted = data?.data?.attempt
+  const resultsPending = attempted?.resultReleased === false
+  const canResume = attempted?.status === 'in_progress' || attempted?.status === 'paused'
+  const canRetake = attempted?.isUnlimited || Number(attempted?.remainingAttempts ?? 0) > 0
+
   const { data: insightsData, isLoading: insightsLoading } = useQuery({
     queryKey: ['quiz-insights', id],
     queryFn: () => api.get(`/ai/quiz/${id}/insights`).then((r) => r.data),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && !resultsPending,
   })
 
   if (isLoading) {
@@ -84,6 +89,34 @@ export default function ResultsPage() {
     )
   }
 
+  if (resultsPending) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-6">
+        <div className="mx-auto h-20 w-20 rounded-full bg-warning/10 flex items-center justify-center">
+          <Clock className="h-10 w-10 text-warning" />
+        </div>
+        <h2 className="text-2xl font-heading font-bold text-text-primary">Results Not Released Yet</h2>
+        <p className="text-text-secondary text-sm max-w-md mx-auto">
+          You have completed this assessment but the results have not been released yet.
+          They will be communicated to you once they are available.
+        </p>
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <Button variant="secondary" onClick={() => navigate('/assessments')}>
+            <ArrowLeft className="h-4 w-4" /> Back to Assessments
+          </Button>
+          <Button variant="secondary" onClick={() => navigate('/assessments/my-attempts')}>
+            <BarChart3 className="h-4 w-4" /> My Attempts
+          </Button>
+          {canRetake && (
+            <Button onClick={() => navigate(`/assessments/${attempted?.assessment?._id}`)}>
+              <RefreshCw className="h-4 w-4" /> Retake Assessment
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const formatTime = (s) => {
     if (!s) return '0m'
     const m = Math.floor(s / 60)
@@ -115,8 +148,8 @@ export default function ResultsPage() {
         <h3 className={`text-3xl font-heading font-bold ${passed ? 'text-success' : 'text-danger'}`}>
           {passed ? 'Passed!' : 'Failed'}
         </h3>
-        <p className="text-5xl font-heading font-bold text-text-primary mt-2">{attempt.percentage}%</p>
-        <p className="text-sm text-text-secondary mt-1">{attempt.score} / {attempt.totalMarks} marks</p>
+        <p className="text-5xl font-heading font-bold text-text-primary mt-2">{attempt.percentage ?? 0}%</p>
+        <p className="text-sm text-text-secondary mt-1">{attempt.marksObtained ?? attempt.score ?? 0} / {attempt.totalMarks ?? '--'} marks</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -219,21 +252,25 @@ export default function ResultsPage() {
           {submissions.map((s, i) => {
             const q = s.question
             if (!q) return null
+            const unavailable = s.isCorrect === undefined && s.marksObtained === undefined
+            const correct = s.isCorrect === true
+            const wrong = s.isCorrect === false && s.isAnswered
             return (
-              <div key={s._id} className={`rounded-xl border p-5 ${s.isCorrect ? 'border-success/20 bg-success/5' : s.isAnswered ? 'border-danger/20 bg-danger/5' : 'border-border bg-bg-card'}`}>
+              <div key={s._id} className={`rounded-xl border p-5 ${unavailable ? 'border-border bg-bg-card' : correct ? 'border-success/20 bg-success/5' : wrong ? 'border-danger/20 bg-danger/5' : 'border-border bg-bg-card'}`}>
                 <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 ${s.isCorrect ? 'text-success' : s.isAnswered ? 'text-danger' : 'text-text-tertiary'}`}>
-                    {s.isCorrect ? <CheckCircle className="h-5 w-5" /> : s.isAnswered ? <XCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                  <div className={`mt-0.5 ${unavailable ? 'text-text-tertiary' : correct ? 'text-success' : wrong ? 'text-danger' : 'text-text-tertiary'}`}>
+                    {unavailable ? <Clock className="h-5 w-5" /> : correct ? <CheckCircle className="h-5 w-5" /> : wrong ? <XCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-text-primary">{i + 1}. {q.title}</p>
                     {q.options?.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {q.options.map((opt) => {
-                          const isCorrectOpt = opt.isCorrect
+                          const isCorrectOpt = opt.isCorrect === true
                           const isSelected = s.answer === opt.key || (Array.isArray(s.answer) && s.answer.includes(opt.key))
                           return (
                             <span key={opt.key} className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              unavailable ? 'bg-bg-tertiary text-text-secondary' :
                               isCorrectOpt ? 'bg-success/10 text-success border border-success/20' :
                               isSelected ? 'bg-danger/10 text-danger border border-danger/20' :
                               'bg-bg-tertiary text-text-secondary'
@@ -248,8 +285,8 @@ export default function ResultsPage() {
                       {s.isAnswered ? `Your answer: ${Array.isArray(s.answer) ? s.answer.join(', ') : s.answer || 'N/A'}` : 'Not answered'}
                     </p>
                   </div>
-                  <span className={`text-xs font-medium ${s.isCorrect ? 'text-success' : s.isAnswered ? 'text-danger' : 'text-text-tertiary'}`}>
-                    {s.isCorrect ? `+${q.marks}` : s.isAnswered && hasNegativeMarking ? `-${negativeMarkingValue}` : '0'}
+                  <span className={`text-xs font-medium ${unavailable ? 'text-text-tertiary' : correct ? 'text-success' : wrong ? 'text-danger' : 'text-text-tertiary'}`}>
+                    {unavailable ? '—' : s.marksObtained !== undefined ? `${s.marksObtained >= 0 ? '+' : ''}${s.marksObtained}` : correct ? `+${q.marks}` : wrong && hasNegativeMarking ? `-${negativeMarkingValue}` : '0'}
                   </span>
                 </div>
               </div>
@@ -258,13 +295,18 @@ export default function ResultsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 flex-wrap">
         <Button variant="secondary" onClick={() => navigate(isAiQuiz ? '/ai-quiz' : '/assessments')}>
           <ArrowLeft className="h-4 w-4" /> {isAiQuiz ? 'New AI Quiz' : 'Back to Assessments'}
         </Button>
-        {!isAiQuiz && (
+        {!isAiQuiz && canResume && (
           <Button onClick={() => navigate(`/assessments/${attempt.assessment?._id}`)}>
-            <RefreshCw className="h-4 w-4" /> Try Again
+            <RotateCw className="h-4 w-4" /> Resume Attempt
+          </Button>
+        )}
+        {!isAiQuiz && canRetake && (
+          <Button onClick={() => navigate(`/assessments/${attempt.assessment?._id}`)}>
+            <RefreshCw className="h-4 w-4" /> Retake Assessment
           </Button>
         )}
       </div>

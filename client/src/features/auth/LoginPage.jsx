@@ -3,15 +3,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/hooks'
 import { login, clearError } from './authSlice'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, Sparkles, Zap, Shield, Globe, ChevronRight } from 'lucide-react'
-import gsap from 'gsap'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
   password: z.string().min(6, 'Min 6 characters'),
-  rememberMe: z.boolean().optional().default(true),
+  rememberMe: z.boolean().optional(),
 })
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1'
@@ -91,31 +90,11 @@ function FloatingInput({ label, icon: Icon, error, registration, type, showToggl
   )
 }
 
-function MagneticButton({ children, className = '', disabled, isLoading, ...props }) {
-  const btnRef = useRef(null)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-
-  const handleMouseMove = useCallback((e) => {
-    const btn = btnRef.current
-    if (!btn) return
-    const rect = btn.getBoundingClientRect()
-    const x = e.clientX - rect.left - rect.width / 2
-    const y = e.clientY - rect.top - rect.height / 2
-    setPosition({ x: x * 0.3, y: y * 0.3 })
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    setPosition({ x: 0, y: 0 })
-  }, [])
-
+function SubmitButton({ children, className = '', disabled, isLoading, ...props }) {
   return (
     <button
-      ref={btnRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       disabled={disabled || isLoading}
-      className={`group relative overflow-hidden rounded-2xl font-semibold transition-all duration-200 ${className}`}
-      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+      className={`group relative overflow-hidden rounded-2xl font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${className}`}
       {...props}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
@@ -146,7 +125,7 @@ function ParticleField() {
     const ctx = canvas.getContext('2d')
     let animId
     let particles = []
-    const count = 60
+    const count = 25
 
     const resize = () => {
       canvas.width = window.innerWidth
@@ -166,6 +145,9 @@ function ParticleField() {
       })
     }
 
+    const maxDist = 120
+    const maxDistSq = maxDist * maxDist
+
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       particles.forEach((p) => {
@@ -180,21 +162,25 @@ function ParticleField() {
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(139, 92, 246, ${p.a})`
         ctx.fill()
+      })
 
-        particles.forEach((p2) => {
-          const dx = p.x - p2.x
-          const dy = p.y - p2.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 120) {
+      ctx.lineWidth = 0.5
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const distSq = dx * dx + dy * dy
+          if (distSq < maxDistSq) {
+            const dist = Math.sqrt(distSq)
             ctx.beginPath()
-            ctx.moveTo(p.x, p.y)
-            ctx.lineTo(p2.x, p2.y)
-            ctx.strokeStyle = `rgba(139, 92, 246, ${0.08 * (1 - dist / 120)})`
-            ctx.lineWidth = 0.5
+            ctx.moveTo(particles[i].x, particles[i].y)
+            ctx.lineTo(particles[j].x, particles[j].y)
+            ctx.strokeStyle = `rgba(139, 92, 246, ${0.08 * (1 - dist / maxDist)})`
             ctx.stroke()
           }
-        })
-      })
+        }
+      }
+
       animId = requestAnimationFrame(draw)
     }
     draw()
@@ -211,7 +197,7 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams()
   const { isAuthenticated, isLoading, error } = useAppSelector((s) => s.auth)
   const [showPass, setShowPass] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema) })
+  const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: true } })
 
   const containerRef = useRef(null)
   const cardRef = useRef(null)
@@ -232,30 +218,33 @@ export default function LoginPage() {
   useEffect(() => () => dispatch(clearError()), [dispatch])
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.set(cardRef.current, { y: 40, opacity: 0, scale: 0.97 })
-      gsap.set(formRef.current?.children || [], { y: 20, opacity: 0 })
-      gsap.set(dividerRef.current, { scaleX: 0, opacity: 0 })
-      gsap.set(socialRef.current?.children || [], { y: 15, opacity: 0 })
-      gsap.set(footerRef.current, { y: 10, opacity: 0 })
+    import('gsap').then(({ default: gsap }) => {
+      const ctx = gsap.context(() => {
+        gsap.set(cardRef.current, { y: 40, opacity: 0, scale: 0.97 })
+        gsap.set(formRef.current?.children || [], { y: 20, opacity: 0 })
+        gsap.set(dividerRef.current, { scaleX: 0, opacity: 0 })
+        gsap.set(socialRef.current?.children || [], { y: 15, opacity: 0 })
+        gsap.set(footerRef.current, { y: 10, opacity: 0 })
 
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
-      tl.to(cardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.8, ease: 'power2.out' })
-        .to(formRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.06, duration: 0.5 }, '-=0.4')
-        .to(dividerRef.current, { scaleX: 1, opacity: 1, duration: 0.5 }, '-=0.2')
-        .to(socialRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.08, duration: 0.4 }, '-=0.3')
-        .to(footerRef.current, { y: 0, opacity: 1, duration: 0.3 }, '-=0.1')
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+        tl.to(cardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.8, ease: 'power2.out' })
+          .to(formRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.06, duration: 0.5 }, '-=0.4')
+          .to(dividerRef.current, { scaleX: 1, opacity: 1, duration: 0.5 }, '-=0.2')
+          .to(socialRef.current?.children || [], { y: 0, opacity: 1, stagger: 0.08, duration: 0.4 }, '-=0.3')
+          .to(footerRef.current, { y: 0, opacity: 1, duration: 0.3 }, '-=0.1')
+      })
+      return () => ctx.revert()
     })
-
-    return () => ctx.revert()
   }, [])
 
   useEffect(() => {
     if (error && errorRef.current) {
-      gsap.fromTo(errorRef.current, { x: -15, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.5, ease: 'elastic.out(1, 0.3)' })
-      gsap.fromTo(cardRef.current, { x: -4 },
-        { x: 0, duration: 0.4, ease: 'elastic.out(1, 0.2)' })
+      import('gsap').then(({ default: gsap }) => {
+        gsap.fromTo(errorRef.current, { x: -15, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.5, ease: 'elastic.out(1, 0.3)' })
+        gsap.fromTo(cardRef.current, { x: -4 },
+          { x: 0, duration: 0.4, ease: 'elastic.out(1, 0.2)' })
+      })
     }
   }, [error])
 
@@ -263,11 +252,13 @@ export default function LoginPage() {
     const handleMouse = (e) => {
       mouseRef.current = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight }
       if (glowRef.current) {
-        gsap.to(glowRef.current, {
-          left: `${e.clientX - 150}px`,
-          top: `${e.clientY - 150}px`,
-          duration: 1.5,
-          ease: 'power2.out',
+        import('gsap').then(({ default: gsap }) => {
+          gsap.to(glowRef.current, {
+            left: `${e.clientX - 150}px`,
+            top: `${e.clientY - 150}px`,
+            duration: 1.5,
+            ease: 'power2.out',
+          })
         })
       }
     }
@@ -276,7 +267,7 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <div ref={containerRef} className="relative min-h-screen bg-[#0A0A0F] overflow-hidden flex items-center justify-center select-none py-16">
+    <div ref={containerRef} className="relative min-h-screen bg-[#0A0A0F] overflow-x-hidden overflow-y-auto flex items-center justify-center select-none py-8 sm:py-16">
       <ParticleField />
 
       {/* Animated gradient background */}
@@ -335,7 +326,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between pt-1 pb-2">
                 <label className="flex items-center gap-2.5 cursor-pointer group/check">
                   <div className="relative">
-                    <input type="checkbox" {...register('rememberMe')} defaultChecked className="peer sr-only" />
+                    <input type="checkbox" {...register('rememberMe')} className="peer sr-only" />
                     <div className="h-4.5 w-4.5 rounded-md border border-white/20 bg-white/5 peer-checked:bg-gradient-to-r peer-checked:from-violet-600 peer-checked:to-fuchsia-600 peer-checked:border-transparent transition-all duration-200 flex items-center justify-center">
                       <CheckCircle className="h-3 w-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                     </div>
@@ -347,9 +338,9 @@ export default function LoginPage() {
                 </Link>
               </div>
 
-              <MagneticButton type="submit" isLoading={isLoading} disabled={isLoading} className="w-full">
+              <SubmitButton type="submit" isLoading={isLoading} disabled={isLoading} className="w-full">
                 Sign In
-              </MagneticButton>
+              </SubmitButton>
             </form>
 
             {/* Divider */}

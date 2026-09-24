@@ -315,7 +315,7 @@ function StatsSection() {
   return (
     <section className="relative border-y border-border bg-bg-secondary/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
           {STATS.map(({ value, suffix, label }) => (
             <StatItem key={label} value={value} suffix={suffix} label={label} />
           ))}
@@ -467,7 +467,7 @@ function TestimonialsSection() {
 
         <div className="flex items-center justify-center gap-4 mt-6">
           <button onClick={() => setCurrent((p) => (p - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)}
-            className="h-10 w-10 rounded-full border border-border bg-bg-card flex items-center justify-center hover:bg-bg-tertiary transition-colors">
+            className="h-11 w-11 rounded-full border border-border bg-bg-card flex items-center justify-center hover:bg-bg-tertiary transition-colors">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="flex gap-2">
@@ -477,7 +477,7 @@ function TestimonialsSection() {
             ))}
           </div>
           <button onClick={() => setCurrent((p) => (p + 1) % TESTIMONIALS.length)}
-            className="h-10 w-10 rounded-full border border-border bg-bg-card flex items-center justify-center hover:bg-bg-tertiary transition-colors">
+            className="h-11 w-11 rounded-full border border-border bg-bg-card flex items-center justify-center hover:bg-bg-tertiary transition-colors">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -526,7 +526,7 @@ function Footer() {
   return (
     <footer className="border-t border-border bg-bg-card/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mb-10">
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2.5 mb-4">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
@@ -563,9 +563,9 @@ function Footer() {
           <p className="text-xs text-text-tertiary">&copy; 2026 AssessAI. All rights reserved.</p>
           <div className="flex items-center gap-4">
             {[
-              { icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-8h2v8z', label: 'GitHub' },
+              { icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-8h2v8z', label: 'GitHub', href: 'https://github.com/baby-ghost1/Assess-AI' },
             ].map((s) => (
-              <a key={s.label} href="#" className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-text-tertiary hover:text-text-primary hover:border-border-light transition-colors">
+              <a key={s.label} href={s.href} target="_blank" rel="noreferrer" className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-text-tertiary hover:text-text-primary hover:border-border-light transition-colors">
                 <Globe className="h-3.5 w-3.5" />
               </a>
             ))}

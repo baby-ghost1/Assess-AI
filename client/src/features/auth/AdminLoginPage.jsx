@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
   password: z.string().min(1, 'Password is required'),
-  rememberMe: z.boolean().optional().default(true),
+  rememberMe: z.boolean().optional(),
 })
 
 function FloatingInput({ label, icon: Icon, error, registration, type, showToggle, showState, onToggleShow, autoFocus }) {
@@ -80,7 +80,7 @@ export default function AdminLoginPage() {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading, error, user } = useAppSelector((s) => s.auth)
   const [show, setShow] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema) })
+  const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: true } })
   const cardRef = useRef(null)
 
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function AdminLoginPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer group/check">
                 <div className="relative">
-                  <input type="checkbox" {...register('rememberMe')} defaultChecked className="peer sr-only" />
+                  <input type="checkbox" {...register('rememberMe')} className="peer sr-only" />
                   <div className="h-4 w-4 rounded border border-border bg-bg-secondary peer-checked:bg-danger peer-checked:border-danger transition-all duration-200 flex items-center justify-center">
                     <svg className="h-3 w-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

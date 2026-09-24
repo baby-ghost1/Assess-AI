@@ -13,6 +13,7 @@ const variants = {
 export default function ConfirmDialog({
   open, title, message, onConfirm, onCancel, isPending,
   variant = 'danger', confirmLabel = 'Confirm', cancelLabel = 'Cancel', children,
+  confirmDisabled = false,
 }) {
   const v = variants[variant] || variants.danger
   const Icon = v.icon
@@ -49,7 +50,7 @@ export default function ConfirmDialog({
 
                 <div className="flex items-center justify-end gap-3">
                   <Button variant="secondary" onClick={onCancel} disabled={isPending} className="rounded-xl">{cancelLabel}</Button>
-                  <Button variant={v.btnVariant} onClick={onConfirm} disabled={isPending} className="rounded-xl">
+                  <Button variant={v.btnVariant} onClick={onConfirm} disabled={isPending || confirmDisabled} className="rounded-xl">
                     {isPending ? 'Processing...' : confirmLabel}
                   </Button>
                 </div>
@@ -62,7 +63,11 @@ export default function ConfirmDialog({
   )
 }
 
-export function RejectDialog({ open, onConfirm, onCancel, isPending, title = 'Reject', placeholder = 'Reason for rejection...' }) {
+export function RejectDialog({
+  open, onConfirm, onCancel, isPending,
+  title = 'Reject', placeholder = 'Reason for rejection...',
+  confirmLabel = 'Reject', pendingLabel = 'Rejecting...', message,
+}) {
   const [reason, setReason] = useState('')
 
   const handleConfirm = () => {
@@ -79,11 +84,13 @@ export function RejectDialog({ open, onConfirm, onCancel, isPending, title = 'Re
     <ConfirmDialog
       open={open}
       title={title}
+      message={message}
       variant="danger"
-      confirmLabel={isPending ? 'Rejecting...' : 'Reject'}
+      confirmLabel={isPending ? pendingLabel : confirmLabel}
       onConfirm={handleConfirm}
       onCancel={handleCancel}
-      isPending={isPending || !reason.trim()}
+      isPending={isPending}
+      confirmDisabled={!reason.trim()}
     >
       <textarea
         value={reason}
