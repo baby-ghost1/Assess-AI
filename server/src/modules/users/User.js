@@ -15,6 +15,15 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, select: false },
   resetToken: { type: String, select: false },
   lastLoginAt: { type: Date },
+  lastLoginIp: { type: String, default: null },
+  lastLoginLocation: { type: String, default: null },
+  deletedAt: { type: Date, default: null },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  deletedReason: { type: String, default: null },
+  deletionType: { type: String, enum: ['admin', 'self', null], default: null },
+  graceExpiresAt: { type: Date, default: null },
+  restoreRequestedAt: { type: Date, default: null },
+  purgedAt: { type: Date, default: null },
   preferences: {
     type: {
       emailNotifications: { type: Boolean, default: true },
@@ -46,5 +55,7 @@ userSchema.methods.toJSON = function () {
 }
 
 userSchema.index({ role: 1 })
+userSchema.index({ deletedAt: 1 })
+userSchema.index({ restoreRequestedAt: 1 })
 
 export default mongoose.model('User', userSchema)

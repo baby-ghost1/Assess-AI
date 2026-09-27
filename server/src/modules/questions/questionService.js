@@ -37,6 +37,11 @@ export async function getQuestionById(questionId, requestingUser) {
     throw err
   }
   if (!question) throw new NotFoundError('Question')
+  // Defense in depth (routes are already role-gated): candidates must never
+  // receive a raw question document — it contains the answer key and solutions.
+  if (requestingUser && requestingUser.role === 'candidate') {
+    throw new NotFoundError('Question')
+  }
   if (requestingUser && requestingUser.role !== 'admin' &&
       question.createdBy?._id?.toString() !== requestingUser._id.toString() &&
       question.status !== 'approved') {

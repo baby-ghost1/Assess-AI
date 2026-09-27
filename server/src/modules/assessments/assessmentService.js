@@ -115,7 +115,7 @@ function getAllowedAttemptCount(assessment, userId) {
 // Result visibility is server-authoritative:
 // - restricted: only after admin release
 // - open: showResultImmediately (default true) OR manual release
-function isResultReleased(assessment) {
+export function isResultReleased(assessment) {
   if (!assessment) return false
   if (assessment.accessMode === 'restricted') return assessment.resultsReleased === true
   if (assessment.showResultImmediately === false) return assessment.resultsReleased === true
@@ -154,7 +154,7 @@ function shuffleOptionsSeeded(options, seed) {
 
 // Candidate-facing question projection.
 // includeKeys only when results are visible AND showCorrectAnswers is on.
-function presentQuestion(q, { includeKeys = false, shuffleOptions = false, seed = '' } = {}) {
+export function presentQuestion(q, { includeKeys = false, shuffleOptions = false, seed = '' } = {}) {
   if (!q) return q
   if (typeof q !== 'object') return q
   const payload = typeof q.toObject === 'function' ? q.toObject() : { ...q }
@@ -204,7 +204,7 @@ function sanitizeAssessmentForCandidate(assessment) {
 }
 
 // opts: { includeScores, includeKeys, shuffleOptions, seed }
-function sanitizeSubmissionForCandidate(submission, opts = {}) {
+export function sanitizeSubmissionForCandidate(submission, opts = {}) {
   if (!submission) return submission
   const { includeScores = false, includeKeys = false, shuffleOptions = false, seed = '' } = opts
   const payload = typeof submission.toObject === 'function' ? submission.toObject() : { ...submission }
@@ -220,7 +220,7 @@ function sanitizeSubmissionForCandidate(submission, opts = {}) {
   return payload
 }
 
-function sanitizeAttemptForCandidate(attempt, assessment) {
+export function sanitizeAttemptForCandidate(attempt, assessment) {
   const payload = typeof attempt.toObject === 'function' ? attempt.toObject() : { ...attempt }
   const resultsVisible = isResultReleased(assessment)
   if (!resultsVisible) {
@@ -340,6 +340,13 @@ export async function listAssessments(filters, requestingUser) {
         { accessMode: 'restricted', candidateList: { $elemMatch: { email: new RegExp(`^${escaped}$`, 'i') } } },
       ]
     }
+  } else if (requestingUser.role === 'setter') {
+    // Setters see their own assessments (any status) plus the published catalog,
+    // but never other setters' drafts / pending reviews / private AI quizzes.
+    query.$or = [
+      { createdBy: requestingUser._id },
+      { status: 'published', isAiGenerated: false },
+    ]
   } else if (requestingUser?.role === 'admin') {
     query.isAiGenerated = false
   }
@@ -638,7 +645,15 @@ export async function startAttempt(assessmentId, userId, meta = {}) {
     user: userId,
     status: { $in: ['in_progress', 'paused'] },
   })
-  if (activeAttempt) throw new ForbiddenError('An active attempt is already in progress')
+  if (activeAttempt) {
+    // An attempt left open past its deadline (closed browser, crashed client)
+    // must not block the candidate forever — expire it server-side, then continue.
+    if (isPastDeadline(activeAttempt)) {
+      await finishAttempt(activeAttempt._id, activeAttempt.user, 'timeout')
+    } else {
+      throw new ForbiddenError('An active attempt is already in progress')
+    }
+  }
 
   const nonAbandonedCount = await Attempt.countDocuments({ assessment: assessmentId, user: userId, status: { $ne: 'abandoned' } })
   if (nonAbandonedCount >= getAllowedAttemptCount(assessment, userId)) {
@@ -652,19 +667,28 @@ export async function startAttempt(assessmentId, userId, meta = {}) {
 
   const totalMarks = assessment.sections.reduce((acc, s) => acc + s.totalMarks, 0) || questionOrder.length
 
-  const attempt = await Attempt.create({
-    assessment: assessmentId,
-    user: userId,
-    timeLimit: assessment.timeLimit,
-    timeRemaining: assessment.timeLimit,
-    totalMarks,
-    questionOrder,
-    currentQuestionIndex: 0,
-    attemptNumber: nonAbandonedCount + 1,
-    startedAt: new Date(),
-    ipAddress: meta.ip || '',
-    userAgent: meta.userAgent || '',
-  })
+  let attempt
+  try {
+    attempt = await Attempt.create({
+      assessment: assessmentId,
+      user: userId,
+      // Unique while active: the partial unique index on activeKey makes the
+      // check-then-create above race-safe (no duplicate concurrent attempts).
+      activeKey: `${userId}:${assessmentId}`,
+      timeLimit: assessment.timeLimit,
+      timeRemaining: assessment.timeLimit,
+      totalMarks,
+      questionOrder,
+      currentQuestionIndex: 0,
+      attemptNumber: nonAbandonedCount + 1,
+      startedAt: new Date(),
+      ipAddress: meta.ip || '',
+      userAgent: meta.userAgent || '',
+    })
+  } catch (err) {
+    if (err?.code === 11000) throw new ForbiddenError('An active attempt is already in progress')
+    throw err
+  }
 
   const submissionDocs = questionOrder.map((qId, i) => ({
     attempt: attempt._id,
@@ -743,7 +767,15 @@ export async function startRestrictedAttempt(assessmentId, candidateEmail, passw
     user: user._id,
     status: { $in: ['in_progress', 'paused'] },
   })
-  if (activeAttempt) throw new ForbiddenError('An active attempt is already in progress')
+  if (activeAttempt) {
+    // Expire a stale attempt left open past its deadline so it cannot
+    // permanently lock the invited candidate out of the assessment.
+    if (isPastDeadline(activeAttempt)) {
+      await finishAttempt(activeAttempt._id, activeAttempt.user, 'timeout')
+    } else {
+      throw new ForbiddenError('An active attempt is already in progress')
+    }
+  }
 
   // Check attempt limit (grants counted via getAllowedAttemptCount)
   const nonAbandonedCount = await Attempt.countDocuments({ assessment: assessmentId, user: user._id, status: { $ne: 'abandoned' } })
@@ -758,20 +790,27 @@ export async function startRestrictedAttempt(assessmentId, candidateEmail, passw
 
   const totalMarks = assessment.sections.reduce((acc, s) => acc + s.totalMarks, 0) || questionOrder.length
 
-  const attempt = await Attempt.create({
-    assessment: assessmentId,
-    user: user._id,
-    candidateEmail: candidateEmail.toLowerCase(),
-    timeLimit: assessment.timeLimit,
-    timeRemaining: assessment.timeLimit,
-    totalMarks,
-    questionOrder,
-    currentQuestionIndex: 0,
-    attemptNumber: nonAbandonedCount + 1,
-    startedAt: new Date(),
-    ipAddress: meta.ip || '',
-    userAgent: meta.userAgent || '',
-  })
+  let attempt
+  try {
+    attempt = await Attempt.create({
+      assessment: assessmentId,
+      user: user._id,
+      activeKey: `${user._id}:${assessmentId}`,
+      candidateEmail: candidateEmail.toLowerCase(),
+      timeLimit: assessment.timeLimit,
+      timeRemaining: assessment.timeLimit,
+      totalMarks,
+      questionOrder,
+      currentQuestionIndex: 0,
+      attemptNumber: nonAbandonedCount + 1,
+      startedAt: new Date(),
+      ipAddress: meta.ip || '',
+      userAgent: meta.userAgent || '',
+    })
+  } catch (err) {
+    if (err?.code === 11000) throw new ForbiddenError('An active attempt is already in progress')
+    throw err
+  }
 
   const submissionDocs = questionOrder.map((qId, i) => ({
     attempt: attempt._id,
@@ -890,10 +929,13 @@ export async function navigateQuestion(attemptId, questionIndex, userId) {
     shuffleOptions: assessment?.shuffleOptions === true,
     seed: String(attemptId),
   }
+  // Same result-visibility rules as getAttempt: a completed-but-unreleased
+  // attempt must not leak its score through the navigate response.
+  const safeAttempt = sanitizeAttemptForCandidate(attempt, assessment)
   submission = sanitizeSubmissionForCandidate(submission, opts)
   questions = questions.map((q) => sanitizeSubmissionForCandidate(q, opts))
 
-  return { attempt, currentSubmission: submission, questions }
+  return { attempt: safeAttempt, currentSubmission: submission, questions }
 }
 
 export async function finishAttempt(attemptId, userId, reason = 'manual') {
@@ -903,15 +945,17 @@ export async function finishAttempt(attemptId, userId, reason = 'manual') {
   const terminalStatus = reason === 'auto_submit' ? 'auto_submitted' : reason === 'timeout' ? 'timed_out' : 'completed'
   const claimed = await Attempt.findOneAndUpdate(
     { _id: attemptId, user: userId, status: { $in: ['in_progress', 'paused'] } },
-    { $set: { status: terminalStatus, completedAt: new Date() } },
+    { $set: { status: terminalStatus, completedAt: new Date() }, $unset: { activeKey: '' } },
     { new: true }
   ).populate('assessment')
 
   if (!claimed) {
+    // Already-finished attempt (double-finish retry): still candidate-safe —
+    // must not leak score fields or the embedded assessment PII/password hash.
     const existing = await Attempt.findById(attemptId).populate('assessment')
     if (!existing) throw new NotFoundError('Attempt')
     if (existing.user.toString() !== userId.toString()) throw new ForbiddenError('Not your attempt')
-    return existing
+    return sanitizeAttemptForCandidate(existing, existing.assessment)
   }
 
   const attempt = claimed
@@ -1005,7 +1049,10 @@ export async function finishAttempt(attemptId, userId, reason = 'manual') {
     })
   }
 
-  return attempt.populate('assessment')
+  // Result visibility is server-authoritative: never return the score fields in
+  // the finish response when results have not been released to the candidate.
+  const finished = await attempt.populate('assessment')
+  return sanitizeAttemptForCandidate(finished, finished.assessment)
 }
 
 export async function syncTimer(attemptId, timeRemaining, userId) {

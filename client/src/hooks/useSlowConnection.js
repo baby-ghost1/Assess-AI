@@ -12,12 +12,14 @@ export default function useSlowConnection(threshold = 3000) {
       await fetch('/favicon.ico', {
         method: 'HEAD',
         cache: 'no-store',
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined,
       })
       const duration = Date.now() - start
       setIsSlow(duration > threshold)
       setLastCheck(duration)
     } catch {
       setIsSlow(true)
+      setLastCheck(null)
     }
   }, [threshold])
 

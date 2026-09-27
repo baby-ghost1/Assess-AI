@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
 
 /* ═══════════════════════════════════════════
    SPINNER DEFINITIONS
@@ -190,25 +192,40 @@ const SPINNERS = [
 ]
 
 /* ═══════════════════════════════════════════
-   GET / SET selected spinner (per-user)
-   key format: assessai_spinner or assessai_spinner_{userId}
+   GET / SET selected spinner
+   scope: a userId (per-account loader) or 'global'/null
+          (site-wide loader shown to logged-out visitors)
+   key format: assessai_spinner_{userId} | assessai_spinner_global
    ═══════════════════════════════════════════ */
 
-function storageKey(userId) {
-  return userId ? `assessai_spinner_${userId}` : 'assessai_spinner'
+export const GLOBAL_SPINNER_SCOPE = 'global'
+
+function storageKey(scope) {
+  return scope && scope !== GLOBAL_SPINNER_SCOPE
+    ? `assessai_spinner_${scope}`
+    : 'assessai_spinner_global'
 }
 
-export function getSelectedSpinnerId(userId) {
+export function getStoredSpinnerId(scope) {
   try {
-    return localStorage.getItem(storageKey(userId)) || 'gradient-ring'
+    const stored = localStorage.getItem(storageKey(scope))
+    if (stored) return stored
+    if (!scope || scope === GLOBAL_SPINNER_SCOPE) {
+      return localStorage.getItem('assessai_spinner')
+    }
+    return null
   } catch {
-    return 'gradient-ring'
+    return null
   }
 }
 
-export function setSelectedSpinnerId(id, userId) {
+export function getSelectedSpinnerId(scope) {
+  return getStoredSpinnerId(scope) || 'gradient-ring'
+}
+
+export function setSelectedSpinnerId(id, scope) {
   try {
-    localStorage.setItem(storageKey(userId), id)
+    localStorage.setItem(storageKey(scope), id)
   } catch { /* noop */ }
 }
 
@@ -220,18 +237,36 @@ export function getAllSpinners() {
   return SPINNERS
 }
 
+export function useGlobalSpinnerId() {
+  const { data } = useQuery({
+    queryKey: ['public-settings'],
+    queryFn: () => api.get('/settings/public').then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+  return data?.data?.globalSpinnerId || null
+}
+
 /* ═══════════════════════════════════════════
-   useSpinnerSelection(userId?) hook
+   useSpinnerSelection(scope?) hook
+   scope = userId for personal loader, 'global'/null for site default
    Returns [selectedId, selectSpinner]
    ═══════════════════════════════════════════ */
 
-export function useSpinnerSelection(userId) {
-  const [selectedId, setSelectedIdState] = useState(() => getSelectedSpinnerId(userId))
+export function useSpinnerSelection(scope) {
+  const globalSpinnerId = useGlobalSpinnerId()
+  const [selectedId, setSelectedIdState] = useState(
+    () => getStoredSpinnerId(scope) || globalSpinnerId || 'gradient-ring'
+  )
+
+  useEffect(() => {
+    setSelectedIdState(getStoredSpinnerId(scope) || globalSpinnerId || 'gradient-ring')
+  }, [scope, globalSpinnerId])
 
   const selectSpinner = useCallback((id) => {
     setSelectedIdState(id)
-    setSelectedSpinnerId(id, userId)
-  }, [userId])
+    setSelectedSpinnerId(id, scope)
+  }, [scope])
 
   return [selectedId, selectSpinner]
 }

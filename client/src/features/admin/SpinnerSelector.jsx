@@ -1,20 +1,42 @@
 import { useState } from 'react'
-import { Check, Sparkles } from 'lucide-react'
+import { Check, Globe, Sparkles, User } from 'lucide-react'
 import { useSpinnerSelection, getAllSpinners } from '@/components/shared/spinnerRegistry'
 import AppLoader from '@/components/shared/AppLoader'
 import { useAppSelector } from '@/hooks'
-import { toast } from 'sonner'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { notify, apiErrorMessage } from '@/lib/notify'
+import api from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 const SPINNERS = getAllSpinners()
 
+const SCOPES = [
+  { id: 'mine', label: 'My loader', icon: User, desc: 'Applies to your account only' },
+  { id: 'global', label: 'Global loader', icon: Globe, desc: 'Shown to logged-out visitors exploring the site' },
+]
+
 export default function SpinnerSelector() {
   const { user } = useAppSelector((s) => s.auth)
-  const [selectedId, selectSpinner] = useSpinnerSelection(user?._id)
+  const queryClient = useQueryClient()
+  const [scopeTab, setScopeTab] = useState('mine')
+  const scope = scopeTab === 'global' ? 'global' : user?._id
+  const [selectedId, selectSpinner] = useSpinnerSelection(scope)
   const [previewId, setPreviewId] = useState(null)
+
+  const saveGlobal = useMutation({
+    mutationFn: (id) => api.patch('/admin/settings/global_spinner_id', { value: id }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['public-settings'] }),
+    onError: (err) => notify.error(apiErrorMessage(err), { title: 'Failed to save global loader' }),
+  })
 
   const handleApply = (id) => {
     selectSpinner(id)
-    toast.success('Loader updated! Refresh to see changes across the app.')
+    if (scopeTab === 'global') {
+      saveGlobal.mutate(id)
+      notify.success('Global loader updated — website visitors will see it')
+    } else {
+      notify.success('Your loader updated')
+    }
   }
 
   return (
@@ -25,8 +47,29 @@ export default function SpinnerSelector() {
         </div>
         <div>
           <h3 className="text-lg font-semibold text-text-primary">App Loader Style</h3>
-          <p className="text-sm text-text-secondary">Choose the loading animation shown across the app</p>
+          <p className="text-sm text-text-secondary">Pick your own loader, or set the global one for visitors</p>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {SCOPES.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setScopeTab(s.id)}
+            className={cn(
+              'flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all',
+              scopeTab === s.id
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-bg-card text-text-secondary hover:border-primary/40 hover:text-text-primary'
+            )}
+          >
+            <s.icon className="h-4 w-4" />
+            {s.label}
+          </button>
+        ))}
+        <span className="self-center text-xs text-text-tertiary">
+          {SCOPES.find((s) => s.id === scopeTab)?.desc}
+        </span>
       </div>
 
       {/* Current active */}
@@ -36,7 +79,7 @@ export default function SpinnerSelector() {
           <span className="text-sm font-medium text-primary">Currently Active</span>
         </div>
         <div className="flex items-center gap-4">
-          <AppLoader fullScreen={false} size={40} userId={user?._id} />
+          <AppLoader fullScreen={false} size={40} userId={scope} />
           <span className="text-sm text-text-secondary">
             {SPINNERS.find((s) => s.id === selectedId)?.name}
           </span>
@@ -100,14 +143,7 @@ export default function SpinnerSelector() {
           </div>
 
           <div className="flex items-center justify-center py-8 rounded-lg bg-bg-primary border border-border/50">
-            <div className="flex flex-col items-center gap-4">
-              {SPINNERS.find((s) => s.id === previewId)?.render(52)}
-              <p className="text-xs text-text-secondary">Preview with text</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center py-4 rounded-lg bg-bg-primary border border-border/50">
-            <AppLoader fullScreen={false} size={40} userId={user?._id} />
+            <AppLoader fullScreen={false} size={52} spinnerId={previewId} text="Restoring your session..." />
           </div>
         </div>
       )}

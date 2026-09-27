@@ -6,19 +6,32 @@ import { useMusicPlayer } from '@/features/vibes/musicPlayerContext'
 
 export default function useLogout() {
   const [showConfirm, setShowConfirm] = useState(false)
+  const [isPending, setIsPending] = useState(false)
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const { stop } = useMusicPlayer()
 
-  const confirmLogout = useCallback(() => {
+  // Wait for the logout state to clear BEFORE navigating — otherwise /login
+  // still sees an authenticated user and bounces straight back to the dashboard.
+  const confirmLogout = useCallback(async () => {
+    if (isPending) return
+    setIsPending(true)
     stop()
-    dispatch(logout())
-    navigate('/login')
-    setShowConfirm(false)
-  }, [stop, dispatch, navigate])
+    try {
+      await dispatch(logout()).unwrap()
+    } catch {
+      // the thunk never rejects, but stay safe so the dialog can't get stuck
+    } finally {
+      setIsPending(false)
+      setShowConfirm(false)
+      navigate('/login', { replace: true })
+    }
+  }, [isPending, stop, dispatch, navigate])
 
   const requestLogout = useCallback(() => setShowConfirm(true), [])
-  const cancelLogout = useCallback(() => setShowConfirm(false), [])
+  const cancelLogout = useCallback(() => {
+    if (!isPending) setShowConfirm(false)
+  }, [isPending])
 
-  return { showConfirm, requestLogout, confirmLogout, cancelLogout }
+  return { showConfirm, isPending, requestLogout, confirmLogout, cancelLogout }
 }

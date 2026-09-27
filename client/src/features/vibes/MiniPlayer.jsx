@@ -4,6 +4,7 @@ import {
   Volume2, VolumeX, Heart, ListMusic, Zap, AlertCircle
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import Equalizer from './Equalizer'
@@ -29,11 +30,18 @@ export default function MiniPlayer() {
   const pathname = location.pathname.replace(/\/$/, '') || '/'
   // UI only on Vibes tab — playback continues via app-level MusicPlayerProvider
   const isVibesRoute = pathname === '/vibes'
+  // Hide while mobile sidebar menu is open so it doesn't float above the drawer
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  useEffect(() => {
+    const handler = (e) => setMobileMenuOpen(Boolean(e.detail))
+    window.addEventListener('mobile-menu-change', handler)
+    return () => window.removeEventListener('mobile-menu-change', handler)
+  }, [])
   const pct = duration ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0
   const liked = currentTrack ? isLiked(currentTrack.id) : false
   const remaining = Math.max(0, queue.length - queueIndex - 1)
 
-  if (!hasTrack || !isVibesRoute) return null
+  if (!hasTrack || !isVibesRoute || mobileMenuOpen) return null
 
   return (
     <>

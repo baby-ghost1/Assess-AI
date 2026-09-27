@@ -36,6 +36,66 @@ export async function deleteUser(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function purgeUser(req, res, next) {
+  try {
+    await adminService.purgeUserPermanently(req.params.id, req.validatedBody?.reason, req.user._id)
+    disconnectUserSockets(req.params.id)
+    res.json({ success: true, data: null, message: 'User permanently deleted', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function purgeUsers(req, res, next) {
+  try {
+    const { ids, reason } = req.validatedBody
+    const result = await adminService.purgeUsersPermanently(ids, reason, req.user._id)
+    result.purgedIds.forEach((id) => disconnectUserSockets(id))
+    res.json({
+      success: true,
+      data: result,
+      message: `${result.purged} ${result.purged === 1 ? 'user' : 'users'} permanently deleted`,
+      errors: null,
+      meta: null,
+    })
+  } catch (error) { next(error) }
+}
+
+export async function deleteUsers(req, res, next) {
+  try {
+    const { ids, reason } = req.validatedBody
+    const result = await adminService.deleteUsers(ids, reason, req.user._id)
+    result.deletedIds.forEach((id) => disconnectUserSockets(id))
+    res.json({
+      success: true,
+      data: result,
+      message: `${result.deleted} ${result.deleted === 1 ? 'user' : 'users'} deleted`,
+      errors: null,
+      meta: null,
+    })
+  } catch (error) { next(error) }
+}
+
+export async function bulkUpdateUsers(req, res, next) {
+  try {
+    const { ids, updates } = req.validatedBody
+    const result = await adminService.bulkUpdateUsers(ids, updates)
+    if (updates.isActive === false) result.deactivated.forEach((id) => disconnectUserSockets(id))
+    res.json({
+      success: true,
+      data: result,
+      message: `${result.updated} ${result.updated === 1 ? 'user' : 'users'} updated`,
+      errors: null,
+      meta: null,
+    })
+  } catch (error) { next(error) }
+}
+
+export async function restoreUser(req, res, next) {
+  try {
+    const user = await adminService.restoreUser(req.params.id, req.user._id)
+    res.json({ success: true, data: user, message: 'Account restored', errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
 // ─── Roles ──────────────────────────────────────────────
 
 export async function listRoles(req, res, next) {

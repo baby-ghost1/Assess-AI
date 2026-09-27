@@ -4,7 +4,7 @@ import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { authorize } from '../../middleware/authorize.js'
 import { aiGenerateLimiter } from '../../middleware/rateLimiter.js'
-import { generateQuestions, getAvailableProviders, generateInsights, fetchFromProvider, PROVIDER_CONFIGS } from './aiProviders.js'
+import { generateQuestions, getAvailableProviders, generateInsights, generateRaw, getFailoverChain, PROVIDER_CONFIGS } from './aiProviders.js'
 import { getCache, setCache } from '../../utils/cacheHelper.js'
 import Assessment from '../assessments/Assessment.js'
 import Attempt from '../assessments/Attempt.js'
@@ -17,7 +17,7 @@ import { getSettingValue } from '../settings/settingsService.js'
 
 const router = Router()
 
-const AI_PROVIDER_NAMES = ['gemini', 'gpt', 'claude', 'deepseek', 'openrouter', 'perplexity', 'groq', 'nvidia', 'bazaarlink']
+const AI_PROVIDER_NAMES = Object.keys(PROVIDER_CONFIGS)
 
 // Resolve provider: explicit request > admin ai_provider setting > groq
 async function resolveProvider(requested) {
@@ -62,6 +62,7 @@ router.post('/generate', aiGenerateLimiter, validate(z.object({
     const { topic, count, difficulty, questionType, language } = req.validatedBody
     const provider = await resolveProvider(req.validatedBody.provider)
     const questions = await generateQuestions(topic, { count, difficulty, questionType, provider, language })
+    const usedProvider = questions[0]?.aiModel || provider
 
     const created = []
     const questionDocs = questions.map((qData) => ({
@@ -71,21 +72,20 @@ router.post('/generate', aiGenerateLimiter, validate(z.object({
       status: 'draft',
       source: 'ai_generated',
       isAiGenerated: true,
-      aiModel: provider,
     }))
     const insertedQuestions = await Question.insertMany(questionDocs)
     const versionDocs = insertedQuestions.map((q) => ({
       question: q._id, version: 1, data: q.toObject(),
-      changes: `AI-generated via ${provider}`, changedBy: req.user._id,
+      changes: `AI-generated via ${usedProvider}`, changedBy: req.user._id,
     }))
     await QuestionVersion.insertMany(versionDocs)
     created.push(...insertedQuestions)
 
-    res.status(201).json({ success: true, data: { count: created.length, questions: created }, message: `${created.length} questions generated via ${provider}`, errors: null, meta: null })
+    res.status(201).json({ success: true, data: { count: created.length, questions: created }, message: `${created.length} questions generated via ${usedProvider}`, errors: null, meta: null })
   } catch (error) { next(error) }
 })
 
-router.post('/quiz/generate-and-start', validate(z.object({
+router.post('/quiz/generate-and-start', aiGenerateLimiter, validate(z.object({
   topic: z.string().min(2, 'Topic required'),
   count: z.coerce.number().min(1).max(20).default(5),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
@@ -110,6 +110,7 @@ router.post('/quiz/generate-and-start', validate(z.object({
       const qs = await generateQuestions(topic, { count: qCount, difficulty, questionType: qt, provider, language })
       allQuestions.push(...qs)
     }
+    const usedProvider = allQuestions[0]?.aiModel || provider
 
     const created = []
     const questionDocs2 = allQuestions.map((qData) => ({
@@ -119,12 +120,11 @@ router.post('/quiz/generate-and-start', validate(z.object({
       status: 'approved',
       source: 'ai_generated',
       isAiGenerated: true,
-      aiModel: provider,
     }))
     const insertedQuestions2 = await Question.insertMany(questionDocs2)
     const versionDocs2 = insertedQuestions2.map((q) => ({
       question: q._id, version: 1, data: q.toObject(),
-      changes: `AI quiz question via ${provider}`, changedBy: req.user._id,
+      changes: `AI quiz question via ${usedProvider}`, changedBy: req.user._id,
     }))
     await QuestionVersion.insertMany(versionDocs2)
     created.push(...insertedQuestions2)
@@ -132,7 +132,7 @@ router.post('/quiz/generate-and-start', validate(z.object({
     const totalMarks = created.length
     const assessment = await Assessment.create({
       title: `AI Quiz: ${topic}`,
-      description: `AI-generated quiz on "${topic}" using ${provider}`,
+      description: `AI-generated quiz on "${topic}" using ${usedProvider}`,
       assessmentType: 'quiz',
       difficulty,
       sections: [{
@@ -150,7 +150,7 @@ router.post('/quiz/generate-and-start', validate(z.object({
         timerType,
         perQuestionTime: timerType === 'per_question' ? timeLimit : null,
         questionTypes,
-        aiProvider: provider,
+        aiProvider: usedProvider,
       },
       showResultImmediately: true,
       showCorrectAnswers: true,
@@ -242,7 +242,7 @@ router.get('/quiz/history', async (req, res, next) => {
   } catch (error) { next(error) }
 })
 
-router.get('/quiz/:attemptId/insights', async (req, res, next) => {
+router.get('/quiz/:attemptId/insights', aiGenerateLimiter, async (req, res, next) => {
   try {
     const attempt = await Attempt.findById(req.params.attemptId)
       .populate('assessment', 'title difficulty accessMode resultsReleased')
@@ -280,7 +280,8 @@ router.get('/quiz/:attemptId/insights', async (req, res, next) => {
 
     let insights
     try {
-      const result = await generateInsights(analyticsData, 'quiz', 'groq')
+      const provider = await resolveProvider(req.query.provider)
+      const result = await generateInsights(analyticsData, 'quiz', provider)
       insights = result
     } catch {
       insights = {
@@ -308,7 +309,7 @@ router.get('/quiz/:attemptId/insights', async (req, res, next) => {
 
 // â”€â”€â”€ Generate Assessment from Topic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-router.post('/generate-assessment', validate(z.object({
+router.post('/generate-assessment', aiGenerateLimiter, validate(z.object({
   title: z.string().min(2).max(200).optional(),
   topic: z.string().min(2, 'Topic required'),
   count: z.coerce.number().min(1).max(50).default(10),
@@ -336,6 +337,7 @@ router.post('/generate-assessment', validate(z.object({
     const provider = await resolveProvider(req.validatedBody.provider)
 
     const questions = await generateQuestions(topic, { count, difficulty, questionType, provider, language })
+    const usedProvider = questions[0]?.aiModel || provider
 
     const created = []
     const questionDocs3 = questions.map((qData) => ({
@@ -345,19 +347,18 @@ router.post('/generate-assessment', validate(z.object({
       status: 'draft',
       source: 'ai_generated',
       isAiGenerated: true,
-      aiModel: provider,
     }))
     const insertedQuestions3 = await Question.insertMany(questionDocs3)
     const versionDocs3 = insertedQuestions3.map((q) => ({
       question: q._id, version: 1, data: q.toObject(),
-      changes: `AI-generated via ${provider}`, changedBy: req.user._id,
+      changes: `AI-generated via ${usedProvider}`, changedBy: req.user._id,
     }))
     await QuestionVersion.insertMany(versionDocs3)
     created.push(...insertedQuestions3)
 
     const assessment = await Assessment.create({
       title: title || `AI Assessment: ${topic}`,
-      description: `AI-generated assessment on "${topic}" using ${provider}`,
+      description: `AI-generated assessment on "${topic}" using ${usedProvider}`,
       assessmentType,
       difficulty,
       sections: [{
@@ -382,7 +383,7 @@ router.post('/generate-assessment', validate(z.object({
         timerType: 'overall',
         perQuestionTime: null,
         questionTypes: [questionType],
-        aiProvider: provider,
+        aiProvider: usedProvider,
       },
     })
 
@@ -418,7 +419,7 @@ async function extractTextFromFile(file) {
   }
 }
 
-router.post('/import-assessment', upload.single('file'), validate(z.object({
+router.post('/import-assessment', aiGenerateLimiter, upload.single('file'), validate(z.object({
   title: z.string().min(2).max(200).optional(),
   provider: z.enum(AI_PROVIDER_NAMES).optional(),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
@@ -477,38 +478,16 @@ Rules:
 - Each question MUST have isCorrect on every option
 - Return ONLY valid JSON, no markdown`
 
-    const cfg = PROVIDER_CONFIGS[provider]
-    if (!cfg?.apiKey) {
-      return res.status(400).json({ success: false, data: null, message: `${provider} API key not configured`, errors: null, meta: null })
+    if (getFailoverChain(provider).length === 0) {
+      return res.status(400).json({ success: false, data: null, message: `No AI provider configured. Set at least one API key.`, errors: null, meta: null })
     }
 
     let aiResult
+    let usedProvider = provider
     try {
-      if (provider === 'gemini') {
-        const data = await fetchFromProvider(`${cfg.baseUrl}/models/${cfg.model}:generateContent?key=${cfg.apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-          }),
-        })
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-        aiResult = JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-      } else {
-        const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: cfg.model,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.3,
-            max_tokens: 4096,
-          }),
-        })
-        const text = data?.choices?.[0]?.message?.content || ''
-        aiResult = JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-      }
+      const { result, provider: actual } = await generateRaw(prompt, provider, { maxTokens: 4096, temperature: 0.3 })
+      aiResult = result
+      usedProvider = actual
     } catch (parseErr) {
       return res.status(502).json({ success: false, data: null, message: 'AI provider returned an invalid response. Please try again or use a different provider.', errors: null, meta: null })
     }
@@ -522,13 +501,13 @@ Rules:
       status: 'draft',
       source: 'imported',
       isAiGenerated: true,
-      aiModel: provider,
+      aiModel: usedProvider,
     }))
     try {
       const insertedQuestions4 = await Question.insertMany(questionDocs4, { ordered: false })
       const versionDocs4 = insertedQuestions4.map((q) => ({
         question: q._id, version: 1, data: q.toObject(),
-        changes: `AI-imported from file via ${provider}`, changedBy: req.user._id,
+        changes: `AI-imported from file via ${usedProvider}`, changedBy: req.user._id,
       }))
       await QuestionVersion.insertMany(versionDocs4, { ordered: false })
       created.push(...insertedQuestions4)
@@ -565,7 +544,7 @@ Rules:
         timerType: 'overall',
         perQuestionTime: null,
         questionTypes: ['single_correct'],
-        aiProvider: provider,
+        aiProvider: usedProvider,
       },
     })
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 import {
   Loader2, Trash2, AlertTriangle, Shield, Users, FileText,
   MessageSquare, Activity, Eye, Lock, CheckCircle2, ChevronRight
@@ -53,7 +53,7 @@ export default function DangerZone() {
       notify.success('All data has been deleted successfully')
     },
     onError: (err) => {
-      notify.error(err.response?.data?.message || 'Failed to delete data')
+      notify.error(apiErrorMessage(err, 'Failed to delete data'))
     },
   })
 

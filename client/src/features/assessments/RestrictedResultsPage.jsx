@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Minus, AlertTriangle, Loader2, Send, RotateCw } from 'lucide-react'
 
 export default function RestrictedResultsPage() {
@@ -22,7 +22,7 @@ export default function RestrictedResultsPage() {
       queryClient.invalidateQueries({ queryKey: ['restricted-results', id] })
       notify.success('Results released to candidates')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to release results'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to release results')),
   })
 
   const grantMut = useMutation({
@@ -31,7 +31,7 @@ export default function RestrictedResultsPage() {
       queryClient.invalidateQueries({ queryKey: ['restricted-results', id] })
       notify.success('Retake granted')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to grant retake'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to grant retake')),
   })
 
   if (isLoading) {

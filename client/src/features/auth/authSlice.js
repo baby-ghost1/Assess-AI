@@ -1,15 +1,24 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import api from '@/lib/api'
+import { notify } from '@/lib/notify'
 
-const initialState = { user: null, isAuthenticated: false, isLoading: false, error: null }
+const initialState = { user: null, isAuthenticated: false, isLoading: false, error: null, deletedAccount: null }
 
 export const login = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
   try {
     const { data } = await api.post('/auth/login', credentials)
     localStorage.setItem('accessToken', data.data.accessToken)
+    if (data.data.user?._id) localStorage.setItem('assessai_active_uid', data.data.user._id)
+    if (data.data.restored) {
+      notify.success('Welcome back! Your account was restored and all of your data is intact.')
+    }
     return data.data.user
   } catch (error) {
-    return rejectWithValue(error.response?.data?.message || 'Login failed')
+    const body = error.response?.data
+    return rejectWithValue({
+      message: body?.message || 'Login failed',
+      deletedAccount: body?.errors?.code === 'ACCOUNT_DELETED' ? body.errors : null,
+    })
   }
 })
 
@@ -17,6 +26,7 @@ export const adminLogin = createAsyncThunk('auth/adminLogin', async (credentials
   try {
     const { data } = await api.post('/auth/admin/login', credentials)
     localStorage.setItem('accessToken', data.data.accessToken)
+    if (data.data.user?._id) localStorage.setItem('assessai_active_uid', data.data.user._id)
     return data.data.user
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || 'Admin login failed')
@@ -29,6 +39,7 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
     if (data.data.accessToken) {
       localStorage.setItem('accessToken', data.data.accessToken)
     }
+    if (data.data.user?._id) localStorage.setItem('assessai_active_uid', data.data.user._id)
     return data.data.user
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || 'Registration failed')
@@ -38,11 +49,13 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
 export const logout = createAsyncThunk('auth/logout', async () => {
   try { await api.post('/auth/logout') } catch {}
   localStorage.removeItem('accessToken')
+  localStorage.removeItem('assessai_active_uid')
 })
 
 export const getCurrentUser = createAsyncThunk('auth/me', async (_, { rejectWithValue }) => {
   try {
     const { data } = await api.get('/auth/me')
+    if (data.data?._id) localStorage.setItem('assessai_active_uid', data.data._id)
     return data.data
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || 'Failed to fetch user')
@@ -119,6 +132,7 @@ export const oauthCallback = createAsyncThunk('auth/oauthCallback', async (_, { 
     return result
   } catch (error) {
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('assessai_active_uid')
     return rejectWithValue(error || 'OAuth authentication failed')
   }
 })
@@ -127,19 +141,25 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    clearError: (state) => { state.error = null },
+    clearError: (state) => { state.error = null; state.deletedAccount = null },
     clearSession: (state) => {
       state.user = null
       state.isAuthenticated = false
       state.isLoading = false
       state.error = null
+      state.deletedAccount = null
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(login.pending, (s) => { s.isLoading = true; s.error = null })
+      .addCase(login.pending, (s) => { s.isLoading = true; s.error = null; s.deletedAccount = null })
       .addCase(login.fulfilled, (s, a) => { s.isLoading = false; s.isAuthenticated = true; s.user = a.payload })
-      .addCase(login.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })
+      .addCase(login.rejected, (s, a) => {
+        s.isLoading = false
+        const payload = a.payload
+        s.error = typeof payload === 'string' ? payload : payload?.message || 'Login failed'
+        s.deletedAccount = (payload && typeof payload === 'object' && payload.deletedAccount) || null
+      })
       .addCase(adminLogin.pending, (s) => { s.isLoading = true; s.error = null })
       .addCase(adminLogin.fulfilled, (s, a) => { s.isLoading = false; s.isAuthenticated = true; s.user = a.payload })
       .addCase(adminLogin.rejected, (s, a) => { s.isLoading = false; s.error = a.payload })

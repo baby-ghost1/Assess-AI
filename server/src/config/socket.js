@@ -43,6 +43,8 @@ export function setupSocket(httpServer) {
     try {
       const jwt = await import('jsonwebtoken')
       const decoded = jwt.default.verify(token, config.jwt.accessSecret)
+      // Purpose-scoped tokens (password-reset links) must not authenticate sockets
+      if (decoded.purpose) return next(new Error('Invalid token'))
       socket.userId = String(decoded.userId)
 
       // Reject deactivated users at connection time; load role for room targeting

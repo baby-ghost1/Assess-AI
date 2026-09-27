@@ -73,3 +73,21 @@ export const grantRetakeSchema = z.object({
 export const finishAttemptSchema = z.object({
   reason: z.enum(['manual', 'timeout', 'auto_submit']).optional().default('manual'),
 }).optional().default({ reason: 'manual' })
+
+// Query-string schemas: coerce numbers (with caps) and reject object-injection
+// payloads such as ?status[$ne]=draft that Express' extended query parser allows.
+export const listAssessmentsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  search: z.string().max(200).optional(),
+  assessmentType: z.string().max(32).regex(/^[a-z_]*$/).optional(),
+  difficulty: z.string().max(16).regex(/^[a-z_]*$/).optional(),
+  status: z.string().max(32).regex(/^[a-z_]*$/).optional(),
+  createdBy: z.string().regex(objectIdRegEx, 'Invalid creator id').optional(),
+})
+
+export const setterAssessmentsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  status: z.string().max(32).regex(/^[a-z_]*$/).optional(),
+})

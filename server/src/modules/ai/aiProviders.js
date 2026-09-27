@@ -186,25 +186,108 @@ const providers = {
   bazaarlink: (t, c) => openAICompatibleGenerate(t, c, 'bazaarlink'),
 }
 
-export async function generateQuestions(topic, config = {}) {
-  const providerName = config.provider || 'groq'
-  const generator = providers[providerName]
+// --- Failover ---
+// Preferred provider first, then free-tier providers by generosity, then the rest.
+// Only providers with a configured API key are included.
 
-  if (!generator) {
-    throw new Error(`Unknown AI provider: ${providerName}. Available: ${Object.keys(providers).join(', ')}`)
+const FREE_TIER_PRIORITY = ['gemini', 'groq', 'nvidia', 'openrouter', 'bazaarlink', 'nvidia_deepseek', 'nvidia_llama', 'kimi_k3', 'nvidia_mixtral']
+
+export function getFailoverChain(preferred) {
+  const configured = Object.keys(PROVIDER_CONFIGS).filter((name) => PROVIDER_CONFIGS[name].apiKey && providers[name])
+  const ordered = []
+  if (preferred && configured.includes(preferred)) ordered.push(preferred)
+  for (const name of FREE_TIER_PRIORITY) {
+    if (configured.includes(name) && !ordered.includes(name)) ordered.push(name)
   }
+  for (const name of configured) {
+    if (!ordered.includes(name)) ordered.push(name)
+  }
+  return ordered
+}
 
+// Runs task(name) against each provider in the chain until one succeeds.
+// A result of null/undefined or an empty array counts as failure (bad JSON, empty response).
+async function withProviderFailover(preferred, task) {
+  const chain = getFailoverChain(preferred)
+  if (chain.length === 0) {
+    throw new Error('No AI provider configured. Set at least one provider API key in environment (e.g. GEMINI_API_KEY, GROQ_API_KEY).')
+  }
+  const failures = []
+  for (const name of chain) {
+    try {
+      const result = await task(name)
+      if (result === null || result === undefined) throw new Error('empty response')
+      if (Array.isArray(result) && result.length === 0) throw new Error('empty response')
+      return { result, provider: name, failures }
+    } catch (err) {
+      failures.push(`${name}: ${err.message}`)
+      if (chain.length > 1) console.warn(`[ai-failover] ${name} failed (${err.message}); trying next provider`)
+    }
+  }
+  throw new Error(`All AI providers failed. ${failures.join(' | ')}`)
+}
+
+// Raw completion: returns the model's text output for an arbitrary prompt.
+async function rawComplete(prompt, providerName, { maxTokens = 4096, temperature = 0.3 } = {}) {
   const cfg = PROVIDER_CONFIGS[providerName]
-  if (!cfg.apiKey) {
-    throw new Error(`${providerName} API key not configured. Set ${providerName.toUpperCase()}_API_KEY in environment.`)
+  if (!cfg?.apiKey) throw new Error(`${providerName} API key not configured`)
+
+  if (providerName === 'gemini') {
+    const data = await fetchFromProvider(`${cfg.baseUrl}/models/${cfg.model}:generateContent?key=${cfg.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature, maxOutputTokens: maxTokens },
+      }),
+    })
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
   }
 
-  let questions = await generator(topic, config)
+  if (providerName === 'claude') {
+    const data = await fetchFromProvider(`${cfg.baseUrl}/messages`, {
+      method: 'POST',
+      headers: { 'x-api-key': cfg.apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: cfg.model,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    return data?.content?.[0]?.text || ''
+  }
+
+  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: cfg.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+      max_tokens: maxTokens,
+    }),
+  })
+  return data?.choices?.[0]?.message?.content || ''
+}
+
+// Public: run an arbitrary prompt with failover. Returns { result, provider }.
+export async function generateRaw(prompt, preferred, options = {}) {
+  const { result, provider } = await withProviderFailover(preferred, async (name) => {
+    const text = await rawComplete(prompt, name, options)
+    const parsed = safeParseJSON(text)
+    if (!parsed) throw new Error('invalid JSON response')
+    return parsed
+  })
+  return { result, provider }
+}
+
+export async function generateQuestions(topic, config = {}) {
+  const preferred = config.provider || 'groq'
+
+  const { result: rawQuestions, provider: usedProvider } = await withProviderFailover(preferred, (name) => providers[name](topic, config))
 
   // Coding questions return a single object, wrap in array
-  if (config.questionType === 'coding' && !Array.isArray(questions)) {
-    questions = [questions]
-  }
+  const questions = config.questionType === 'coding' && !Array.isArray(rawQuestions) ? [rawQuestions] : rawQuestions
 
   return questions.map((q, i) => {
     if (config.questionType === 'coding') {
@@ -229,7 +312,7 @@ export async function generateQuestions(topic, config = {}) {
           companies: codingConfig.companies || [],
         },
         isAiGenerated: true,
-        aiModel: providerName,
+        aiModel: usedProvider,
         source: 'ai_generated',
         status: 'draft',
         options: [],
@@ -256,7 +339,7 @@ export async function generateQuestions(topic, config = {}) {
       marks: q.marks || 1,
       correctAnswer: q.correctAnswer,
       isAiGenerated: true,
-      aiModel: providerName,
+      aiModel: usedProvider,
       source: 'ai_generated',
       status: 'draft',
       options,
@@ -315,55 +398,10 @@ ${json}`,
   return prompts[scope] || prompts.user
 }
 
-async function genericFetchGenerate(prompt, providerName) {
-  const cfg = PROVIDER_CONFIGS[providerName]
-  const data = await fetchFromProvider(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 2048,
-    }),
-  })
-  const text = data?.choices?.[0]?.message?.content || ''
-  return safeParseJSON(text)
-}
-
-export async function generateInsights(analyticsData, scope = 'user', providerName = 'groq') {
+export async function generateInsights(analyticsData, scope = 'user', preferred = 'groq') {
   const prompt = buildInsightsPrompt(analyticsData, scope)
-
-  if (providerName === 'gemini') {
-    const cfg = PROVIDER_CONFIGS.gemini
-    const data = await fetchFromProvider(`${cfg.baseUrl}/models/${cfg.model}:generateContent?key=${cfg.apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-      }),
-    })
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    return safeParseJSON(text)
-  }
-
-  if (providerName === 'claude') {
-    const cfg = PROVIDER_CONFIGS.claude
-    const data = await fetchFromProvider(`${cfg.baseUrl}/messages`, {
-      method: 'POST',
-      headers: { 'x-api-key': cfg.apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: cfg.model,
-        max_tokens: 2048,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    const text = data?.content?.[0]?.text || ''
-    return safeParseJSON(text)
-  }
-
-  return genericFetchGenerate(prompt, providerName)
+  const { result } = await generateRaw(prompt, preferred, { maxTokens: 2048, temperature: 0.3 })
+  return result
 }
 
 export function getAvailableProviders() {

@@ -31,6 +31,15 @@ const attemptSchema = new mongoose.Schema({
   candidateEmail: { type: String, default: '' },
   attemptNumber: { type: Number, default: 1 },
   resultReleased: { type: Boolean, default: false },
+  // Set only while the attempt is active; unique per (user, assessment).
+  // Enforced by a partial unique index so concurrent starts cannot create
+  // duplicate in-progress attempts. Unset atomically when the attempt ends.
+  activeKey: { type: String, default: null },
 }, { timestamps: true })
+
+attemptSchema.index(
+  { activeKey: 1 },
+  { unique: true, partialFilterExpression: { activeKey: { $type: 'string' } } }
+)
 
 export default mongoose.model('Attempt', attemptSchema)

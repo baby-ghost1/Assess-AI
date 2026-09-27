@@ -2,7 +2,10 @@ import jwt from 'jsonwebtoken'
 import { config } from '../../config/index.js'
 
 export function generateTokens(userId, rememberMe = false) {
-  const accessTokenExpiry = rememberMe ? '30d' : '15m'
+  // Access tokens stay short-lived regardless of "remember me": the client
+  // silently refreshes via the httpOnly refresh cookie, so a stolen bearer
+  // token (e.g. from localStorage via XSS) expires in minutes instead of 30 days.
+  const accessTokenExpiry = '15m'
   const refreshTokenExpiry = rememberMe ? '30d' : '7d'
   const accessToken = jwt.sign({ userId }, config.jwt.accessSecret, { expiresIn: accessTokenExpiry })
   const refreshToken = jwt.sign({ userId }, config.jwt.refreshSecret, { expiresIn: refreshTokenExpiry })

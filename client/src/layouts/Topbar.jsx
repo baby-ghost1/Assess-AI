@@ -4,7 +4,7 @@ import { fetchNotifications, markAsRead, markAllAsRead, deleteNotification, dele
 import { useNavigate } from 'react-router-dom'
 import { Moon, Sun, Bell, LogOut, User, Settings, CheckCheck, Trash2, X, Shield, Key, BellOff, Loader2, Maximize, Minimize, Wifi, WifiOff, Clock, Menu } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import LogoutDialog from '@/components/shared/LogoutDialog'
 import useLogout from '@/hooks/useLogout'
 
 const GRADIENT_VARIANTS = {
@@ -68,7 +68,7 @@ function useOnlineStatus() {
 export default function Topbar({ onMenuToggle }) {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { showConfirm, requestLogout, confirmLogout, cancelLogout } = useLogout()
+  const { showConfirm, isPending, requestLogout, confirmLogout, cancelLogout } = useLogout()
   const { mode } = useAppSelector((s) => s.theme)
   const { user } = useAppSelector((s) => s.auth)
   const { items: notifications, unreadCount, loading: notifLoading } = useAppSelector((s) => s.notifications)
@@ -257,13 +257,9 @@ export default function Topbar({ onMenuToggle }) {
 
     </header>
 
-    <ConfirmDialog
+    <LogoutDialog
       open={showConfirm}
-      title="Sign out?"
-      message="You're about to sign out of your account. Any playing music will stop."
-      confirmLabel="Sign out"
-      cancelLabel="Stay"
-      variant="warning"
+      isPending={isPending}
       onConfirm={confirmLogout}
       onCancel={cancelLogout}
     />

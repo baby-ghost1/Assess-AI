@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { store } from '@/store'
-import { ErrorBoundary, OfflineOverlay, SlowInternetWarning, SessionExpiredModal, NotFoundPage } from '@/components/shared'
+import { ErrorBoundary, OfflineOverlay, SlowInternetWarning, SessionExpiredModal, NotFoundPage, AlertDialog } from '@/components/shared'
 import RealtimeBridge from '@/components/shared/RealtimeBridge'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { setTheme } from '@/store/themeSlice'
@@ -21,12 +21,12 @@ import SetterRegisterPage from '@/features/auth/SetterRegisterPage'
 import AuthCallbackPage from '@/features/auth/AuthCallbackPage'
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
-import LandingPage from '@/features/landing/LandingPage'
-import PrivacyPolicyPage from '@/features/landing/PrivacyPolicyPage'
-import TermsOfServicePage from '@/features/landing/TermsOfServicePage'
 import { MusicPlayerProvider } from '@/features/vibes/musicPlayerContext'
 import MiniPlayer from '@/features/vibes/MiniPlayer'
 
+const LandingPage = lazy(() => import('@/features/landing/LandingPage'))
+const PrivacyPolicyPage = lazy(() => import('@/features/landing/PrivacyPolicyPage'))
+const TermsOfServicePage = lazy(() => import('@/features/landing/TermsOfServicePage'))
 const DashboardPage = lazy(() => import('@/features/auth/DashboardPage'))
 const QuestionBankPage = lazy(() => import('@/features/question-bank/QuestionBankPage'))
 const QuestionFormPage = lazy(() => import('@/features/question-bank/QuestionFormPage'))
@@ -99,7 +99,7 @@ function SiteMetadata() {
 function AuthInitializer({ children }) {
   const dispatch = useAppDispatch()
   const { isAuthenticated, user } = useAppSelector((s) => s.auth)
-  const [initialized, setInitialized] = useState(false)
+  const [initialized, setInitialized] = useState(() => !localStorage.getItem('accessToken'))
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
@@ -111,7 +111,7 @@ function AuthInitializer({ children }) {
   }, [dispatch, isAuthenticated])
 
   if (!initialized) {
-    return <AppLoader text="Loading your session..." userId={user?._id} />
+    return <AppLoader text="Restoring your session..." userId={user?._id} />
   }
 
   return children
@@ -126,7 +126,7 @@ function RequireRole({ roles }) {
 function AppRoutes() {
   const { isAuthenticated } = useAppSelector((s) => s.auth)
   return (
-    <Suspense fallback={<AppLoader fullScreen={false} size={36} />}>
+    <Suspense fallback={<AppLoader size={36} />}>
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
@@ -204,6 +204,7 @@ function SessionExpiryHandler() {
   useEffect(() => {
     const onExpired = () => {
       localStorage.removeItem('accessToken')
+      localStorage.removeItem('assessai_active_uid')
       dispatch(clearSession())
     }
     window.addEventListener('session-expired', onExpired)
@@ -242,6 +243,7 @@ export default function App() {
                     },
                   }}
                 />
+                <AlertDialog />
                 <OfflineOverlay />
                 <SlowInternetWarning />
                 <SessionExpiredModal />

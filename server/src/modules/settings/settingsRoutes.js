@@ -7,10 +7,11 @@ const router = Router()
 // (branding, registration toggle). Never expose secrets or admin-only values.
 router.get('/public', async (req, res) => {
   try {
-    const [siteName, siteDescription, registrationEnabled] = await Promise.all([
+    const [siteName, siteDescription, registrationEnabled, globalSpinnerId] = await Promise.all([
       getSettingValue('site_name'),
       getSettingValue('site_description'),
       getSettingValue('enable_registration'),
+      getSettingValue('global_spinner_id'),
     ])
     res.json({
       success: true,
@@ -18,6 +19,7 @@ router.get('/public', async (req, res) => {
         siteName: siteName || 'AssessAI',
         siteDescription: siteDescription || 'AI-Powered Assessment Platform',
         registrationEnabled: registrationEnabled !== false,
+        globalSpinnerId: globalSpinnerId || 'gradient-ring',
       },
       message: 'Public settings fetched',
       errors: null,
@@ -30,6 +32,7 @@ router.get('/public', async (req, res) => {
         siteName: 'AssessAI',
         siteDescription: 'AI-Powered Assessment Platform',
         registrationEnabled: true,
+        globalSpinnerId: 'gradient-ring',
       },
       message: 'Public settings fetched',
       errors: null,

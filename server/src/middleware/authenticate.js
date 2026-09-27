@@ -13,6 +13,12 @@ export async function authenticate(req, _res, next) {
     const token = authHeader.split(' ')[1]
     const decoded = jwt.verify(token, config.jwt.accessSecret)
 
+    // Purpose-scoped tokens (e.g. password-reset links) share the access secret
+    // but must never double as session bearer tokens.
+    if (decoded.purpose) {
+      throw new UnauthorizedError('Invalid token')
+    }
+
     const user = await User.findById(decoded.userId).select('-password')
     if (!user) {
       throw new UnauthorizedError('User not found')

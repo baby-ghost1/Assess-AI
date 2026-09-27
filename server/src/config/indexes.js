@@ -15,6 +15,7 @@ export async function ensureIndexes() {
         { key: { email: 1 }, unique: true },
         { key: { role: 1 } },
         { key: { isActive: 1 } },
+        { key: { deletedAt: 1 } },
         { key: { createdAt: -1 } },
       ],
     },
@@ -50,6 +51,12 @@ export async function ensureIndexes() {
         { key: { user: 1, assessment: 1, status: 1 } },
         { key: { assessment: 1, status: 1 } },
         { key: { completedAt: -1 } },
+        {
+          key: { activeKey: 1 },
+          name: 'attempts_active_unique',
+          unique: true,
+          partialFilterExpression: { activeKey: { $type: 'string' } },
+        },
       ],
     },
     {
@@ -106,6 +113,7 @@ export async function ensureIndexes() {
         if (idx.unique) options.unique = true
         if (idx.name) options.name = idx.name
         if (idx.weights) options.weights = idx.weights
+        if (idx.partialFilterExpression) options.partialFilterExpression = idx.partialFilterExpression
 
         await col.createIndex(idx.key, options)
         logger.debug(`Index created on ${config.collection}: ${JSON.stringify(idx.key)}`)

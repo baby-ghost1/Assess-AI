@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { authorize } from '../../middleware/authorize.js'
-import { createAssessmentSchema, updateAssessmentSchema, adminUpdateAssessmentSchema, submitAnswerSchema, restrictedStartSchema, releaseResultsSchema, grantRetakeSchema, finishAttemptSchema } from './assessmentValidation.js'
+import { createAssessmentSchema, updateAssessmentSchema, adminUpdateAssessmentSchema, submitAnswerSchema, restrictedStartSchema, releaseResultsSchema, grantRetakeSchema, finishAttemptSchema, listAssessmentsQuerySchema, setterAssessmentsQuerySchema } from './assessmentValidation.js'
 import { restrictedStartLimiter } from '../../middleware/rateLimiter.js'
 import * as assessmentController from './assessmentController.js'
 import { getProctoringSettings, getAssessmentDefaults } from '../settings/settingsService.js'
@@ -50,8 +50,8 @@ router.post('/attempt/:attemptId/finish', validate(finishAttemptSchema), assessm
 router.post('/attempt/:attemptId/timer', validate(z.object({ timeRemaining: z.number() })), assessmentController.syncTimer)
 
 // Assessment CRUD
-router.get('/', assessmentController.listAssessments)
-router.get('/my', authorize('setter', 'admin'), assessmentController.getSetterAssessments)
+router.get('/', validate(listAssessmentsQuerySchema, 'query'), assessmentController.listAssessments)
+router.get('/my', authorize('setter', 'admin'), validate(setterAssessmentsQuerySchema, 'query'), assessmentController.getSetterAssessments)
 router.post('/', authorize('setter', 'admin'), validate(createAssessmentSchema), assessmentController.createAssessment)
 
 router.get('/:id', assessmentController.getAssessment)

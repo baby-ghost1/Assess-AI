@@ -10,8 +10,11 @@ const router = Router()
 
 router.use(authenticate)
 
-router.get('/', validate(questionFilterSchema, 'query'), questionController.listQuestions)
-router.get('/:id', questionController.getQuestion)
+// Question bank reads are setter/admin only: question documents contain the
+// answer key (correctAnswer / option.isCorrect / solution) and must never be
+// fetchable by candidates, who could use them to cheat on published assessments.
+router.get('/', authorize('setter', 'admin'), validate(questionFilterSchema, 'query'), questionController.listQuestions)
+router.get('/:id', authorize('setter', 'admin'), questionController.getQuestion)
 router.post('/', authorize('setter', 'admin'), validate(createQuestionSchema), questionController.createQuestion)
 router.put('/:id', authorize('setter', 'admin'), validate(updateQuestionSchema), questionController.updateQuestion)
 router.delete('/:id', authorize('admin'), questionController.deleteQuestion)

@@ -2,7 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Brain, BarChart3, Trophy, Shield, Users, Settings, ChevronLeft, ChevronRight, BookOpen, ClipboardCheck, FileEdit, LogOut, Zap, Code2, X, Music, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/shared'
-import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import LogoutDialog from '@/components/shared/LogoutDialog'
 import useLogout from '@/hooks/useLogout'
 import { useState, useEffect, useRef } from 'react'
 import { useAppSelector } from '@/hooks'
@@ -88,7 +88,7 @@ function getActiveLabel(pathname, sections) {
 
 export default function Sidebar({ mobileOpen, onMobileClose }) {
   const [collapsed, setCollapsed] = useState(false)
-  const { showConfirm, requestLogout, confirmLogout, cancelLogout } = useLogout()
+  const { showConfirm, isPending, requestLogout, confirmLogout, cancelLogout } = useLogout()
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAppSelector((s) => s.auth.user)
@@ -145,7 +145,17 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
   }, [])
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-width', collapsed ? '64px' : '200px')
+    const apply = () => {
+      const desktop = window.matchMedia('(min-width: 768px)').matches
+      const width = desktop ? (collapsed ? '64px' : '200px') : '0px'
+      document.documentElement.style.setProperty('--sidebar-width', width)
+    }
+    apply()
+    window.addEventListener('resize', apply)
+    return () => {
+      window.removeEventListener('resize', apply)
+      document.documentElement.style.setProperty('--sidebar-width', '0px')
+    }
   }, [collapsed])
 
   const lastPathRef = useRef(location.pathname)
@@ -307,13 +317,9 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
         </button>
       </div>
 
-      <ConfirmDialog
+      <LogoutDialog
         open={showConfirm}
-        title="Sign out?"
-        message="You're about to sign out of your account. Any playing music will stop."
-        confirmLabel="Sign out"
-        cancelLabel="Stay"
-        variant="warning"
+        isPending={isPending}
         onConfirm={confirmLogout}
         onCancel={cancelLogout}
       />
@@ -329,7 +335,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-[60] md:hidden">
+        <div className="fixed inset-0 z-[70] md:hidden">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onMobileClose} />
           <div className="relative h-full w-[min(200px,85vw)] flex">
             {sidebarContent}

@@ -37,3 +37,9 @@ export class ConflictError extends AppError {
     super(message, 409)
   }
 }
+
+export class AccountDeletedError extends AppError {
+  constructor(message, details = null) {
+    super(message, 401, details)
+  }
+}

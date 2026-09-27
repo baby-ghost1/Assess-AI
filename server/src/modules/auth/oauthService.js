@@ -3,23 +3,28 @@ import User from '../users/User.js'
 import { UnauthorizedError, ForbiddenError } from '../../shared/errors/AppError.js'
 import { generateTokens } from './tokenUtils.js'
 import { getSettingValue } from '../settings/settingsService.js'
+import { resolveDeletedUserOnLogin, recordLoginMeta } from '../users/accountLifecycle.js'
 
-async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar }) {
+async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar }, ip) {
   let user = await User.findOne({ provider, providerId })
 
   if (user) {
-    user.lastLoginAt = new Date()
+    await resolveDeletedUserOnLogin(user)
+    if (!user.isActive) throw new UnauthorizedError('Account is deactivated')
     if (avatar && !user.avatar) user.avatar = avatar
+    recordLoginMeta(user, ip)
     await user.save({ validateBeforeSave: false })
     return user
   }
 
   user = await User.findOne({ email })
   if (user) {
+    await resolveDeletedUserOnLogin(user)
+    if (!user.isActive) throw new UnauthorizedError('Account is deactivated')
     user.provider = provider
     user.providerId = providerId
     if (avatar && !user.avatar) user.avatar = avatar
-    user.lastLoginAt = new Date()
+    recordLoginMeta(user, ip)
     await user.save({ validateBeforeSave: false })
     return user
   }
@@ -39,13 +44,14 @@ async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar
     role: 'candidate',
     isApproved: true,
     isEmailVerified: true,
-    lastLoginAt: new Date(),
   })
+  recordLoginMeta(user, ip)
+  await user.save({ validateBeforeSave: false })
 
   return user
 }
 
-export async function handleGoogleCallback(code, redirectUri) {
+export async function handleGoogleCallback(code, redirectUri, ip) {
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -74,7 +80,7 @@ export async function handleGoogleCallback(code, redirectUri) {
     email: userInfo.email,
     name: userInfo.name,
     avatar: userInfo.picture,
-  })
+  }, ip)
 
   const tokens = generateTokens(user._id, true)
   user.refreshToken = tokens.refreshToken
@@ -83,7 +89,7 @@ export async function handleGoogleCallback(code, redirectUri) {
   return { user, ...tokens }
 }
 
-export async function handleGithubCallback(code) {
+export async function handleGithubCallback(code, ip) {
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: {
@@ -124,7 +130,7 @@ export async function handleGithubCallback(code) {
     email: githubUser.email,
     name: githubUser.name || githubUser.login,
     avatar: githubUser.avatar_url,
-  })
+  }, ip)
 
   const tokens = generateTokens(user._id, true)
   user.refreshToken = tokens.refreshToken

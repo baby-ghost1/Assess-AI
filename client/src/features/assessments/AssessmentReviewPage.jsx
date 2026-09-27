@@ -5,7 +5,7 @@ import { Button } from '@/components/ui'
 import { CheckCircle, XCircle, Clock, Eye, BarChart3 } from 'lucide-react'
 import { TableSkeleton, EmptyState } from '@/components/shared'
 import ConfirmDialog, { RejectDialog } from '@/components/shared/ConfirmDialog'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 import { useState } from 'react'
 
 export default function AssessmentReviewPage() {
@@ -31,7 +31,7 @@ export default function AssessmentReviewPage() {
       setConfirmApprove(null)
       notify.success('Assessment approved successfully')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve assessment'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to approve assessment')),
   })
 
   const rejectMutation = useMutation({
@@ -45,7 +45,7 @@ export default function AssessmentReviewPage() {
       setRejectTarget(null)
       notify.success('Assessment rejected')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to reject assessment'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to reject assessment')),
   })
 
   const assessments = data?.data || []

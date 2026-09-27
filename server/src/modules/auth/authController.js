@@ -14,7 +14,7 @@ export async function register(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    const result = await authService.login(req.validatedBody)
+    const result = await authService.login(req.validatedBody, { ip: req.ip })
     setRefreshCookie(res, result.refreshToken, req.validatedBody.rememberMe)
     setMediaCookie(res, result.accessToken)
     res.status(200).json({ success: true, data: result, message: 'Login successful', errors: null, meta: null })
@@ -23,7 +23,7 @@ export async function login(req, res, next) {
 
 export async function adminLogin(req, res, next) {
   try {
-    const result = await authService.adminLogin(req.validatedBody)
+    const result = await authService.adminLogin(req.validatedBody, { ip: req.ip })
     setRefreshCookie(res, result.refreshToken, req.validatedBody.rememberMe)
     setMediaCookie(res, result.accessToken)
     res.status(200).json({ success: true, data: result, message: 'Admin login successful', errors: null, meta: null })
@@ -134,5 +134,12 @@ export async function resetPassword(req, res, next) {
   try {
     const result = await authService.resetPassword(req.validatedBody.token, req.validatedBody.password)
     res.status(200).json({ success: true, data: null, message: result.message, errors: null, meta: null })
+  } catch (error) { next(error) }
+}
+
+export async function requestRestoration(req, res, next) {
+  try {
+    const result = await authService.requestRestoration(req.validatedBody.email)
+    res.status(200).json({ success: true, data: { requested: result.requested }, message: result.message, errors: null, meta: null })
   } catch (error) { next(error) }
 }

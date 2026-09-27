@@ -32,6 +32,7 @@ import termsRouter from './modules/legal/termsRouter.js'
 import homeRouter from './modules/legal/homeRouter.js'
 import jiosaavnRoutes from './modules/music/jiosaavnRoutes.js'
 import { detectLanguages } from './modules/coding/codingService.js'
+import { purgeExpiredAccounts } from './modules/users/accountLifecycle.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -183,6 +184,24 @@ function setupKeepAlive() {
   logger.info(`Keep-alive ping scheduled every 14 minutes → ${pingUrl}`)
 }
 
+// Purge deleted accounts whose 7-day restore window has elapsed
+function setupDeletionSweep() {
+  const SWEEP_INTERVAL = 6 * 60 * 60 * 1000 // 6 hours
+
+  const sweep = async () => {
+    try {
+      const purged = await purgeExpiredAccounts()
+      if (purged > 0) logger.info(`Auto-purged ${purged} expired deleted account(s)`)
+    } catch (err) {
+      logger.warn(`Expired-account sweep failed: ${err.message}`)
+    }
+  }
+
+  sweep()
+  setInterval(sweep, SWEEP_INTERVAL)
+  logger.info('Expired-account deletion sweep scheduled every 6 hours')
+}
+
 // Start server
 async function start() {
   await connectDatabase()
@@ -193,6 +212,7 @@ async function start() {
   httpServer.listen(config.port, () => {
     logger.info(`Server running on port ${config.port} in ${config.nodeEnv} mode`)
     setupKeepAlive()
+    setupDeletionSweep()
   })
 }
 

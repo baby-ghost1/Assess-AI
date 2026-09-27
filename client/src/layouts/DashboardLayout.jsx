@@ -2,7 +2,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAppSelector } from '@/hooks'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import AppLoader from '@/components/shared/AppLoader'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -18,6 +18,11 @@ export default function DashboardLayout() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const location = useLocation()
 
+  // Let MiniPlayer hide itself while mobile menu is open
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('mobile-menu-change', { detail: mobileMenuOpen }))
+  }, [mobileMenuOpen])
+
   // Hide sidebar/topbar while in fullscreen (e.g. proctored quiz)
   useEffect(() => {
     const sync = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -27,7 +32,7 @@ export default function DashboardLayout() {
   }, [])
 
   if (isLoading) {
-    return <AppLoader text="Preparing dashboard..." userId={user?._id} />
+    return <AppLoader userId={user?._id} />
   }
 
   if (!isAuthenticated) {
@@ -52,7 +57,15 @@ export default function DashboardLayout() {
               transition={{ duration: 0.2, ease: 'easeOut' }}
               className="h-full"
             >
-              <Outlet />
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center">
+                    <AppLoader fullScreen={false} size={36} />
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </main>

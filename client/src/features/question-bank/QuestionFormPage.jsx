@@ -7,7 +7,7 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { Save, ArrowLeft, Plus, X, Check, Tag } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 
 const questionFormSchema = z.object({
   title: z.string().min(2, 'Title required'),
@@ -90,7 +90,7 @@ export default function QuestionFormPage() {
       queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
       navigate('/question-bank')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to save question'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to save question')),
   })
 
   const onSubmit = (data) => {

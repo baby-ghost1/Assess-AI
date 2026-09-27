@@ -58,7 +58,7 @@ export const updateQuestionSchema = z.object({
 
 export const questionFilterSchema = z.object({
   page: z.coerce.number().positive().optional().default(1),
-  limit: z.coerce.number().positive().max(100).optional().default(20),
+  limit: z.coerce.number().positive().max(500).optional().default(20),
   search: z.string().optional(),
   questionType: z.string().optional(),
   difficulty: z.string().optional(),

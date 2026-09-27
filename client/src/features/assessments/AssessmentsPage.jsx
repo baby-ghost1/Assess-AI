@@ -5,7 +5,7 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { Plus, Brain, Search, Users } from 'lucide-react'
 import { useAppSelector } from '@/hooks'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 import { EmptyState } from '@/components/shared'
 import ConfirmDialog, { RejectDialog } from '@/components/shared/ConfirmDialog'
 import DenseAssessmentCard from './DenseAssessmentCard'
@@ -137,7 +137,7 @@ export default function AssessmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
       notify.success('Assessment approved successfully')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve assessment'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to approve assessment')),
   })
 
   const rejectMutation = useMutation({
@@ -150,7 +150,7 @@ export default function AssessmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
       notify.success('Assessment rejected')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to reject assessment'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to reject assessment')),
   })
 
   const deleteMutation = useMutation({
@@ -161,7 +161,7 @@ export default function AssessmentsPage() {
       setDeleteId(null)
       notify.success('Assessment deleted')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to delete assessment'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to delete assessment')),
   })
 
   let isLoading, assessments
@@ -213,7 +213,7 @@ export default function AssessmentsPage() {
       notify.success('Submitted for approval')
       queryClient.invalidateQueries({ queryKey: ['setter-assessments'] })
     }).catch((err) => {
-      notify.error(err?.response?.data?.message || 'Failed to submit assessment')
+      notify.error(apiErrorMessage(err, 'Failed to submit assessment'))
     })
   }
 

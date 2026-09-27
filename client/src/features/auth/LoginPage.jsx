@@ -5,7 +5,9 @@ import { useAppDispatch, useAppSelector } from '@/hooks'
 import { login, clearError } from './authSlice'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, Sparkles, Zap, Shield, Globe, ChevronRight } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, Sparkles, Zap, Shield, Globe, ChevronRight, RotateCcw, Loader2 } from 'lucide-react'
+import api from '@/lib/api'
+import { notify, apiErrorMessage } from '@/lib/notify'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -195,9 +197,11 @@ export default function LoginPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { isAuthenticated, isLoading, error } = useAppSelector((s) => s.auth)
+  const { isAuthenticated, isLoading, error, deletedAccount } = useAppSelector((s) => s.auth)
   const [showPass, setShowPass] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: true } })
+  const [oauthDeleted, setOauthDeleted] = useState(null)
+  const [restoreState, setRestoreState] = useState({ pending: false, message: '' })
+  const { register, handleSubmit, watch, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: true } })
 
   const containerRef = useRef(null)
   const cardRef = useRef(null)
@@ -211,8 +215,39 @@ export default function LoginPage() {
 
   useEffect(() => {
     const authError = searchParams.get('error')
-    if (authError) dispatch(login.rejected({ payload: decodeURIComponent(authError) }))
+    if (!authError) return
+    dispatch(login.rejected({ payload: authError }))
+    if (searchParams.get('deleted') === '1') {
+      setOauthDeleted({
+        email: searchParams.get('email') || '',
+        reason: searchParams.get('reason') || authError,
+        restoreRequested: searchParams.get('requested') === '1',
+        deletedAt: null,
+      })
+    }
+    setRestoreState({ pending: false, message: '' })
   }, [searchParams, dispatch])
+
+  useEffect(() => { setRestoreState({ pending: false, message: '' }) }, [deletedAccount])
+
+  const deletedInfo = deletedAccount || oauthDeleted
+  const restoreEmail = deletedInfo?.email || watch('email') || ''
+
+  const handleRestoreRequest = async () => {
+    if (!restoreEmail) {
+      notify.error('Enter your email address first', { toast: true })
+      return
+    }
+    setRestoreState({ pending: true, message: '' })
+    try {
+      const { data } = await api.post('/auth/request-restoration', { email: restoreEmail })
+      setRestoreState({ pending: false, message: data?.message || 'Restoration request sent' })
+      notify.success(data?.message || 'Restoration request sent')
+    } catch (err) {
+      setRestoreState({ pending: false, message: '' })
+      notify.error(apiErrorMessage(err, 'Failed to send restoration request'))
+    }
+  }
 
   useEffect(() => { if (isAuthenticated) navigate('/dashboard') }, [isAuthenticated, navigate])
   useEffect(() => () => dispatch(clearError()), [dispatch])
@@ -317,6 +352,45 @@ export default function LoginPage() {
                 <div ref={errorRef} className="flex items-center gap-2.5 rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300">
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-[10px] font-bold">!</div>
                   {error}
+                </div>
+              )}
+
+              {deletedInfo && (
+                <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                    <Shield className="h-3.5 w-3.5" /> Deleted account
+                  </div>
+                  {deletedInfo.reason && (
+                    <p className="text-sm leading-relaxed text-white/70">
+                      <span className="text-white/45">Reason:</span> {deletedInfo.reason}
+                    </p>
+                  )}
+                  {deletedInfo.deletedAt && (
+                    <p className="text-xs text-white/40">
+                      Deleted on {new Date(deletedInfo.deletedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {restoreState.message ? (
+                    <p className="text-sm leading-relaxed text-emerald-300">{restoreState.message}</p>
+                  ) : deletedInfo.restoreRequested ? (
+                    <p className="text-sm leading-relaxed text-white/60">
+                      Your restoration request is already with our team. Once an administrator restores your
+                      account you can sign in again.
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRestoreRequest}
+                      disabled={restoreState.pending}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-400/20 disabled:opacity-60"
+                    >
+                      {restoreState.pending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Sending request...</>
+                      ) : (
+                        <><RotateCcw className="h-4 w-4" /> Request account restoration</>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
 

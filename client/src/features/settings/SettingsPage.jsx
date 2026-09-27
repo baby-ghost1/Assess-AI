@@ -6,8 +6,9 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Settings as SettingsIcon, User, Shield, Bell, Palette, Lock, Globe, Moon, Sun, CheckCircle, Eye, EyeOff, X, AlertCircle, LogOut, Loader2, Trash2, KeyRound, Check, Sparkles } from 'lucide-react'
 import { changePassword, logout } from '@/features/auth/authSlice'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 import DeleteAccountModal from './DeleteAccountModal'
+import LogoutDialog from '@/components/shared/LogoutDialog'
 import OAuthChangePasswordModal from './OAuthChangePasswordModal'
 import { useSpinnerSelection, getAllSpinners } from '@/components/shared/spinnerRegistry'
 import { useMusicPlayer } from '@/features/vibes/musicPlayerContext'
@@ -114,7 +115,7 @@ function AppearanceTab() {
         <h3 className="text-sm font-heading font-semibold text-text-primary mb-1 flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" /> Loader Style
         </h3>
-        <p className="text-xs text-text-secondary mb-4">Choose the loading animation you see across the app</p>
+        <p className="text-xs text-text-secondary mb-4">Choose the loading animation used across your account</p>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
           {allSpinners.map((s) => (
             <button
@@ -456,7 +457,7 @@ function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth, onSignOut }) 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border border-danger/30 bg-bg-card p-3 gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-danger">Delete account</p>
-              <p className="text-xs text-text-secondary">Permanently delete your account and all associated data</p>
+              <p className="text-xs text-text-secondary">Delete your account — 7 days to change your mind and restore it</p>
             </div>
             <button onClick={onDeleteAccount} className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/20 transition-colors flex items-center gap-1.5 shrink-0">
               <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -465,24 +466,14 @@ function SecurityTab({ onChangePassword, onDeleteAccount, isOAuth, onSignOut }) 
         </div>
       </div>
 
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
-          <div className="relative bg-bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-full bg-danger/10 p-2"><LogOut className="h-5 w-5 text-danger" /></div>
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-text-primary">Sign out?</h3>
-                <p className="text-sm text-text-secondary">You'll need to sign in again to access your account.</p>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowLogoutConfirm(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-tertiary transition-colors">Cancel</button>
-               <button onClick={onSignOut} className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors">Sign out</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LogoutDialog
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false)
+          onSignOut()
+        }}
+      />
     </div>
   )
 }
@@ -502,7 +493,7 @@ function SystemTab() {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
       notify.success('Setting saved')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to save'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to save')),
   })
 
   if (isLoading) {

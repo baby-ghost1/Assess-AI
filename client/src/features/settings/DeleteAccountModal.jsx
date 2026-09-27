@@ -147,6 +147,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
   const [cooldown, setCooldown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const totalSteps = isOAuth ? 4 : 3
   const isSuccess = step === 5
@@ -171,6 +172,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
       setCooldown(0)
       setLoading(false)
       setError('')
+      setSuccessMessage('')
       onClose()
     }, 220)
   }, [closing, onClose])
@@ -234,11 +236,12 @@ export default function DeleteAccountModal({ open, onClose, user }) {
     if (!confirmationMatches) { setError(`Please type "${CONFIRM_PHRASE}" to confirm`); return }
     setLoading(true)
     try {
-      await dispatch(deleteAccount({
+      const message = await dispatch(deleteAccount({
         password,
         confirmation,
         reason: selectedReason === 'Other' ? customReason : selectedReason,
       })).unwrap()
+      setSuccessMessage(message || '')
       stop()
       dispatch(logout())
       goTo(5)
@@ -254,7 +257,8 @@ export default function DeleteAccountModal({ open, onClose, user }) {
     if (otp.length !== OTP_LENGTH) return
     setLoading(true)
     try {
-      await dispatch(verifyDeleteOtp(otp)).unwrap()
+      const message = await dispatch(verifyDeleteOtp(otp)).unwrap()
+      setSuccessMessage(message || '')
       stop()
       dispatch(logout())
       goTo(5)
@@ -307,7 +311,7 @@ export default function DeleteAccountModal({ open, onClose, user }) {
               <div>
                 <h3 className="text-lg font-heading font-bold text-white/90">Delete Account</h3>
                 <p className="text-xs text-white/40">
-                  {isSuccess ? 'Account removed' : `Step ${Math.min(step, totalSteps)} of ${totalSteps}`}
+                  {isSuccess ? 'Deletion scheduled' : `Step ${Math.min(step, totalSteps)} of ${totalSteps}`}
                 </p>
               </div>
             </div>
@@ -372,6 +376,12 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                         </motion.div>
                       ))}
                     </div>
+
+                    <p className="flex items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 text-xs text-white/40">
+                      <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/30" />
+                      Changed your mind later? Sign in again within 7 days and your account, data and progress are
+                      restored instantly.
+                    </p>
 
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button onClick={closeModal}
@@ -527,9 +537,10 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                       >
                         <AlertTriangle className="h-10 w-10 text-danger" />
                       </motion.div>
-                      <h4 className="text-xl font-heading font-bold text-white/90">This is irreversible</h4>
+                      <h4 className="text-xl font-heading font-bold text-white/90">You have 7 days to undo this</h4>
                       <p className="text-sm text-white/40 max-w-sm mx-auto">
-                        All your data, progress, achievements, and analytics will be permanently lost.
+                        Your account is deactivated right away, but nothing is erased yet. Sign in again within 7 days
+                        and everything will be exactly as you left it.
                       </p>
                     </div>
 
@@ -538,11 +549,10 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                         <AlertTriangle className="h-4 w-4" /> What happens when you delete:
                       </p>
                       <ul className="text-xs text-white/50 space-y-1.5 ml-6">
-                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> Your profile and account data will be erased</li>
-                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> All assessment history and scores will be lost</li>
-                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> Analytics and progress tracking will be removed</li>
-                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> You will be logged out immediately</li>
-                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> This action cannot be undone</li>
+                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> Your account is deactivated and you will be logged out immediately</li>
+                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> Profile, history, progress and analytics are all kept during the 7-day window</li>
+                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> Signing in again within 7 days cancels the deletion and restores everything</li>
+                        <li className="flex items-start gap-2"><span className="text-danger mt-0.5">•</span> After 7 days the account and all data are permanently deleted</li>
                       </ul>
                     </div>
 
@@ -773,9 +783,12 @@ export default function DeleteAccountModal({ open, onClose, user }) {
                     </motion.div>
 
                     <div className="space-y-2">
-                      <h4 className="text-2xl font-heading font-bold text-white/90">Account Deleted</h4>
-                      <p className="text-sm text-white/40 max-w-xs mx-auto">
-                        Your account and all associated data have been permanently removed. We&apos;re sad to see you go.
+                      <h4 className="text-2xl font-heading font-bold text-white/90">Deletion Scheduled</h4>
+                      <p className="text-sm text-white/40 max-w-sm mx-auto">
+                        {successMessage || 'Your account is deactivated and scheduled for permanent deletion in 7 days. Changed your mind? Sign in again within 7 days and everything will be waiting for you.'}
+                      </p>
+                      <p className="text-xs text-white/30 max-w-sm mx-auto">
+                        We&apos;re sad to see you go — you can come back anytime during the recovery window.
                       </p>
                     </div>
 

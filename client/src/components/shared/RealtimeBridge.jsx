@@ -42,7 +42,7 @@ export default function RealtimeBridge() {
       } else if (payload?.status === 'draft') {
         notify.error(payload?.rejectionReason
           ? `Assessment rejected: ${payload.rejectionReason}`
-          : 'Assessment was rejected')
+          : 'Assessment was rejected', { toast: true })
       }
     }
 

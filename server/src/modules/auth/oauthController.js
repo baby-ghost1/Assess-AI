@@ -41,6 +41,17 @@ function redirectWithTokens(res, result, provider) {
   res.redirect(`${config.clientUrl}/auth/callback?provider=${provider}`)
 }
 
+function loginErrorRedirect(error) {
+  if (error?.details?.code === 'ACCOUNT_DELETED') {
+    const params = new URLSearchParams({ error: error.message, deleted: '1' })
+    if (error.details.email) params.set('email', error.details.email)
+    if (error.details.reason) params.set('reason', error.details.reason)
+    if (error.details.restoreRequested) params.set('requested', '1')
+    return `${config.clientUrl}/login?${params.toString()}`
+  }
+  return `${config.clientUrl}/login?error=${encodeURIComponent(error.message)}`
+}
+
 export async function googleAuth(req, res) {
   const state = crypto.randomBytes(16).toString('hex')
   setOAuthStateCookie(res, state)
@@ -73,10 +84,10 @@ export async function googleCallback(req, res) {
     }
     clearOAuthStateCookie(res)
     const redirectUri = `${redirectBase(req)}/api/v1/auth/google/callback`
-    const result = await oauthService.handleGoogleCallback(code, redirectUri)
+    const result = await oauthService.handleGoogleCallback(code, redirectUri, req.ip)
     redirectWithTokens(res, result, 'google')
   } catch (error) {
-    res.redirect(`${config.clientUrl}/login?error=${encodeURIComponent(error.message)}`)
+    res.redirect(loginErrorRedirect(error))
   }
 }
 
@@ -103,9 +114,9 @@ export async function githubCallback(req, res) {
       return res.redirect(`${config.clientUrl}/login?error=github_auth_failed`)
     }
     clearOAuthStateCookie(res)
-    const result = await oauthService.handleGithubCallback(code)
+    const result = await oauthService.handleGithubCallback(code, req.ip)
     redirectWithTokens(res, result, 'github')
   } catch (error) {
-    res.redirect(`${config.clientUrl}/login?error=${encodeURIComponent(error.message)}`)
+    res.redirect(loginErrorRedirect(error))
   }
 }

@@ -9,6 +9,16 @@ import { createNotification } from '../notifications/notificationService.js'
 import { sendOTPEmail, sendPasswordResetEmail } from '../../services/emailService.js'
 import { generateTokens } from './tokenUtils.js'
 import { getSettingValue } from '../settings/settingsService.js'
+import {
+  SELF_DELETE_GRACE_DAYS,
+  markSelfDeleted,
+  resolveDeletedUserOnLogin,
+  recordLoginMeta,
+} from '../users/accountLifecycle.js'
+
+function formatGraceDate(date) {
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+}
 
 export async function register({ name, email, password, role = 'candidate' }) {
   // Server-authoritative registration gate (admin system setting)
@@ -38,12 +48,15 @@ export async function register({ name, email, password, role = 'candidate' }) {
   return { user, message: 'Your account has been created. An admin will review and approve your setter account before you can sign in.' }
 }
 
-export async function login({ email, password, rememberMe = false }) {
+export async function login({ email, password, rememberMe = false }, context = {}) {
   const user = await User.findOne({ email }).select('+password +preferences')
   if (!user) throw new UnauthorizedError('Invalid email or password')
 
   const isMatch = await user.comparePassword(password)
   if (!isMatch) throw new UnauthorizedError('Invalid email or password')
+
+  // Deleted accounts: restores a self-deletion inside its grace window, or explains why access is refused
+  const deletionState = await resolveDeletedUserOnLogin(user)
 
   if (!user.isActive) throw new UnauthorizedError('Account is deactivated')
 
@@ -53,22 +66,30 @@ export async function login({ email, password, rememberMe = false }) {
 
   const tokens = generateTokens(user._id, rememberMe)
   user.refreshToken = tokens.refreshToken
-  user.lastLoginAt = new Date()
+  recordLoginMeta(user, context.ip)
   await user.save({ validateBeforeSave: false })
 
-  const recentLoginNotice = await Notification.findOne({ user: user._id, message: /new session/i, createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
-  if (!recentLoginNotice && user.preferences?.passwordAlerts !== false) {
+  if (deletionState === 'restored') {
     await createNotification(user._id, {
       type: 'account_update',
-      title: 'New Login Detected',
-      message: 'Logged in successfully from a new session.',
+      title: 'Account Restored',
+      message: `You signed in within the ${SELF_DELETE_GRACE_DAYS}-day recovery window, so your account and all of your data were kept.`,
     })
+  } else {
+    const recentLoginNotice = await Notification.findOne({ user: user._id, message: /new session/i, createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
+    if (!recentLoginNotice && user.preferences?.passwordAlerts !== false) {
+      await createNotification(user._id, {
+        type: 'account_update',
+        title: 'New Login Detected',
+        message: 'Logged in successfully from a new session.',
+      })
+    }
   }
 
-  return { user, ...tokens }
+  return { user, ...tokens, restored: deletionState === 'restored' }
 }
 
-export async function adminLogin({ email, password, rememberMe = false }) {
+export async function adminLogin({ email, password, rememberMe = false }, context = {}) {
   const safeEquals = (a, b) => crypto.timingSafeEqual(
     crypto.createHash('sha256').update(a || '').digest(),
     crypto.createHash('sha256').update(b || '').digest()
@@ -83,13 +104,16 @@ export async function adminLogin({ email, password, rememberMe = false }) {
   if (user && user.role !== 'admin') {
     throw new UnauthorizedError('Invalid admin credentials')
   }
+  if (user?.deletedAt) {
+    throw new UnauthorizedError('This admin account has been deleted. Restore it from another admin account.')
+  }
   if (!user) {
     user = await User.create({ name: 'Admin', email, password, role: 'admin', isApproved: true })
   }
 
   const tokens = generateTokens(user._id, rememberMe)
   user.refreshToken = tokens.refreshToken
-  user.lastLoginAt = new Date()
+  recordLoginMeta(user, context.ip)
   await user.save({ validateBeforeSave: false })
 
   return { user, ...tokens }
@@ -105,6 +129,7 @@ export async function refreshToken(token) {
   const decoded = jwt.verify(token, config.jwt.refreshSecret)
   const user = await User.findById(decoded.userId).select('+refreshToken')
   if (!user || user.refreshToken !== token) throw new UnauthorizedError('Invalid refresh token')
+  if (!user.isActive || user.deletedAt) throw new UnauthorizedError('Session expired')
 
   const tokens = generateTokens(user._id)
   user.refreshToken = tokens.refreshToken
@@ -198,13 +223,20 @@ export async function verifyDeleteOtp(userId, { otp }) {
 
   await Otp.deleteOne({ _id: record._id })
 
-  const user = await User.findByIdAndDelete(userId)
+  const user = await User.findById(userId)
   if (!user) throw new UnauthorizedError('User not found')
 
-  return { message: 'Account deleted successfully' }
+  markSelfDeleted(user)
+  await user.save({ validateBeforeSave: false })
+
+  return { message: selfDeletionMessage(user.graceExpiresAt) }
 }
 
-export async function deleteAccount(userId, { password }) {
+function selfDeletionMessage(graceExpiresAt) {
+  return `Your account is scheduled for deletion. Sign in again before ${formatGraceDate(graceExpiresAt)} to keep it — after the ${SELF_DELETE_GRACE_DAYS}-day recovery window it will be permanently deleted.`
+}
+
+export async function deleteAccount(userId, { password, reason }) {
   const user = await User.findById(userId).select('+password')
   if (!user) throw new UnauthorizedError('User not found')
 
@@ -213,16 +245,47 @@ export async function deleteAccount(userId, { password }) {
     if (!isMatch) throw new UnauthorizedError('Incorrect password')
   }
 
-  user.isActive = false
-  user.name = 'Deleted User'
-  user.email = `deleted_${user._id}@removed.com`
-  user.password = undefined
-  user.refreshToken = null
-  user.avatar = null
-  user.preferences = {}
+  markSelfDeleted(user, reason || null)
   await user.save({ validateBeforeSave: false })
 
-  return { message: 'Account deleted successfully' }
+  return { message: selfDeletionMessage(user.graceExpiresAt) }
+}
+
+/**
+ * Public: lets a deleted user (who cannot sign in) ask admins to restore their account.
+ * Always answers with a generic message so account existence is never leaked.
+ */
+export async function requestRestoration(email) {
+  const genericReply = {
+    message: 'If an account exists with this email, a restoration request has been sent to the administrators.',
+    requested: false,
+  }
+
+  const user = await User.findOne({ email })
+  if (!user || !user.deletedAt || user.purgedAt || user.deletionType !== 'admin') return genericReply
+
+  const recentlyRequested = user.restoreRequestedAt && Date.now() - user.restoreRequestedAt.getTime() < 24 * 60 * 60 * 1000
+  if (recentlyRequested) {
+    return {
+      message: 'Your restoration request is already with the administrators — please wait for them to review it.',
+      requested: true,
+    }
+  }
+
+  await User.updateOne({ _id: user._id }, { $set: { restoreRequestedAt: new Date() } })
+
+  try {
+    const admins = await User.find({ role: 'admin', deletedAt: null }).select('_id')
+    await Promise.all(admins.map((admin) => createNotification(admin._id, {
+      type: 'account_update',
+      title: 'Account Restoration Requested',
+      message: `${user.name} (${user.email}) requested restoration of their deleted account.`,
+    })))
+  } catch {
+    // notifications are best-effort — the request itself is already recorded
+  }
+
+  return { ...genericReply, requested: true }
 }
 
 export async function sendPasswordOtp(userId) {

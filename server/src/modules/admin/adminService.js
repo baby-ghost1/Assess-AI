@@ -13,7 +13,8 @@ import CodingProgress from '../coding/CodingProgress.js'
 import CodingComment from '../coding/CodingComment.js'
 import CodingBookmark from '../coding/CodingBookmark.js'
 import { createNotification } from '../notifications/notificationService.js'
-import { NotFoundError, ValidationError, ForbiddenError } from '../../shared/errors/AppError.js'
+import { NotFoundError, ValidationError, ForbiddenError, ConflictError, AppError } from '../../shared/errors/AppError.js'
+import { markAdminDeleted, restoreAccount, purgeAccountData } from '../users/accountLifecycle.js'
 import { DEFAULT_SETTINGS } from '../settings/settingsService.js'
 import { logger } from '../../config/logger.js'
 
@@ -30,6 +31,14 @@ export async function listUsers(filters) {
   }
   if (filters.role) query.role = filters.role
   if (filters.isActive !== undefined) query.isActive = filters.isActive === 'true' || filters.isActive === true
+  if (filters.status === 'purged') query.purgedAt = { $ne: null }
+  else {
+    // Permanently deleted accounts stay hidden unless explicitly filtered for
+    query.purgedAt = null
+    if (filters.status === 'deleted') query.deletedAt = { $ne: null }
+    else if (filters.status === 'active') query.deletedAt = null
+  }
+  if (filters.restoreRequested === 'true') query.restoreRequestedAt = { $ne: null }
 
   const page = parseInt(filters.page) || 1
   const limit = parseInt(filters.limit) || 20
@@ -55,6 +64,7 @@ export async function getUserById(userId) {
 export async function updateUser(userId, data) {
   const existingUser = await User.findById(userId)
   if (!existingUser) throw new NotFoundError('User')
+  if (existingUser.deletedAt) throw new ConflictError('Restore the account before editing it')
 
   const updates = {}
   if (data.name) updates.name = data.name
@@ -98,27 +108,125 @@ export async function deleteUser(userId, reason, adminId) {
 
   const user = await User.findById(userId)
   if (!user) throw new NotFoundError('User')
+  if (user.deletedAt) throw new ConflictError('User is already deleted')
 
-  // Reassign platform content so assessments/questions keep working
-  await Promise.all([
-    Assessment.updateMany({ createdBy: userId }, { $set: { createdBy: adminId, updatedBy: adminId } }),
-    Question.updateMany({ createdBy: userId }, { $set: { createdBy: adminId, updatedBy: adminId } }),
-  ])
-
-  // Remove personal data tied to the user
-  await Promise.all([
-    User.deleteOne({ _id: userId }),
-    Notification.deleteMany({ user: userId }),
-    ProctoringViolation.deleteMany({ user: userId }),
-    Attempt.deleteMany({ user: userId }),
-    Submission.deleteMany({ user: userId }),
-    CodingSubmission.deleteMany({ user: userId }),
-    CodingProgress.deleteMany({ user: userId }),
-    CodingComment.deleteMany({ user: userId }),
-    CodingBookmark.deleteMany({ user: userId }),
-  ])
+  // Soft delete: the account is blocked but kept intact so the user can read the
+  // reason when they try to sign in again and ask for a restoration.
+  markAdminDeleted(user, reason.trim(), adminId)
+  await user.save({ validateBeforeSave: false })
 
   logger.info('User deleted by admin', { userId, adminId: String(adminId), reason: reason.trim(), email: user.email, role: user.role })
+  return user
+}
+
+export async function purgeUserPermanently(userId, reason, adminId) {
+  if (String(userId) === String(adminId)) throw new ForbiddenError('You cannot delete your own account')
+
+  const user = await User.findById(userId)
+  if (!user) throw new NotFoundError('User')
+  if (user.purgedAt) throw new ConflictError('User has already been permanently deleted')
+
+  if (!user.deletedAt) {
+    if (!reason || !reason.trim()) throw new ValidationError([{ field: 'reason', message: 'Deletion reason is required' }])
+    markAdminDeleted(user, reason.trim(), adminId)
+    await user.save({ validateBeforeSave: false })
+  }
+
+  await purgeAccountData(user)
+
+  logger.info('User permanently deleted by admin', {
+    userId,
+    adminId: String(adminId),
+    email: user.email,
+    role: user.role,
+    reason: reason?.trim() || user.deletedReason,
+  })
+  return user
+}
+
+export async function purgeUsersPermanently(userIds, reason, adminId) {
+  if (!reason || !reason.trim()) throw new ValidationError([{ field: 'reason', message: 'Deletion reason is required' }])
+
+  const ids = [...new Set((userIds || []).map(String))].filter((id) => id !== String(adminId))
+  if (ids.length === 0) throw new ValidationError([{ field: 'ids', message: 'No deletable users selected' }])
+
+  const results = await Promise.allSettled(ids.map((id) => purgeUserPermanently(id, reason, adminId)))
+  const purged = ids.filter((_, i) => results[i].status === 'fulfilled')
+  const skipped = results
+    .map((result, i) => (result.status === 'rejected' ? { id: ids[i], reason: result.reason?.message || 'Failed' } : null))
+    .filter(Boolean)
+
+  if (purged.length === 0) throw new AppError('No users could be permanently deleted', 400)
+
+  return { purged: purged.length, purgedIds: purged, skipped }
+}
+
+export async function deleteUsers(userIds, reason, adminId) {
+  if (!reason || !reason.trim()) throw new ValidationError([{ field: 'reason', message: 'Deletion reason is required' }])
+
+  const ids = [...new Set((userIds || []).map(String))].filter((id) => id !== String(adminId))
+  if (ids.length === 0) throw new ValidationError([{ field: 'ids', message: 'No deletable users selected' }])
+
+  const results = await Promise.allSettled(ids.map((id) => deleteUser(id, reason, adminId)))
+  const deleted = ids.filter((_, i) => results[i].status === 'fulfilled')
+  const skipped = results
+    .map((result, i) => (result.status === 'rejected' ? { id: ids[i], reason: result.reason?.message || 'Failed' } : null))
+    .filter(Boolean)
+
+  if (deleted.length === 0) throw new AppError('No users could be deleted', 400)
+
+  return { deleted: deleted.length, deletedIds: deleted, skipped }
+}
+
+export async function bulkUpdateUsers(userIds, updates) {
+  const ids = [...new Set((userIds || []).map(String))]
+  if (ids.length === 0) throw new ValidationError([{ field: 'ids', message: 'Select at least one user' }])
+
+  const set = {}
+  if (updates.isActive !== undefined) set.isActive = updates.isActive
+  if (updates.isApproved !== undefined) set.isApproved = updates.isApproved
+  if (Object.keys(set).length === 0) throw new ValidationError([{ field: 'updates', message: 'Nothing to update' }])
+
+  const users = await User.find({ _id: { $in: ids } })
+  const eligible = users.filter((user) => !user.deletedAt)
+  if (eligible.length === 0) throw new AppError('Selected users are deleted — restore them first', 400)
+
+  await User.updateMany({ _id: { $in: eligible.map((u) => u._id) } }, { $set: set })
+
+  const deactivated = []
+  if (updates.isActive !== undefined) {
+    for (const user of eligible) {
+      if (user.isActive === updates.isActive) continue
+      if (updates.isActive === false) deactivated.push(String(user._id))
+      await createNotification(user._id, {
+        type: 'account_update',
+        title: updates.isActive ? 'Account Activated' : 'Account Deactivated',
+        message: updates.isActive
+          ? 'Your account has been re-activated by an administrator.'
+          : 'Your account has been deactivated by an administrator.',
+      })
+    }
+  }
+
+  logger.info('Bulk user update', { count: eligible.length, updates })
+  return { updated: eligible.length, deactivated }
+}
+
+export async function restoreUser(userId, adminId) {
+  const user = await User.findById(userId)
+  if (!user) throw new NotFoundError('User')
+  if (!user.deletedAt) throw new ConflictError('Account is not deleted')
+  if (user.purgedAt) throw new ConflictError('This account was permanently erased and cannot be restored')
+
+  await restoreAccount(user)
+
+  await createNotification(userId, {
+    type: 'account_update',
+    title: 'Account Restored',
+    message: 'Your account has been restored by an administrator. You can sign in again.',
+  })
+
+  logger.info('User restored by admin', { userId, adminId: String(adminId), email: user.email })
   return user
 }
 

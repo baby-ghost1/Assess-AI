@@ -6,7 +6,7 @@ import { CheckCircle, XCircle, Clock, Eye, BookOpen, AlertTriangle, Send, Undo2 
 import { TableSkeleton } from '@/components/shared'
 import { useState } from 'react'
 import { useAppSelector } from '@/hooks'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 
 const typeColors = {
   single_correct: 'bg-blue-500/10 text-blue-400',
@@ -121,7 +121,7 @@ export default function ApprovalQueuePage() {
       queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
       notify.success('Question approved')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve question'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to approve question')),
   })
 
   const rejectMutation = useMutation({
@@ -131,7 +131,7 @@ export default function ApprovalQueuePage() {
       setRejectTarget(null)
       notify.success('Question rejected')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to reject question'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to reject question')),
   })
 
   const withdrawMutation = useMutation({
@@ -140,7 +140,7 @@ export default function ApprovalQueuePage() {
       queryClient.invalidateQueries({ queryKey: ['questions-approval'] })
       notify.success('Withdrawn from review')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to withdraw'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to withdraw')),
   })
 
   if (isAdmin) {

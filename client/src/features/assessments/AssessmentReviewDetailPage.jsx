@@ -5,7 +5,7 @@ import { Button } from '@/components/ui'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Brain, Code2, BarChart3 } from 'lucide-react'
 import { useState } from 'react'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 
 const typeColors = {
   single_correct: 'bg-blue-500/10 text-blue-400',
@@ -95,7 +95,7 @@ export default function AssessmentReviewDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['assessment-review', id] })
       notify.success('Question status updated')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to update question'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to update question')),
   })
 
   const approveAllMutation = useMutation({
@@ -110,7 +110,7 @@ export default function AssessmentReviewDetailPage() {
       navigate('/admin/reviews')
       notify.success('Assessment approved successfully')
     },
-    onError: (err) => notify.error(err?.response?.data?.message || 'Failed to approve assessment'),
+    onError: (err) => notify.error(apiErrorMessage(err, 'Failed to approve assessment')),
   })
 
   if (isLoading) {

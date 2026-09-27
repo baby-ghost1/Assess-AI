@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui'
 import { useAppSelector } from '@/hooks'
-import { BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight, Brain, FileEdit, Users } from 'lucide-react'
+import { BarChart3, TrendingUp, Clock, CheckCircle, Target, BookOpen, Download, AlertTriangle, ArrowUpRight, ArrowDownRight, Brain, FileEdit, Users, PieChart, ListChecks, Layers, ClipboardList } from 'lucide-react'
 import AIInsightsPanel from './AIInsightsPanel'
 import StatCard from './StatCard'
 import DonutChart from './DonutChart'
@@ -142,6 +142,173 @@ const statusColors = {
   rejected: 'bg-red-500/10 text-red-400',
 }
 
+const rangeColors = {
+  '0-20': 'bg-red-500',
+  '20-40': 'bg-orange-500',
+  '40-60': 'bg-amber-500',
+  '60-80': 'bg-teal-500',
+  '80-100': 'bg-green-500',
+}
+
+const difficultyStyles = {
+  easy: 'bg-success/10 text-success',
+  medium: 'bg-amber-500/10 text-amber-400',
+  hard: 'bg-danger/10 text-danger',
+}
+
+const mixColors = ['#4F46E5', '#A78BFA', '#06B6D4', '#22C55E', '#F59E0B', '#EC4899']
+
+const scoreTone = (score) => (score >= 60 ? 'text-success' : score >= 40 ? 'text-warning' : 'text-danger')
+const scorePill = (score) => (score >= 60 ? 'bg-success/10 text-success' : score >= 40 ? 'bg-amber-500/10 text-amber-400' : 'bg-danger/10 text-danger')
+
+function formatRelative(value) {
+  const diff = Date.now() - new Date(value).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function initials(name = '') {
+  return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?'
+}
+
+function PanelHeader({ icon: Icon, title, count }) {
+  return (
+    <div className="flex items-center justify-between border-b border-border px-5 py-3">
+      <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+        <Icon className="h-4 w-4 text-primary" /> {title}
+      </h3>
+      {count !== undefined && (
+        <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] font-medium text-text-secondary">{count}</span>
+      )}
+    </div>
+  )
+}
+
+function QuestionStatusCard({ questions }) {
+  const total = questions?.total || 0
+  const approvalRate = total > 0 ? Math.round(((questions.approved || 0) / total) * 100) : 0
+  const items = [
+    { label: 'Approved', value: questions?.approved ?? 0, color: 'bg-success' },
+    { label: 'Pending Review', value: questions?.pending ?? 0, color: 'bg-amber-500' },
+    { label: 'Draft', value: questions?.draft ?? 0, color: 'bg-zinc-500' },
+    { label: 'Rejected', value: questions?.rejected ?? 0, color: 'bg-danger' },
+  ]
+
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-primary" /> Question Status
+        </h3>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${approvalRate >= 60 ? 'bg-success/10 text-success' : 'bg-amber-500/10 text-amber-400'}`}>
+          {approvalRate}% approved
+        </span>
+      </div>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.label}>
+            <div className="mb-1 flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-text-secondary">
+                <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                {item.label}
+              </span>
+              <span className="font-medium text-text-primary">{item.value}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-bg-tertiary">
+              <div
+                className={`h-full rounded-full ${item.color} transition-all duration-500`}
+                style={{ width: `${total > 0 ? (item.value / total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ScoreDistributionCard({ distribution, totalAttempts }) {
+  const max = Math.max(...Object.values(distribution || {}), 1)
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5">
+      <h3 className="text-sm font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
+        <BarChart3 className="h-4 w-4 text-primary" /> Score Distribution
+      </h3>
+      {distribution && totalAttempts > 0 ? (
+        <div className="space-y-3">
+          {Object.entries(distribution).map(([range, count]) => (
+            <div key={range} className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-xs text-text-secondary">{range}</span>
+              <div className="h-5 flex-1 overflow-hidden rounded bg-bg-tertiary">
+                <div
+                  className={`h-full rounded transition-all duration-500 ${rangeColors[range] || 'bg-primary'}`}
+                  style={{ width: `${Math.max((count / max) * 100, count > 0 ? 6 : 0)}%` }}
+                />
+              </div>
+              <span className="w-7 shrink-0 text-right text-xs font-medium text-text-primary">{count}</span>
+              <span className="w-10 shrink-0 text-right text-[10px] text-text-tertiary">
+                {totalAttempts > 0 ? Math.round((count / totalAttempts) * 100) : 0}%
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="py-4 text-center text-sm text-text-secondary">No attempt data yet</p>
+      )}
+    </div>
+  )
+}
+
+function QuestionMixCard({ types, difficulty }) {
+  const hasTypes = types && Object.keys(types).length > 0
+  const chartData = hasTypes
+    ? Object.entries(types).map(([type, count], i) => ({
+        label: type.replace(/_/g, ' '),
+        value: count,
+        color: mixColors[i % mixColors.length],
+      }))
+    : []
+  const hasDifficulty = difficulty && Object.keys(difficulty).length > 0
+
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-5">
+      <h3 className="text-sm font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
+        <PieChart className="h-4 w-4 text-primary" /> Question Mix
+      </h3>
+      {hasTypes ? (
+        <div className="flex justify-center">
+          <DonutChart data={chartData} size={140} thickness={20} />
+        </div>
+      ) : (
+        <p className="py-4 text-center text-sm text-text-secondary">No questions yet</p>
+      )}
+      {hasDifficulty && (
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-tertiary">
+            <Layers className="h-3 w-3" /> Difficulty
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(difficulty).map(([level, count]) => (
+              <span
+                key={level}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${difficultyStyles[level] || 'bg-bg-tertiary text-text-secondary'}`}
+              >
+                {level} · {count}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SetterAnalyticsView() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['setter-analytics'],
@@ -185,85 +352,37 @@ function SetterAnalyticsView() {
       <div className="rounded-xl border border-border bg-bg-card p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-heading font-bold text-text-primary">Content Analytics</h2>
-            <p className="text-sm text-text-secondary mt-1">Performance of your questions and assessments</p>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-accent/10 p-2.5 text-accent">
+              <BarChart3 className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-heading font-bold text-text-primary">Content Analytics</h2>
+              <p className="text-sm text-text-secondary mt-1">Performance of your questions and assessments</p>
+            </div>
           </div>
+          <Button variant="outline" size="sm" onClick={() => exportAnalyticsPDF('setter', d)} className="gap-2">
+            <Download className="h-4 w-4" /> Export PDF
+          </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard icon={Brain} label="Questions Created" value={d.questions?.total ?? 0} sub={`${d.questions?.approved ?? 0} approved`} color="bg-primary/10 text-primary" />
         <StatCard icon={FileEdit} label="Assessments" value={d.assessments?.total ?? 0} sub={`${d.assessments?.published ?? 0} published`} color="bg-accent/10 text-accent" />
-        <StatCard icon={Users} label="Total Attempts" value={d.totalAttempts ?? 0} color="bg-warning/10 text-warning" />
+        <StatCard icon={Users} label="Total Attempts" value={d.totalAttempts ?? 0} sub={`${d.passedCount ?? 0} passed`} color="bg-warning/10 text-warning" />
         <StatCard icon={Target} label="Avg Score" value={`${d.avgScore ?? 0}%`} sub={`Pass rate: ${d.passRate ?? 0}%`} color="bg-success/10 text-success" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="rounded-xl border border-border bg-bg-card p-5">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">Question Status</h3>
-          <div className="space-y-2">
-            {[
-              { label: 'Approved', value: d.questions?.approved ?? 0, color: 'bg-success' },
-              { label: 'Pending', value: d.questions?.pending ?? 0, color: 'bg-amber-500' },
-              { label: 'Draft', value: d.questions?.draft ?? 0, color: 'bg-zinc-500' },
-              { label: 'Rejected', value: d.questions?.rejected ?? 0, color: 'bg-danger' },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
-                  <span className="text-text-secondary">{item.label}</span>
-                </div>
-                <span className="font-medium text-text-primary">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-bg-card p-5">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">Score Distribution</h3>
-          {d.scoreDistribution ? (
-            <div className="space-y-2">
-              {Object.entries(d.scoreDistribution).map(([range, count]) => (
-                <div key={range} className="flex items-center gap-2">
-                  <span className="text-xs text-text-secondary w-16 shrink-0">{range}</span>
-                  <div className="flex-1 h-5 bg-bg-tertiary rounded overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded transition-all"
-                      style={{ width: d.totalAttempts > 0 ? `${(count / d.totalAttempts) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  <span className="text-xs text-text-primary font-medium w-8 text-right">{count}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-secondary text-center py-4">No attempt data yet</p>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-border bg-bg-card p-5">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">Question Types</h3>
-          {d.questionTypes && Object.keys(d.questionTypes).length > 0 ? (
-            <div className="space-y-2">
-              {Object.entries(d.questionTypes).map(([type, count]) => (
-                <div key={type} className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary capitalize">{type.replace(/_/g, ' ')}</span>
-                  <span className="font-medium text-text-primary">{count}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-secondary text-center py-4">No questions yet</p>
-          )}
-        </div>
+        <QuestionStatusCard questions={d.questions} />
+        <ScoreDistributionCard distribution={d.scoreDistribution} totalAttempts={d.totalAttempts} />
+        <QuestionMixCard types={d.questionTypes} difficulty={d.questionDifficulty} />
       </div>
 
       {d.assessmentPerformance?.length > 0 && (
         <div className="rounded-xl border border-border bg-bg-card">
-          <div className="border-b border-border px-5 py-3">
-            <h3 className="text-sm font-heading font-semibold text-text-primary">Assessment Performance</h3>
-          </div>
+          <PanelHeader icon={FileEdit} title="Assessment Performance" count={d.assessmentPerformance.length} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -277,20 +396,23 @@ function SetterAnalyticsView() {
               </thead>
               <tbody>
                 {d.assessmentPerformance.map((a, i) => (
-                  <tr key={i} className="border-b border-border last:border-0 hover:bg-bg-tertiary/30">
-                    <td className="px-5 py-3 text-text-primary font-medium">{a.title}</td>
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-bg-tertiary/30 transition-colors">
+                    <td className="px-5 py-3 text-text-primary font-medium max-w-[240px] truncate" title={a.title}>{a.title}</td>
                     <td className="px-5 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${statusColors[a.status] || 'bg-bg-tertiary text-text-secondary'}`}>
-                        {a.status}
+                        {a.status?.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-text-secondary text-right">{a.attempts}</td>
                     <td className="px-5 py-3 text-right">
-                      <span className={`font-medium ${a.passRate >= 60 ? 'text-success' : a.passRate >= 40 ? 'text-warning' : 'text-danger'}`}>
+                      <span className="text-text-secondary">{a.attempts}</span>
+                      {a.attempts > 0 && <span className="block text-[10px] text-text-tertiary">{a.passed} passed</span>}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${scorePill(a.passRate)}`}>
                         {a.passRate}%
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-text-primary font-medium text-right">{a.avgScore}%</td>
+                    <td className={`px-5 py-3 font-semibold text-right ${scoreTone(a.avgScore)}`}>{a.avgScore}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -301,9 +423,7 @@ function SetterAnalyticsView() {
 
       {d.questionPerformance?.length > 0 && (
         <div className="rounded-xl border border-border bg-bg-card">
-          <div className="border-b border-border px-5 py-3">
-            <h3 className="text-sm font-heading font-semibold text-text-primary">Question Performance</h3>
-          </div>
+          <PanelHeader icon={ListChecks} title="Question Performance" count={d.questionPerformance.length} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -319,13 +439,21 @@ function SetterAnalyticsView() {
               </thead>
               <tbody>
                 {d.questionPerformance.map((q, i) => (
-                  <tr key={i} className="border-b border-border last:border-0 hover:bg-bg-tertiary/30">
-                    <td className="px-5 py-3 text-text-primary font-medium max-w-[200px] truncate">{q.title}</td>
-                    <td className="px-5 py-3 text-text-secondary capitalize">{q.type?.replace(/_/g, ' ')}</td>
-                    <td className="px-5 py-3 text-text-secondary capitalize">{q.difficulty}</td>
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-bg-tertiary/30 transition-colors">
+                    <td className="px-5 py-3 text-text-primary font-medium max-w-[200px] truncate" title={q.title}>{q.title}</td>
+                    <td className="px-5 py-3">
+                      <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium capitalize text-text-secondary">
+                        {q.type?.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${difficultyStyles[q.difficulty] || 'bg-bg-tertiary text-text-secondary'}`}>
+                        {q.difficulty}
+                      </span>
+                    </td>
                     <td className="px-5 py-3 text-text-secondary text-right">{q.total}</td>
                     <td className="px-5 py-3 text-right">
-                      <span className={`font-medium ${q.correct >= 60 ? 'text-success' : q.correct >= 40 ? 'text-warning' : 'text-danger'}`}>
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${scorePill(q.correct)}`}>
                         {q.correct}%
                       </span>
                     </td>
@@ -341,27 +469,30 @@ function SetterAnalyticsView() {
 
       {d.recentAttempts?.length > 0 && (
         <div className="rounded-xl border border-border bg-bg-card">
-          <div className="border-b border-border px-5 py-3">
-            <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" /> Recent Submissions
-            </h3>
-          </div>
+          <PanelHeader icon={Clock} title="Recent Submissions" count={d.recentAttempts.length} />
           <div className="divide-y divide-border">
             {d.recentAttempts.map((a, i) => (
               <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-bg-tertiary/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${a.passed ? 'bg-success' : 'bg-danger'}`} />
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{a.user}</p>
-                    <p className="text-xs text-text-secondary">{a.assessment}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${a.passed ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                    {initials(a.user)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-text-primary">{a.user}</p>
+                    <p className="truncate text-xs text-text-secondary">{a.assessment}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-text-primary">{a.score}%</span>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className={`text-sm font-semibold ${scoreTone(a.score)}`}>{a.score}%</span>
                   <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${a.passed ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
                     {a.passed ? 'Passed' : 'Failed'}
                   </span>
-                  <span className="text-xs text-text-secondary">{new Date(a.date).toLocaleDateString()}</span>
+                  <span
+                    className="hidden w-20 text-right text-xs text-text-tertiary sm:block"
+                    title={a.date ? new Date(a.date).toLocaleString() : ''}
+                  >
+                    {a.date ? formatRelative(a.date) : '—'}
+                  </span>
                 </div>
               </div>
             ))}

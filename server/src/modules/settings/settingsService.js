@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = [
   { key: 'proctoring_network_monitoring', value: true, description: 'Enable network disconnect detection', category: 'proctoring' },
   { key: 'ai_provider', value: 'groq', description: 'Default AI provider for generation', category: 'ai' },
   { key: 'enable_registration', value: true, description: 'Allow new user registration', category: 'security' },
+  { key: 'global_spinner_id', value: 'gradient-ring', description: 'Site-wide loader shown to logged-out visitors', category: 'general' },
 ]
 
 const defaultsByKey = new Map(DEFAULT_SETTINGS.map((s) => [s.key, s.value]))

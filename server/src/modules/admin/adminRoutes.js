@@ -11,7 +11,28 @@ router.use(authenticate)
 router.use(authorize('admin'))
 
 // Users
+const reasonSchema = z.string().trim().min(5, 'Reason must be at least 5 characters').max(500)
+const idsSchema = z.array(z.string().min(1)).min(1, 'Select at least one user').max(100)
+
 router.get('/users', adminController.listUsers)
+router.post('/users/bulk-delete', validate(z.object({
+  ids: idsSchema,
+  reason: reasonSchema,
+}).strict()), adminController.deleteUsers)
+router.post('/users/bulk-permanent-delete', validate(z.object({
+  ids: idsSchema,
+  reason: reasonSchema,
+}).strict()), adminController.purgeUsers)
+router.post('/users/bulk-update', validate(z.object({
+  ids: idsSchema,
+  updates: z.object({
+    isActive: z.boolean().optional(),
+    isApproved: z.boolean().optional(),
+  }).strict().refine((u) => u.isActive !== undefined || u.isApproved !== undefined, {
+    message: 'Nothing to update',
+  }),
+}).strict()), adminController.bulkUpdateUsers)
+router.post('/users/:id/restore', adminController.restoreUser)
 router.get('/users/:id', adminController.getUserById)
 router.patch('/users/:id', validate(z.object({
   name: z.string().min(2).max(100).optional(),
@@ -21,8 +42,11 @@ router.patch('/users/:id', validate(z.object({
   isApproved: z.boolean().optional(),
 }).strict()), adminController.updateUser)
 router.delete('/users/:id', validate(z.object({
-  reason: z.string().trim().min(5, 'Reason must be at least 5 characters').max(500),
+  reason: reasonSchema,
 }).strict()), adminController.deleteUser)
+router.post('/users/:id/permanent-delete', validate(z.object({
+  reason: reasonSchema.optional(),
+}).strict()), adminController.purgeUser)
 
 // Roles
 router.get('/roles', adminController.listRoles)

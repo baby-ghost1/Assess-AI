@@ -1,25 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Users, FileText, Brain, BarChart3, CheckCircle, Activity, Server, HardDrive, Clock, TrendingUp, TrendingDown } from 'lucide-react'
+import {
+  Users, FileText, Brain, BarChart3, CheckCircle, Activity, Server, HardDrive,
+  Clock, TrendingUp, Globe, Cpu,
+} from 'lucide-react'
 
-function StatCard({ icon: Icon, label, value, color, trend, trendValue }) {
+const NEUTRAL = 'bg-bg-tertiary text-text-secondary'
+
+function StatCard({ icon: Icon, label, value, sub, color = NEUTRAL }) {
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
+    <div className="rounded-xl border border-border bg-bg-card p-4 transition-shadow duration-200 hover:shadow-lg">
       <div className="flex items-center gap-3">
         <div className={`rounded-lg p-2.5 ${color}`}><Icon className="h-5 w-5" /></div>
-        <div>
-          <p className="text-sm text-text-secondary">{label}</p>
-          <div className="flex items-center gap-2">
-            <p className="text-2xl font-heading font-bold text-text-primary">{value}</p>
-            {trend !== undefined && (
-              <span className={`flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                trend > 0 ? 'text-success bg-success/10' : trend < 0 ? 'text-danger bg-danger/10' : 'text-text-tertiary bg-bg-tertiary'
-              }`}>
-                {trend > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : trend < 0 ? <TrendingDown className="h-2.5 w-2.5" /> : null}
-                {trendValue}
-              </span>
-            )}
-          </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">{label}</p>
+          <p className="text-2xl font-heading font-bold leading-tight text-text-primary">{value ?? '--'}</p>
+          {sub && <p className="truncate text-xs text-text-secondary">{sub}</p>}
         </div>
       </div>
     </div>
@@ -28,7 +24,7 @@ function StatCard({ icon: Icon, label, value, color, trend, trendValue }) {
 
 function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5 animate-pulse">
+    <div className="rounded-xl border border-border bg-bg-card p-4 animate-pulse">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-bg-tertiary" />
         <div className="space-y-2">
@@ -40,96 +36,127 @@ function StatCardSkeleton() {
   )
 }
 
-function MiniBarChart({ data, label, height = 80 }) {
+function PanelHeader({ icon: Icon, title, sub, right }) {
+  return (
+    <header className="mb-4 flex items-start justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <div className="rounded-lg bg-bg-tertiary p-2 text-text-secondary"><Icon className="h-4 w-4" /></div>
+        <div>
+          <h3 className="text-sm font-heading font-semibold text-text-primary">{title}</h3>
+          {sub && <p className="mt-0.5 text-xs text-text-secondary">{sub}</p>}
+        </div>
+      </div>
+      {right}
+    </header>
+  )
+}
+
+function TypeBarChart({ data }) {
   if (!data?.length) return null
   const maxVal = Math.max(...data.map((d) => d.value), 1)
-  const barWidth = Math.floor(100 / data.length)
+  const total = data.reduce((sum, d) => sum + d.value, 0)
 
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
-      <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2 mb-4">
-        <BarChart3 className="h-4 w-4 text-primary" /> {label}
-      </h3>
-      <svg viewBox={`0 0 100 ${height}`} className="w-full" preserveAspectRatio="none">
-        {data.map((d, i) => {
-          const barH = (d.value / maxVal) * (height - 10)
-          return (
-            <g key={i}>
-              <rect
-                x={i * barWidth + barWidth * 0.15}
-                y={height - barH}
-                width={barWidth * 0.7}
-                height={barH}
-                rx="1"
-                fill={d.color || '#4F46E5'}
-                opacity="0.85"
-              />
-              <text
-                x={i * barWidth + barWidth / 2}
-                y={height - barH - 2}
-                textAnchor="middle"
-                fontSize="3"
-                fill="#9CA3AF"
-              >
-                {d.value}
-              </text>
-              <text
-                x={i * barWidth + barWidth / 2}
-                y={height}
-                textAnchor="middle"
-                fontSize="2.5"
-                fill="#6B7280"
-              >
-                {d.label}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+    <div className="rounded-xl border border-border bg-bg-card p-5">
+      <PanelHeader
+        icon={BarChart3}
+        title="Assessment Types"
+        sub="Volume by assessment type"
+        right={<span className="shrink-0 text-xs text-text-tertiary">{total} total</span>}
+      />
+      <div className="flex h-32 items-end gap-2.5">
+        {data.map((d, i) => (
+          <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+            <span className="text-[10px] font-medium text-text-secondary">{d.value}</span>
+            <div
+              className="w-full rounded-t-md bg-primary-light/60 transition-colors hover:bg-primary-light"
+              style={{ height: `${Math.max((d.value / maxVal) * 100, 4)}%` }}
+              title={`${d.label}: ${d.value}`}
+            />
+            <span className="w-full truncate text-center text-[10px] text-text-tertiary">{d.label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function TrendLineChart({ data, label, height = 80 }) {
+function ScoreTrendChart({ data }) {
   if (!data?.length) return null
   const maxVal = Math.max(...data.map((d) => d.value), 1)
-  const step = 100 / (data.length - 1 || 1)
+  const avg = Math.round(data.reduce((s, d) => s + d.value, 0) / data.length)
 
-  const points = data.map((d, i) => {
-    const x = i * step
-    const y = height - 5 - ((d.value / maxVal) * (height - 15))
-    return `${x},${y}`
-  }).join(' ')
-
-  const areaPoints = `0,${height - 5} ${points} 100,${height - 5}`
+  const w = 300
+  const h = 110
+  const padX = 8
+  const padY = 14
+  const step = data.length > 1 ? (w - padX * 2) / (data.length - 1) : 0
+  const toX = (i) => padX + i * step
+  const toY = (v) => padY + (h - padY * 2) - (v / maxVal) * (h - padY * 2)
+  const points = data.map((d, i) => `${toX(i)},${toY(d.value)}`).join(' ')
+  const areaPoints = `${toX(0)},${h - padY} ${points} ${toX(data.length - 1)},${h - padY}`
 
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-5">
-      <h3 className="text-sm font-heading font-semibold text-text-primary flex items-center gap-2 mb-4">
-        <TrendingUp className="h-4 w-4 text-primary" /> {label}
-      </h3>
-      <svg viewBox={`0 0 100 ${height}`} className="w-full" preserveAspectRatio="none">
+    <div className="rounded-xl border border-border bg-bg-card p-5">
+      <PanelHeader
+        icon={TrendingUp}
+        title="Recent Attempts"
+        sub="Score of the latest attempts"
+        right={
+          <span className="shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary">
+            Avg {avg}%
+          </span>
+        }
+      />
+      <svg viewBox={`0 0 ${w} ${h}`} className="h-32 w-full" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
+          <linearGradient id="overviewAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366F1" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#6366F1" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <polygon points={areaPoints} fill="url(#areaGrad)" />
-        <polyline points={points} fill="none" stroke="#4F46E5" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
-        {data.map((d, i) => {
-          const x = i * step
-          const y = height - 5 - ((d.value / maxVal) * (height - 15))
-          return (
-            <g key={i}>
-              <circle cx={x} cy={y} r="1.5" fill="#4F46E5" />
-              <text x={x} y={height} textAnchor="middle" fontSize="2.5" fill="#6B7280">{d.label}</text>
-            </g>
-          )
-        })}
+        <polygon points={areaPoints} fill="url(#overviewAreaGrad)" />
+        <polyline
+          points={points}
+          fill="none"
+          stroke="#6366F1"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {data.map((d, i) => (
+          <circle key={i} cx={toX(i)} cy={toY(d.value)} r="2" fill="#6366F1" vectorEffect="non-scaling-stroke" />
+        ))}
       </svg>
+      <div className="mt-1 flex justify-between px-1">
+        {data.map((d, i) => (
+          <span key={i} className="text-[9px] text-text-tertiary">{d.label}</span>
+        ))}
+      </div>
     </div>
   )
+}
+
+function HealthTile({ icon: Icon, label, children }) {
+  return (
+    <div className="rounded-lg border border-border bg-bg-secondary p-3.5">
+      <div className="mb-1.5 flex items-center gap-1.5 text-text-tertiary">
+        <Icon className="h-3.5 w-3.5" />
+        <span className="text-[10px] font-medium uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="text-sm font-semibold text-text-primary">{children}</div>
+    </div>
+  )
+}
+
+function fmtUptime(sec = 0) {
+  const days = Math.floor(sec / 86400)
+  const hours = Math.floor((sec % 86400) / 3600)
+  const mins = Math.floor((sec % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${mins}m`
+  return `${mins}m`
 }
 
 export default function AdminOverview() {
@@ -152,28 +179,22 @@ export default function AdminOverview() {
   if (statsLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-border bg-bg-secondary p-5 animate-pulse">
+            <div key={i} className="rounded-xl border border-border bg-bg-card p-5 animate-pulse">
               <div className="h-5 bg-bg-tertiary rounded w-40 mb-4" />
-              <div className="h-20 bg-bg-tertiary rounded" />
+              <div className="h-28 bg-bg-tertiary rounded" />
             </div>
           ))}
         </div>
-        <div className="rounded-xl border border-border bg-bg-secondary p-5 animate-pulse">
+        <div className="rounded-xl border border-border bg-bg-card p-5 animate-pulse">
           <div className="h-5 bg-bg-tertiary rounded w-40 mb-4" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded bg-bg-tertiary" />
-                <div className="space-y-1.5">
-                  <div className="h-3 bg-bg-tertiary rounded w-16" />
-                  <div className="h-4 bg-bg-tertiary rounded w-20" />
-                </div>
-              </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 bg-bg-tertiary rounded-lg" />
             ))}
           </div>
         </div>
@@ -185,12 +206,14 @@ export default function AdminOverview() {
   const a = analyticsData?.data
   const h = healthData?.data
 
+  const totalUsers = s?.totalUsers || 0
+  const activePct = totalUsers > 0 ? Math.round(((s?.activeUsers || 0) / totalUsers) * 100) : 0
+  const completionPct = s?.totalAttempts > 0 ? Math.round((s.completedAttempts / s.totalAttempts) * 100) : 0
+
   const typeDist = a?.assessmentTypeDistribution || []
-  const typeColors = { quiz: '#4F46E5', coding: '#EC4899', mixed: '#8B5CF6' }
   const typeChartData = typeDist.map((d) => ({
-    label: d.type?.slice(0, 6) || '?',
+    label: d.type || '?',
     value: d.count || 0,
-    color: typeColors[d.type] || '#6B7280',
   }))
 
   const recentAttempts = a?.recentAttempts || []
@@ -199,62 +222,52 @@ export default function AdminOverview() {
     value: d.score || 0,
   }))
 
+  const dbConnected = h?.database === 'connected'
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <StatCard icon={Users} label="Total Users" value={s?.totalUsers || '--'} color="bg-primary/10 text-primary" />
-        <StatCard icon={Users} label="Active Users" value={s?.activeUsers || '--'} color="bg-success/10 text-success" />
-        <StatCard icon={FileText} label="Assessments" value={s?.totalAssessments || '--'} color="bg-accent/10 text-accent" />
-        <StatCard icon={Brain} label="Questions" value={s?.totalQuestions || '--'} color="bg-warning/10 text-warning" />
-        <StatCard icon={BarChart3} label="Total Attempts" value={s?.totalAttempts || '--'} color="bg-info/10 text-info" />
-        <StatCard icon={CheckCircle} label="Completed" value={s?.completedAttempts || '--'} color="bg-success/10 text-success" />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard icon={Users} label="Total Users" value={s?.totalUsers} sub="registered accounts" />
+        <StatCard icon={Users} label="Active Users" value={s?.activeUsers} sub={`${activePct}% of all users`} />
+        <StatCard icon={FileText} label="Assessments" value={s?.totalAssessments} sub="created on platform" />
+        <StatCard icon={Brain} label="Questions" value={s?.totalQuestions} sub="in question bank" />
+        <StatCard icon={BarChart3} label="Total Attempts" value={s?.totalAttempts} sub={`${completionPct}% completed`} />
+        <StatCard icon={CheckCircle} label="Completed" value={s?.completedAttempts} sub="finished attempts" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {typeChartData.length > 0 && (
-          <MiniBarChart data={typeChartData} label="Assessment Types" />
-        )}
-        {attemptTrend.length > 1 && (
-          <TrendLineChart data={attemptTrend} label="Recent Attempts (Score)" />
-        )}
+        {typeChartData.length > 0 && <TypeBarChart data={typeChartData} />}
+        {attemptTrend.length > 1 && <ScoreTrendChart data={attemptTrend} />}
       </div>
 
       {h && (
-        <div className="rounded-xl border border-border bg-bg-secondary p-5">
-          <h3 className="text-lg font-heading font-semibold text-text-primary mb-4 flex items-center gap-2">
-            <Server className="h-4 w-4 text-primary" /> System Health
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-text-secondary" />
-              <div>
-                <p className="text-xs text-text-secondary">Database</p>
-                <p className={`text-sm font-semibold ${h.database === 'connected' ? 'text-success' : 'text-danger'}`}>
-                  {h.database}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-text-secondary" />
-              <div>
-                <p className="text-xs text-text-secondary">Uptime</p>
-                <p className="text-sm font-semibold text-text-primary">{Math.floor(h.uptime / 3600)}h {Math.floor((h.uptime % 3600) / 60)}m</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <HardDrive className="h-4 w-4 text-text-secondary" />
-              <div>
-                <p className="text-xs text-text-secondary">Memory (RSS)</p>
-                <p className="text-sm font-semibold text-text-primary">{Math.round(h.memory?.rss / 1024 / 1024)} MB</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-text-secondary" />
-              <div>
-                <p className="text-xs text-text-secondary">Node.js</p>
-                <p className="text-sm font-semibold text-text-primary">{h.nodeVersion}</p>
-              </div>
-            </div>
+        <div className="rounded-xl border border-border bg-bg-card p-5">
+          <PanelHeader
+            icon={Server}
+            title="System Health"
+            sub="Live server status"
+            right={
+              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                dbConnected ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${dbConnected ? 'bg-success' : 'bg-danger'}`} />
+                {dbConnected ? 'All good' : 'Degraded'}
+              </span>
+            }
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <HealthTile icon={Activity} label="Database">
+              <span className="inline-flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${dbConnected ? 'bg-success' : 'bg-danger'}`} />
+                <span className={dbConnected ? 'text-success' : 'text-danger'}>{h.database}</span>
+              </span>
+            </HealthTile>
+            <HealthTile icon={Clock} label="Uptime">{fmtUptime(h.uptime)}</HealthTile>
+            <HealthTile icon={HardDrive} label="Memory">
+              {Math.round((h.memory?.rss || 0) / 1024 / 1024)} MB
+            </HealthTile>
+            <HealthTile icon={Cpu} label="Node.js">{h.nodeVersion}</HealthTile>
+            <HealthTile icon={Globe} label="Platform">{h.platform || '—'}</HealthTile>
           </div>
         </div>
       )}

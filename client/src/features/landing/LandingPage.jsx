@@ -4,7 +4,7 @@ import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'fra
 import {
   Brain, Shield, BarChart3, Code2, Users, ArrowRight, Sparkles,
   Target, Menu, X, ChevronLeft, ChevronRight, Zap, Globe,
-  TrendingUp, Star, CheckCircle2, Play,
+  TrendingUp, Star, CheckCircle2,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/shared'
 
@@ -218,11 +218,6 @@ function HeroSection() {
                 <span className="relative z-10">Start for free</span>
                 <ArrowRight className="h-4 w-4 relative z-10 group-hover:translate-x-0.5 transition-transform" />
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-dark to-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
-              <Link to="/login"
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 text-sm font-semibold text-text-primary border border-border rounded-2xl hover:bg-bg-tertiary hover:border-border-light transition-all duration-300">
-                <Play className="h-4 w-4" />
-                Sign in to your account
               </Link>
             </motion.div>
 
@@ -504,15 +499,11 @@ function CTASection() {
             <motion.p variants={fadeUp} className="text-lg text-white/80 max-w-lg mx-auto mb-10">
               Join thousands of teams using AssessAI to build smarter, faster, and fairer assessments.
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center">
+            <motion.div variants={fadeUp} className="flex justify-center">
               <Link to="/register"
                 className="group inline-flex items-center justify-center gap-2.5 px-8 py-4 text-sm font-bold text-primary bg-white rounded-2xl hover:bg-white/90 hover:shadow-xl hover:shadow-black/20 transition-all duration-300">
                 Create free account
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link to="/login"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-semibold text-white border-2 border-white/30 rounded-2xl hover:bg-white/10 hover:border-white/50 transition-all duration-300">
-                Sign in
               </Link>
             </motion.div>
           </div>

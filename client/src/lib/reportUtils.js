@@ -1,4 +1,4 @@
-import { notify } from '@/lib/notify'
+import { notify, apiErrorMessage } from '@/lib/notify'
 
 export async function exportAnalyticsPDF(type, data, extra = {}) {
   try {
@@ -10,7 +10,10 @@ export async function exportAnalyticsPDF(type, data, extra = {}) {
     const pageWidth = doc.internal.pageSize.getWidth()
 
     doc.setFontSize(18)
-    doc.text(type === 'user' ? 'My Analytics Report' : `Assessment Report: ${extra.title || ''}`, pageWidth / 2, 20, { align: 'center' })
+    const docTitle = type === 'setter' ? 'Content Analytics Report'
+      : type === 'user' ? 'My Analytics Report'
+        : `Assessment Report: ${extra.title || ''}`
+    doc.text(docTitle, pageWidth / 2, 20, { align: 'center' })
 
     doc.setFontSize(10)
     doc.setTextColor(100)
@@ -73,6 +76,50 @@ export async function exportAnalyticsPDF(type, data, extra = {}) {
             a.title,
             `${a.score}%`,
             a.passed ? 'Passed' : 'Failed',
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [79, 70, 229] },
+        })
+      }
+    }
+
+    if (type === 'setter' && data) {
+      let y = 40
+      doc.setFontSize(14)
+      doc.setTextColor(0)
+      doc.text('Content Summary', 14, y)
+      y += 8
+
+      doc.autoTable({
+        startY: y,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Questions Created', `${data.questions?.total ?? 0} (${data.questions?.approved ?? 0} approved)`],
+          ['Assessments', `${data.assessments?.total ?? 0} (${data.assessments?.published ?? 0} published)`],
+          ['Total Attempts', String(data.totalAttempts ?? 0)],
+          ['Pass Rate', `${data.passRate ?? 0}%`],
+          ['Average Score', `${data.avgScore ?? 0}%`],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229] },
+      })
+
+      if (data.assessmentPerformance?.length > 0) {
+        y = doc.lastAutoTable.finalY + 14
+        doc.setFontSize(14)
+        doc.setTextColor(0)
+        doc.text('Assessment Performance', 14, y)
+        y += 8
+
+        doc.autoTable({
+          startY: y,
+          head: [['Assessment', 'Status', 'Attempts', 'Pass Rate', 'Avg Score']],
+          body: data.assessmentPerformance.map((a) => [
+            a.title,
+            a.status,
+            String(a.attempts),
+            `${a.passRate}%`,
+            `${a.avgScore}%`,
           ]),
           theme: 'grid',
           headStyles: { fillColor: [79, 70, 229] },
@@ -144,6 +191,6 @@ export async function exportAnalyticsPDF(type, data, extra = {}) {
     notify.success('PDF exported successfully')
   } catch (err) {
     console.error('PDF export failed:', err)
-    notify.error('Failed to generate PDF. Please try again.')
+    notify.error(apiErrorMessage(err, 'Failed to generate PDF. Please try again.'))
   }
 }
